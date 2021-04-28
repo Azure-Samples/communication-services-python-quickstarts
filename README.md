@@ -13,3 +13,9 @@ Azure Communication Services enable developers to add communication capabilities
 1. [Send SMS](https://docs.microsoft.com/en-us/azure/communication-services/quickstarts/telephony-sms/send?pivots=programming-language-python)
 
 2. [Add Chat to your app](https://docs.microsoft.com/en-us/azure/communication-services/quickstarts/chat/get-started?pivots=programming-language-python)
+
+3. [Create and manage access tokens](https://docs.microsoft.com/azure/communication-services/quickstarts/access-tokens?pivots=programming-language-python)
+
+4. [Manage Phone Numbers](https://docs.microsoft.com/azure/communication-services/quickstarts/telephony-sms/get-phone-number?pivots=programming-language-python)
+
+5. [Use managed identities](https://docs.microsoft.com/azure/communication-services/quickstarts/managed-identity?pivots=programming-language-python)
