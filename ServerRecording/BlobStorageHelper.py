@@ -1,42 +1,69 @@
-from azure.storage.blob import BlobServiceClient, BlobClient, generate_blob_sas
-
+from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
+from datetime import datetime, timedelta
 import Logger
-from BlobStorageHelperInfo import BlobStorageHelperInfo
 
 class BlobStorageHelper():
 
-    def check_container_availability(account_url, container_name):
-        client = BlobServiceClient(account_url)
+    def upload_file_to_storage(
+        container_name: str,
+        blob_name: str,
+        blob_connection_string: str
+    ):
+        blob_service_client = BlobServiceClient.from_connection_string(blob_connection_string)
+        container_client = blob_service_client.get_container_client(container=container_name)
+        if container_client and not container_client.exists():
+            return 'Blob Container -> ' + container_name + ' is unavailable'
 
-        container = client.get_container_client(container=container_name)
-        return container is not None
+        blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+        if blob_client and blob_client.exists():
+            return 'Blob -> ' + blob_name + ' already exists'
+        
+        if blob_client:
+            with open(blob_name, "rb") as data:
+                blob_client.upload_blob(data.read())
+        else:
+            return "Blob client instantiation failed"
 
-    def check_blob_availability(account_url, container_name, blob_name):
-        client = BlobServiceClient(account_url)
+        return True
 
-        blob = client.get_blob_client(container=container_name, blob=blob_name)
-        return blob is not None
+    def get_blob_sas_token(
+        account_name: str,
+        account_key: str,
+        container_name: str,
+        blob_name: str
+    ):
+        try:
+            return generate_blob_sas(
+                account_name=account_name,
+                container_name=container_name,
+                blob_name=blob_name,
+                account_key=account_key,
+                permission=BlobSasPermissions(read=True),
+                expiry=datetime.utcnow() + timedelta(hours=1))
+        except Exception as ex:
+            Logger.log_message(Logger.ERROR, str(ex))
+            return False
 
-    def upload_file_to_storage(container_name: str, file_name: str, file_type: str, blob_connection_string: str):
+    def get_blob_sas_uri(
+        account_name: str,
+        account_key: str,
+        container_name: str,
+        blob_name: str
+    ):
+        blob_sas_token = BlobStorageHelper.get_blob_sas_token(
+            account_name,
+            account_key,
+            container_name,
+            blob_name)
 
-        if not BlobStorageHelper.check_container_availability(container_name, file_name):
-            container_info = BlobStorageHelperInfo()
-            container_info.info = 'Container ->' + container_name + 'is not available'
-            return container_info
+        blob_uri_template = 'https://{account_name}.blob.core.windows.net/{container_name}/{blob_name}?{blob_sas_token}'
 
-        if not BlobStorageHelper.check_blob_availability(container_name, file_name):
-            blob_info = BlobStorageHelperInfo()
-            blob_info.info = 'blob ->' + file_name + 'is not available'
-            return blob_info
+        return blob_uri_template.format(
+            account_name=account_name,
+            container_name=container_name,
+            blob_name=blob_name,
+            blob_sas_token=blob_sas_token)
 
-        blob = BlobClient.from_connection_string(conn_str=blob_connection_string, container_name=container_name,
-                                                 blob_name=file_name)
+    
 
-        with open("file", "rb") as data:
-            blob.upload_blob(data)
 
-        b = blob
-        return 111
-
-    def get_blob_sas_uri(container_name: str, account_name: str, file_name: str):
-        data = generate_blob_sas('account name', container_name, file_name)

@@ -5,8 +5,6 @@ from BlobStorageHelper import BlobStorageHelper
 from ConfigurationManager import ConfigurationManager
 from Logger import Logger
 from flask import json
-from datetime import datetime, timedelta
-from azure.storage.blob import generate_blob_sas, BlobSasPermissions
 import ast
 from aiohttp import web
 from azure.communication.callingserver._callingserver_client import CallingServerClient
@@ -186,7 +184,6 @@ class CallRecordingController():
             return web.Response(text=str(ex), status=500)
 
     async def get_recording_file(request):
-        _server_call_id = request.rel_url.query['serverCallId']
         content = await request.content.read()
         post_data = str(content.decode('UTF-8'))
         if post_data:
@@ -227,7 +224,7 @@ class CallRecordingController():
                         document_id,
                         content_location,
                         'mp4',
-                        'recording', _server_call_id)
+                        'recording')
 
                     if process_recording_response is True:
                         Logger.log_message(Logger.INFORMATION, "Start processing metadata -- >")
@@ -250,73 +247,75 @@ class CallRecordingController():
         else:
             Logger.log_message(Logger.INFORMATION, "Postdata is invalid")
 
-    def process_file(document_id: str, download_location: str, fileFormat: str, download_type: str, _server_call_id: str):
+    def process_file(document_id: str, download_location: str, file_format: str, download_type: str):
         global upload_response
         Logger.log_message(Logger.INFORMATION, "Start downloading " + download_type + " file. Download url --> " + download_location)
 
         try:
-            #if len(recording_data.keys()) > 0:
-                #server_call_id = list(recording_data)[-1]
-            download_response = calling_server_client.initialize_server_call(_server_call_id).download_content(
-                download_location)
+            download_response = calling_server_client.start_download(download_location)
 
-            Logger.log_message(Logger.INFORMATION, "Download media response --> " + str(download_response))
-            Logger.log_message(Logger.INFORMATION, "Uploading %s file to blob -- >" + str(download_type))
-            return True
+            Logger.log_message(Logger.INFORMATION, "Uploading {0} file to blob".format(download_type))
+            
+            if download_response is not None:
+                file_name = "{0}.{1}".format(document_id, file_format)
+                with open(file_name, 'wb') as rec_file:
+                    while True:
+                        try:
+                            chunk = download_response.__next__()
+                            rec_file.write(chunk)
+                        except Exception as ex:
+                            rec_file.close()
+                            break
+                        
+                upload_response = BlobStorageHelper.upload_file_to_storage(
+                    container_name = container_name,
+                    blob_name = file_name,
+                    blob_connection_string = blob_connection_string)
 
-            #else:
-            #    Logger.log_message(Logger.ERROR, "server_call_id is not available for initializing the calling client.")
+                if upload_response is True:
+                    Logger.log_message(Logger.INFORMATION, "File {0} upload to Azure successful".format(file_name))
+                else:
+                    Logger.log_message(Logger.INFORMATION, "Failed to upload ->" + upload_response)
+                    return False
 
+                blob_sas_url = BlobStorageHelper.get_blob_sas_uri(
+                    account_name = blob_storage_account_name,
+                    account_key = blob_storage_account_key,
+                    container_name = container_name,
+                    blob_name = file_name)
+                Logger.log_message(Logger.INFORMATION, "blob_url = " + blob_sas_url)
+            else:
+                return False
         except Exception as ex:
             Logger.log_message(Logger.ERROR, str(ex))
-            upload_response = False
             if ex and ex.response and ex.response.request:
                 Logger.log_message(Logger.INFORMATION,
                                    "exception request header ----> " + str(ex.response.request.headers))
                 Logger.log_message(Logger.INFORMATION, "exception response header ----> " + str(ex.response.headers))
                 return str(ex)
 
-        if download_response is not None:
-            try:
-                upload_response = BlobStorageHelper.upload_file_to_storage(container_name, 'fileName',
-                                                                           fileFormat, blob_connection_string)
-
-            except Exception as ex:
-                if ex and ex.status_code == 409:
-                    Logger.log_message(Logger.ERROR, "StorageErrorCode.blob_already_exists --> " + 'fileName')
-                    upload_response = False
-
-            if upload_response:
-                Logger.log_message(Logger.INFORMATION, "File upload to Azure successful")
-                return True
-
-            if fileFormat == "mp4":
-                blob_url = CallRecordingController.get_blob_sas(blob_storage_account_name, blob_storage_account_key, container_name, 'fileName')
-                Logger.log_message(Logger.INFORMATION, "blob_url = " + blob_url)
-            return True
-        else:
-            return False
+        return True
 
     def startup(request):
         return web.Response(text="App is running.....")
 
     async def get_blob_sas_uri(request):
         blob_name = request.rel_url.query['blob_name']
-        output = CallRecordingController.get_blob_sas(blob_storage_account_name, blob_storage_account_key, container_name, blob_name)
-        if output is not False:
-            url = 'https://' + blob_storage_account_name + '.blob.core.windows.net/' + container_name + '/' + blob_name + '?' + output
-            return web.Response(text=url, status=200)
+        blob_sas_token = BlobStorageHelper.get_blob_sas_token(
+            account_name = blob_storage_account_name,
+            account_key = blob_storage_account_key,
+            container_name = container_name,
+            blob_name = blob_name)
+
+        if blob_sas_token:
+            blob_uri_template = 'https://{account_name}.blob.core.windows.net/{container_name}/{blob_name}?{blob_sas_token}'
+            blob_sas_url = blob_uri_template.format(
+                account_name=blob_storage_account_name,
+                container_name=container_name,
+                blob_name=blob_name,
+                blob_sas_token=blob_sas_token
+                )
+            return web.Response(text=blob_sas_url, status=200)
         return web.Response(text="Error occoured in getting blob sas uri")
 
-    def get_blob_sas(account_name, account_key, container_name, blob_name):
-        try:
-            sas_blob = generate_blob_sas(account_name=account_name,
-                                         container_name=container_name,
-                                         blob_name=blob_name,
-                                         account_key=account_key,
-                                         permission=BlobSasPermissions(read=True),
-                                         expiry=datetime.utcnow() + timedelta(hours=1))
-            return sas_blob
-        except Exception as ex:
-            Logger.log_message(Logger.ERROR, str(ex))
-            return False
+
