@@ -2,6 +2,7 @@ from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPerm
 from datetime import datetime, timedelta
 import Logger
 
+
 class BlobStorageHelper():
 
     def upload_file_to_storage(
@@ -9,15 +10,18 @@ class BlobStorageHelper():
         blob_name: str,
         blob_connection_string: str
     ):
-        blob_service_client = BlobServiceClient.from_connection_string(blob_connection_string)
-        container_client = blob_service_client.get_container_client(container=container_name)
+        blob_service_client = BlobServiceClient.from_connection_string(
+            blob_connection_string)
+        container_client = blob_service_client.get_container_client(
+            container=container_name)
         if container_client and not container_client.exists():
             return 'Blob Container -> ' + container_name + ' is unavailable'
 
-        blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+        blob_client = blob_service_client.get_blob_client(
+            container=container_name, blob=blob_name)
         if blob_client and blob_client.exists():
             return 'Blob -> ' + blob_name + ' already exists'
-        
+
         if blob_client:
             with open(blob_name, "rb") as data:
                 blob_client.upload_blob(data.read())
@@ -63,7 +67,3 @@ class BlobStorageHelper():
             container_name=container_name,
             blob_name=blob_name,
             blob_sas_token=blob_sas_token)
-
-    
-
-
