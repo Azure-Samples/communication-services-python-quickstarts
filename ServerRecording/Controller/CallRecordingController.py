@@ -198,7 +198,7 @@ class CallRecordingController():
             if not recording_id:
                 return web.Response(text="recordingId is invalid", status=400)
 
-            res = calling_server_client.initialize_server_call(server_call_id).get_recording_status(server_call_id,
+            res = calling_server_client.initialize_server_call(server_call_id).get_recording_properities(server_call_id,
                                                                                                     recording_id)
 
             Logger.log_message(Logger.INFORMATION,
