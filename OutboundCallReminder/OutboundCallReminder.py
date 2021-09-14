@@ -15,7 +15,7 @@ from azure.communication.identity import CommunicationUserIdentifier
 from azure.communication.chat import PhoneNumberIdentifier
 from azure.communication.callingserver._models import CallConnectionStateChangedEvent, ToneReceivedEvent, \
     ToneInfo, PlayAudioResultEvent, AddParticipantResultEvent, MediaType, EventSubscriptionType,\
-    CreateCallOptions, CallConnectionState, OperationStatus, ToneValue,\
+    CreateCallOptions, CallConnectionState, OperationStatus, ToneValue, PlayAudioOptions, \
     CallingServerEventType, CancelAllMediaOperationsResult, PlayAudioResult, AddParticipantResult
 
 PLAY_AUDIO_AWAIT_TIMER = 30
@@ -180,7 +180,7 @@ class OutboundCallReminder:
         operation_context: str = str(uuid.uuid4())
 
         cancelmediaresponse: CancelAllMediaOperationsResult = self.call_connection.cancel_all_media_operations(
-            operation_context)
+            operation_context=operation_context)
 
         Logger.log_message(Logger.INFORMATION, "cancelAllMediaOperationsWithResponse -- > Id: " +
                            str(cancelmediaresponse.operation_id) + ", OperationContext: " + str(cancelmediaresponse.operation_context) + ", OperationStatus: " +
@@ -196,11 +196,15 @@ class OutboundCallReminder:
             audio_file_id = str(uuid.uuid4())
             callbackuri = self.call_configuration.app_callback_url
 
+            play_audio_options: PlayAudioOptions = PlayAudioOptions(loop=loop,
+                                                                    operation_context=operation_context,
+                                                                    audio_file_id=audio_file_id,
+                                                                    callback_uri=callbackuri)
+
             Logger.log_message(Logger.INFORMATION,
                                "Performing PlayAudio operation")
             play_audio_response: PlayAudioResult = self.call_connection.play_audio(audio_file_uri=audio_file_uri,
-                                                                                   audio_file_id=audio_file_id, callback_uri=callbackuri,
-                                                                                   operation_context=operation_context, loop=loop)
+                                                                                   play_audio_options=play_audio_options)
 
             Logger.log_message(Logger.INFORMATION, "playAudioWithResponse -- > " + str(play_audio_response) +
                                ", Id: " + play_audio_response.operation_id + ", OperationContext: " + play_audio_response.operation_context + ", OperationStatus: " +
@@ -301,7 +305,8 @@ class OutboundCallReminder:
                 value=str(ConfigurationManager.get_instance().get_app_settings("SourcePhone")))
 
             add_participant_response: AddParticipantResult = self.call_connection.add_participant(participant=participant,
-                                                                                                  alternate_caller_id=alternate_caller_id, operation_context=operation_context)
+                                                                                                  alternate_caller_id=alternate_caller_id,
+                                                                                                  operation_context=operation_context)
             Logger.log_message(
                 Logger.INFORMATION, "addParticipantWithResponse -- > " + add_participant_response.participant_id)
 

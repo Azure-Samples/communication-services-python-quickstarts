@@ -75,11 +75,12 @@ class Program():
             return None
 
     async def run_sample(self, app_base_url):
-        call_configuration = self.initiate_configuration(app_base_url)
-        outbound_call_pairs = self.configuration_manager.get_app_settings(
-            "DestinationIdentities")
-
         try:
+
+            call_configuration = self.initiate_configuration(app_base_url)
+            outbound_call_pairs = self.configuration_manager.get_app_settings(
+                "DestinationIdentities")
+
             if (outbound_call_pairs and len(outbound_call_pairs)):
                 identities = outbound_call_pairs.split(";")
                 tasks = []
@@ -91,18 +92,19 @@ class Program():
 
                 _ = await asyncio.gather(*tasks)
 
+
+            self.delete_user(call_configuration.connection_string,
+                            call_configuration.source_identity)
+
         except Exception as ex:
-            Logger.log_message(
-                Logger.ERROR, "Failed to initiate the outbound call Exception -- > " + str(ex))
+                Logger.log_message(
+                    Logger.ERROR, "Failed to initiate the outbound call Exception -- > " + str(ex))
 
-        self.delete_user(call_configuration.connection_string,
-                         call_configuration.source_identity)
-
-        # <summary>
-        # Fetch configurations from App Settings and create source identity
-        # </summary>
-        # <param name="app_base_url">The base url of the app.</param>
-        # <returns>The <c CallConfiguration object.</returns>
+    # <summary>
+    # Fetch configurations from App Settings and create source identity
+    # </summary>
+    # <param name="app_base_url">The base url of the app.</param>
+    # <returns>The <c CallConfiguration object.</returns>
 
     def initiate_configuration(self, app_base_url):
         connection_string = self.configuration_manager.get_app_settings(
