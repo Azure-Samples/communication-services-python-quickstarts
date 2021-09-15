@@ -1,6 +1,5 @@
 import os
 from azure.communication.sms import SmsClient
-from azure.identity import DefaultAzureCredential
 
 try:
     # Quickstart code goes here

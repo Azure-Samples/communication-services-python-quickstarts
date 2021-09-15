@@ -37,12 +37,12 @@ try:
     print("The status of the purchase operation was: " + purchase_poller.status())
 
     #Get purchased phone number
-    purchased_phone_number_information = phone_numbers_client.get_phone_number(phone_number)
+    purchased_phone_number_information = phone_numbers_client.get_purchased_phone_number(phone_number)
     print('Phone number: ' + purchased_phone_number_information.phone_number)
     print('Country code: ' + purchased_phone_number_information.country_code)
 
     #Get all purchased phone numbers
-    purchased_phone_numbers = phone_numbers_client.list_acquired_phone_numbers()
+    purchased_phone_numbers = phone_numbers_client.list_purchased_phone_numbers()
     print('Purchased phone numbers:')
     for purchased_phone_number in purchased_phone_numbers:
         print(purchased_phone_number.phone_number)
