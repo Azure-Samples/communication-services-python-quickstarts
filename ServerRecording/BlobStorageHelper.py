@@ -1,6 +1,6 @@
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
 from datetime import datetime, timedelta
-import Logger
+from Logger import Logger
 
 
 class BlobStorageHelper():
@@ -26,8 +26,12 @@ class BlobStorageHelper():
             with open(blob_name, "rb") as data:
                 blob_client.upload_blob(data.read())
         else:
+            Logger.log_message(
+                Logger.ERROR, "Blob client instantiation failed --- >")
             return "Blob client instantiation failed"
 
+        Logger.log_message(Logger.INFORMATION, "File " + blob_name +
+                           " __________ uploaded to Blob storage successfully --- >")
         return True
 
     def get_blob_sas_token(

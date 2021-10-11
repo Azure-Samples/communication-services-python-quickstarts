@@ -1,15 +1,13 @@
-import enum
-import os
 from azure.eventgrid import EventGridEvent
 from azure.eventgrid._generated.models import SubscriptionValidationEventData, \
     AcsRecordingFileStatusUpdatedEventData, AcsRecordingChunkInfoProperties
 from BlobStorageHelper import BlobStorageHelper
 from ConfigurationManager import ConfigurationManager
 from Logger import Logger
-from flask import json
+import json
 import ast
 from aiohttp import web
-from azure.communication.callingserver._callingserver_client import CallingServerClient
+from azure.communication.callingserver import CallingServerClient, ServerCallLocator
 
 CALL_RECORDING_ACTIVE_ERROR_CODE = "8553"
 CALL_RECODING_NOT_FOUND_ERROR_CODE = "8522"
@@ -29,11 +27,6 @@ blob_storage_account_name = configuration_manager.get_app_settings(
 blob_storage_account_key = configuration_manager.get_app_settings(
     'BlobStorageAccountKey')
 recording_data = {}
-
-
-class OperationStatus(enum.Enum):
-    FAIL = 0,
-    SUCCESS = 1
 
 
 class CallRecordingController():
@@ -67,8 +60,9 @@ class CallRecordingController():
             if not server_call_id:
                 return web.Response(text="serverCallId is invalid", status=400)
 
-            res = calling_server_client.initialize_server_call(server_call_id).start_recording(server_call_id,
-                                                                                               recording_state_callback_uri=call_back_uri)
+            call_locator = ServerCallLocator(server_call_id)
+            res = calling_server_client.start_recording(call_locator=call_locator,
+                                                        recording_state_callback_uri=call_back_uri)
 
             Logger.log_message(
                 Logger.INFORMATION,
@@ -108,8 +102,8 @@ class CallRecordingController():
             elif server_call_id not in recording_data.keys():
                 recording_data[server_call_id] = recording_id
 
-            res = calling_server_client.initialize_server_call(server_call_id).pause_recording(server_call_id,
-                                                                                               recording_id)
+            res = calling_server_client.pause_recording(
+                recording_id=recording_id)
 
             Logger.log_message(Logger.INFORMATION,
                                "PauseRecording response --> " + str(res))
@@ -140,8 +134,8 @@ class CallRecordingController():
             elif server_call_id not in recording_data.keys():
                 recording_data[server_call_id] = recording_id
 
-            res = calling_server_client.initialize_server_call(server_call_id).resume_recording(server_call_id,
-                                                                                                recording_id)
+            res = calling_server_client.resume_recording(
+                recording_id=recording_id)
 
             Logger.log_message(Logger.INFORMATION,
                                "ResumeRecording response --> " + str(res))
@@ -172,8 +166,8 @@ class CallRecordingController():
             elif server_call_id not in recording_data.keys():
                 recording_data[server_call_id] = recording_id
 
-            res = calling_server_client.initialize_server_call(server_call_id).stop_recording(server_call_id,
-                                                                                              recording_id)
+            res = calling_server_client.stop_recording(
+                recording_id=recording_id)
 
             Logger.log_message(Logger.INFORMATION,
                                "StopRecording response --> " + str(res))
@@ -198,8 +192,8 @@ class CallRecordingController():
             if not recording_id:
                 return web.Response(text="recordingId is invalid", status=400)
 
-            res = calling_server_client.initialize_server_call(server_call_id).get_recording_properities(server_call_id,
-                                                                                                    recording_id)
+            res = calling_server_client.get_recording_properities(
+                recording_id=recording_id)
 
             Logger.log_message(Logger.INFORMATION,
                                "GetRecordingState response --> " + str(res))
@@ -214,8 +208,6 @@ class CallRecordingController():
     async def get_recording_file(request):
         content = await request.content.read()
         post_data = str(content.decode('UTF-8'))
-        status = OperationStatus.SUCCESS
-
         if post_data:
             Logger.log_message(
                 Logger.INFORMATION, 'getRecordingFile called with raw data --> ' + post_data)
@@ -277,24 +269,16 @@ class CallRecordingController():
                         else:
                             Logger.log_message(
                                 Logger.INFORMATION, "Processing metadata file failed with message --> " + str(process_metadata_response))
-                            status = OperationStatus.FAIL
                     else:
                         Logger.log_message(
                             Logger.INFORMATION, "Processing recording file failed with message --> " + str(process_recording_response))
-                        status = OperationStatus.FAIL
 
             except Exception as ex:
                 Logger.log_message(
                     Logger.ERROR, "Failed to get recording file --> " + str(ex))
-                status = OperationStatus.FAIL
         else:
             Logger.log_message(Logger.INFORMATION, "Postdata is invalid")
-            status = OperationStatus.FAIL
-
-        if status == OperationStatus.FAIL:
-            return web.Response(text="Get recording file action failed", status=500)
-
-        return web.Response(text="Get recording file operation succeeded", status=200)
+            return web.Response(text='Postdata is invalid', status=400)
 
     def process_file(document_id: str, download_location: str, file_format: str, download_type: str):
         global upload_response
@@ -302,56 +286,55 @@ class CallRecordingController():
                            download_type + " file. Download url --> " + download_location)
 
         try:
-            download_response = calling_server_client.start_download(
+            stream_downloader = calling_server_client.download(
                 download_location)
 
             Logger.log_message(
                 Logger.INFORMATION, "Uploading {0} file to blob".format(download_type))
 
-            if download_response is not None:
-                file_name = "{0}.{1}".format(document_id, file_format)
-                with open(file_name, 'wb') as rec_file:
-                    while True:
+            if stream_downloader is not None:
+                download_response = stream_downloader.readall()
+                if download_response is not None:
+                    file_name = "{0}.{1}".format(document_id, file_format)
+                    with open(file_name, 'wb') as rec_file:
                         try:
-                            chunk = download_response.__next__()
-                            rec_file.write(chunk)
+                            rec_file.write(download_response)
+                            rec_file.close()
                         except Exception as ex:
                             rec_file.close()
-                            break
 
-                upload_response = BlobStorageHelper.upload_file_to_storage(
-                    container_name=container_name,
-                    blob_name=file_name,
-                    blob_connection_string=blob_connection_string)
+                    upload_response = BlobStorageHelper.upload_file_to_storage(
+                        container_name=container_name,
+                        blob_name=file_name,
+                        blob_connection_string=blob_connection_string)
 
-                if os.path.exists(file_name):
-                    os.remove(file_name)
+                    if upload_response is True:
+                        Logger.log_message(
+                            Logger.INFORMATION, "File {0} upload to Azure successful".format(file_name))
+                    else:
+                        Logger.log_message(
+                            Logger.INFORMATION, "Failed to upload ->" + upload_response)
+                        return False
 
-                if upload_response is True:
-                    Logger.log_message(
-                        Logger.INFORMATION, "File {0} upload to Azure successful".format(file_name))
-                else:
+                    blob_sas_url = BlobStorageHelper.get_blob_sas_uri(
+                        account_name=blob_storage_account_name,
+                        account_key=blob_storage_account_key,
+                        container_name=container_name,
+                        blob_name=file_name)
                     Logger.log_message(Logger.INFORMATION,
-                                       "Failed to upload ->" + upload_response)
+                                       "blob_url = " + blob_sas_url)
+                else:
                     return False
-
-                blob_sas_url = BlobStorageHelper.get_blob_sas_uri(
-                    account_name=blob_storage_account_name,
-                    account_key=blob_storage_account_key,
-                    container_name=container_name,
-                    blob_name=file_name)
-                Logger.log_message(Logger.INFORMATION,
-                                   "blob_url = " + blob_sas_url)
-
             else:
                 return False
+
         except Exception as ex:
             Logger.log_message(Logger.ERROR, str(ex))
-            if ex and ex.response and ex.response.request:
+            if ex:
                 Logger.log_message(Logger.INFORMATION,
-                                   "exception request header ----> " + str(ex.response.request.headers))
+                                   "exception request header ----> " + str(ex))
                 Logger.log_message(
-                    Logger.INFORMATION, "exception response header ----> " + str(ex.response.headers))
+                    Logger.INFORMATION, "exception response header ----> " + str(ex))
                 return str(ex)
 
         return True

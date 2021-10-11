@@ -1,6 +1,6 @@
 import asyncio
 import nest_asyncio
-from azure.communication.identity._shared.models import CommunicationIdentifier
+from azure.communication.identity._shared.models import CommunicationIdentifier, CommunicationUserIdentifier
 from Controller.OutboundCallController import OutboundCallController
 from Logger import Logger
 from ConfigurationManager import ConfigurationManager
@@ -76,10 +76,10 @@ class Program():
 
     async def run_sample(self, app_base_url):
         call_configuration = self.initiate_configuration(app_base_url)
-        outbound_call_pairs = self.configuration_manager.get_app_settings(
-            "DestinationIdentities")
-
         try:
+            outbound_call_pairs = self.configuration_manager.get_app_settings(
+                "DestinationIdentities")
+
             if (outbound_call_pairs and len(outbound_call_pairs)):
                 identities = outbound_call_pairs.split(";")
                 tasks = []
@@ -165,7 +165,8 @@ class Program():
     def delete_user(self, connection_string, source):
         client = CommunicationIdentityClient.from_connection_string(
             connection_string)
-        client.delete_user(source)
+        user = CommunicationUserIdentifier(source)
+        client.delete_user(user)
 
 
 if __name__ == "__main__":

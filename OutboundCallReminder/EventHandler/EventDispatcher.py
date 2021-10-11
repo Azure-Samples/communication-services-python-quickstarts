@@ -3,9 +3,9 @@ from threading import Lock
 import threading
 import json
 from azure.core.messaging import CloudEvent
-from azure.communication.callingserver._generated.models import CallConnectionStateChangedEvent, ToneReceivedEvent, \
+from azure.communication.callingserver import CallingServerEventType, \
+    CallConnectionStateChangedEvent, ToneReceivedEvent, \
     PlayAudioResultEvent, AddParticipantResultEvent
-from azure.communication.callingserver._models import CallingServerEventType
 
 
 class EventDispatcher:

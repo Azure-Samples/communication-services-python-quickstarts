@@ -9,14 +9,14 @@ from ConfigurationManager import ConfigurationManager
 from Logger import Logger
 from CommunicationIdentifierKind import CommunicationIdentifierKind
 from EventHandler.EventDispatcher import EventDispatcher
-from azure.communication.callingserver._callingserver_client import CallingServerClient
-from azure.communication.callingserver._call_connection import CallConnection
 from azure.communication.identity import CommunicationUserIdentifier
 from azure.communication.chat import PhoneNumberIdentifier
-from azure.communication.callingserver._models import CallConnectionStateChangedEvent, ToneReceivedEvent, \
-    ToneInfo, PlayAudioResultEvent, AddParticipantResultEvent, MediaType, EventSubscriptionType,\
-    CreateCallOptions, CallConnectionState, OperationStatus, ToneValue,\
-    CallingServerEventType, CancelAllMediaOperationsResult, PlayAudioResult, AddParticipantResult
+from azure.communication.callingserver import CallingServerClient, \
+    CallConnection, CallConnectionStateChangedEvent, ToneReceivedEvent, \
+    ToneInfo, PlayAudioResultEvent, AddParticipantResultEvent, CallMediaType, \
+    CallingEventSubscriptionType, CreateCallOptions, CallConnectionState, \
+    CallingOperationStatus, ToneValue, PlayAudioOptions, CallingServerEventType, \
+    PlayAudioResult, AddParticipantResult
 
 PLAY_AUDIO_AWAIT_TIMER = 30
 ADD_PARTICIPANT_AWAIT_TIMER = 60
@@ -61,7 +61,7 @@ class OutboundCallReminder:
             else:
                 try:
                     tone_received_complete = await asyncio.wait_for(self.tone_received_complete_task, timeout=PLAY_AUDIO_AWAIT_TIMER)
-                except TimeoutError as ex:
+                except asyncio.TimeoutError as ex:
                     Logger.log_message(
                         Logger.INFORMATION, "No response from user in 30 sec, initiating hangup")
                 else:
@@ -70,12 +70,13 @@ class OutboundCallReminder:
                                            target_phone_number + " and participant identifier is -- > " + participant)
 
                         self.add_participant(participant)
+                        add_participant_completed = None
                         try:
                             add_participant_completed = await asyncio.wait_for(self.add_participant_complete_task, timeout=ADD_PARTICIPANT_AWAIT_TIMER)
-                        except TimeoutError as ex:
+                        except asyncio.TimeoutError as ex:
                             Logger.log_message(
                                 Logger.INFORMATION, "Add participant failed with timeout -- > " + str(ex))
-                        else:
+                        finally:
                             if (not add_participant_completed):
                                 await asyncio.create_task(self.retry_add_participant_async(participant))
 
@@ -95,14 +96,15 @@ class OutboundCallReminder:
                 self.call_configuration.source_identity)
             targets = [PhoneNumberIdentifier(target_phone_number)]
 
-            call_modality = [MediaType.AUDIO]
+            call_modality = [CallMediaType.AUDIO]
             event_subscription_type = [
-                EventSubscriptionType.PARTICIPANTS_UPDATED, EventSubscriptionType.DTMF_RECEIVED]
+                CallingEventSubscriptionType.PARTICIPANTS_UPDATED, CallingEventSubscriptionType.TONE_RECEIVED]
 
             options: CreateCallOptions = CreateCallOptions(
                 callback_uri=self.call_configuration.app_callback_url, requested_media_types=call_modality, requested_call_events=event_subscription_type)
             options.alternate_Caller_Id = PhoneNumberIdentifier(
                 self.call_configuration.source_phone_number)
+            options.subject = None
 
             Logger.log_message(Logger.INFORMATION,
                                "Performing CreateCall operation")
@@ -177,14 +179,8 @@ class OutboundCallReminder:
     def cancel_media_processing(self):
         Logger.log_message(
             Logger.INFORMATION, "Performing cancel media processing operation to stop playing audio")
-        operation_context: str = str(uuid.uuid4())
 
-        cancelmediaresponse: CancelAllMediaOperationsResult = self.call_connection.cancel_all_media_operations(
-            operation_context)
-
-        Logger.log_message(Logger.INFORMATION, "cancelAllMediaOperationsWithResponse -- > Id: " +
-                           str(cancelmediaresponse.operation_id) + ", OperationContext: " + str(cancelmediaresponse.operation_context) + ", OperationStatus: " +
-                           str(cancelmediaresponse.status))
+        self.call_connection.cancel_all_media_operations()
 
     async def play_audio_async(self):
         try:
@@ -196,19 +192,23 @@ class OutboundCallReminder:
             audio_file_id = str(uuid.uuid4())
             callbackuri = self.call_configuration.app_callback_url
 
+            play_audio_options: PlayAudioOptions = PlayAudioOptions(loop=loop,
+                                                                    operation_context=operation_context,
+                                                                    audio_file_id=audio_file_id,
+                                                                    callback_uri=callbackuri)
+
             Logger.log_message(Logger.INFORMATION,
                                "Performing PlayAudio operation")
             play_audio_response: PlayAudioResult = self.call_connection.play_audio(audio_file_uri=audio_file_uri,
-                                                                                   audio_file_id=audio_file_id, callback_uri=callbackuri,
-                                                                                   operation_context=operation_context, loop=loop)
+                                                                                   play_audio_options=play_audio_options)
 
             Logger.log_message(Logger.INFORMATION, "playAudioWithResponse -- > " + str(play_audio_response) +
                                ", Id: " + play_audio_response.operation_id + ", OperationContext: " + play_audio_response.operation_context + ", OperationStatus: " +
                                play_audio_response.status)
 
-            if (play_audio_response.status == OperationStatus.RUNNING):
+            if (play_audio_response.status == CallingOperationStatus.RUNNING):
                 Logger.log_message(
-                    Logger.INFORMATION, "Play Audio state -- > " + str(OperationStatus.RUNNING))
+                    Logger.INFORMATION, "Play Audio state -- > " + str(CallingOperationStatus.RUNNING))
 
                 # listen to play audio events
                 self.register_to_play_audio_result_event(
@@ -246,11 +246,11 @@ class OutboundCallReminder:
             Logger.log_message(
                 Logger.INFORMATION, "Play audio status -- > " + str(play_audio_result_event.status))
 
-            if (play_audio_result_event.status == OperationStatus.COMPLETED):
+            if (play_audio_result_event.status == CallingOperationStatus.COMPLETED):
                 EventDispatcher.get_instance().unsubscribe(
                     CallingServerEventType.PLAY_AUDIO_RESULT_EVENT, operation_context)
                 self.play_audio_completed_task.set_result(True)
-            elif (play_audio_result_event.status == OperationStatus.FAILED):
+            elif (play_audio_result_event.status == CallingOperationStatus.FAILED):
                 self.play_audio_completed_task.set_result(False)
 
         # Subscribe to event
@@ -264,12 +264,13 @@ class OutboundCallReminder:
                                str(retry_attempt_count) + " is in progress")
             self.add_participant(addedParticipant)
 
+            add_participant_result = None
             try:
                 add_participant_result = await asyncio.wait_for(self.add_participant_complete_task, timeout=ADD_PARTICIPANT_AWAIT_TIMER)
-            except TimeoutError as ex:
+            except asyncio.TimeoutError as ex:
                 Logger.log_message(
                     Logger.INFORMATION, "Retry add participant failed with timeout -- > " + str(retry_attempt_count) + str(ex))
-            else:
+            finally:
                 if (add_participant_result):
                     return
                 else:
@@ -313,12 +314,12 @@ class OutboundCallReminder:
 
         def add_participant_received_event(call_event):
             add_participants_updated_event: AddParticipantResultEvent = call_event
-            operation_status: OperationStatus = add_participants_updated_event.status
-            if (operation_status == OperationStatus.COMPLETED):
+            operation_status: CallingOperationStatus = add_participants_updated_event.status
+            if (operation_status == CallingOperationStatus.COMPLETED):
                 Logger.log_message(
                     Logger.INFORMATION, "Add participant status -- > " + operation_status)
                 self.add_participant_complete_task.set_result(True)
-            elif(operation_status == OperationStatus.FAILED):
+            elif(operation_status == CallingOperationStatus.FAILED):
                 Logger.log_message(
                     Logger.INFORMATION, "Add participant status -- > " + operation_status)
                 self.add_participant_complete_task.set_result(False)

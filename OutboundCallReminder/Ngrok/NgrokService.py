@@ -71,7 +71,7 @@ class NgrokService:
                 # Wait for fetching the ngrok url as ngrok process might not be started yet.
                 sleep(2)
                 tunnels = self.__connector.get_all_tunnels()
-                if (tunnels and len(tunnels)):
+                if (tunnels and len(tunnels['tunnels'])):
                     # Do the parsing of the get
                     ngrok_url = tunnels['tunnels'][0]['public_url']
                     return ngrok_url
