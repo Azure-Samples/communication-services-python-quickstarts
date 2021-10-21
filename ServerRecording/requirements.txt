@@ -1,5 +1,0 @@
-aiohttp
-flask_restful
-azure-storage-blob
-azure-eventgrid
-./Sdk/azure_communication_callingserver-1.0.0b1-py2.py3-none-any.whl
