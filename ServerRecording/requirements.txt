@@ -1,0 +1,4 @@
+aiohttp
+azure-storage-blob
+azure-eventgrid
+azure-communication-callingserver
