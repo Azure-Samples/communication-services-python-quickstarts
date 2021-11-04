@@ -1,6 +1,4 @@
 from azure.eventgrid import EventGridEvent
-from azure.eventgrid._generated.models import SubscriptionValidationEventData, \
-    AcsRecordingFileStatusUpdatedEventData, AcsRecordingChunkInfoProperties
 from BlobStorageHelper import BlobStorageHelper
 from ConfigurationManager import ConfigurationManager
 from Logger import Logger
@@ -8,6 +6,9 @@ import json
 import ast
 from aiohttp import web
 from azure.communication.callingserver import CallingServerClient, ServerCallLocator
+from Root import Root
+from FileFormats import FileFormat, Mapper
+from ServerRecording.FileFormats import DownloadType
 
 CALL_RECORDING_ACTIVE_ERROR_CODE = "8553"
 CALL_RECODING_NOT_FOUND_ERROR_CODE = "8522"
@@ -31,10 +32,14 @@ recording_data = {}
 
 class CallRecordingController():
 
+    recFileFormat = ''
+
     def __init__(self):
         app = web.Application()
         app.add_routes(
             [web.get('/startRecording', CallRecordingController.start_recording)])
+        app.add_routes(
+            [web.get('/startRecordingWithOptions', CallRecordingController.start_recording_with_options)])
         app.add_routes(
             [web.get('/pauseRecording', CallRecordingController.pause_recording)])
         app.add_routes(
@@ -76,6 +81,58 @@ class CallRecordingController():
         except Exception as ex:
             Logger.log_message(
                 Logger.ERROR, "Failed to start server recording --> " + str(ex))
+            if CALL_RECORDING_ACTIVE_ERROR_CODE in str(ex) or \
+               INVALID_JOIN_IDENTITY_ERROR_CODE in str(ex) or \
+               CALL_NOT_ESTABLISHED_ERROR_CODE in str(ex):
+                return web.Response(text=str(ex), status=400)
+
+            return web.Response(text=str(ex), status=500)
+
+    async def start_recording_with_options(request):
+        try:
+            server_call_id = request.rel_url.query['serverCallId']
+
+            if not server_call_id:
+                return web.Response(text="serverCallId is invalid", status=400)
+
+            server_content_type = request.rel_url.query['recordingContent']
+            server_channel_type = request.rel_url.query['recordingChannel']
+            server_format_type = request.rel_url.query['recordingFormat']
+
+            Logger.log_message(
+                Logger.INFORMATION,
+                'StartRecording with channel called with serverCallId --> ' +
+                server_call_id + ' ,recordingContent --> '
+                + server_content_type + ' ,recordingChannel ---> ' + server_channel_type + ' ,recordingFormat ---> ' + server_format_type)
+
+            call_locator = ServerCallLocator(server_call_id)
+            mapper = Mapper()
+            content_type = server_content_type if server_content_type in mapper.rec_content else 'audiovideo'
+            channel_type = server_channel_type if server_channel_type in mapper.rec_channel else 'mixed'
+            format_type = server_format_type if server_format_type in mapper.rec_format else 'mp4'
+
+            #Passing RecordingContent initiates recording in specific format. audio/audiovideo
+            #RecordingChannel is used to pass the channel type. mixed/unmixed
+            #RecordingFormat is used to pass the format of the recording. mp4/mp3/wav
+
+            res = calling_server_client.start_recording(call_locator=call_locator,
+                                                        recording_state_callback_uri=call_back_uri,
+                                                        recording_content_type=content_type,
+                                                        recording_channel_type=channel_type,
+                                                        recording_format_type=format_type)
+
+            Logger.log_message(
+                Logger.INFORMATION,
+                "StartRecording with channel response --> " + str(res) + ", Recording Id: " + res.recording_id)
+
+            if server_call_id not in recording_data.keys():
+                recording_data[server_call_id] = ''
+            recording_data[server_call_id] = res.recording_id
+
+            return web.Response(text=res.recording_id)
+        except Exception as ex:
+            Logger.log_message(
+                Logger.ERROR, "Failed to start server recording with channel info--> " + str(ex))
             if CALL_RECORDING_ACTIVE_ERROR_CODE in str(ex) or \
                INVALID_JOIN_IDENTITY_ERROR_CODE in str(ex) or \
                CALL_NOT_ESTABLISHED_ERROR_CODE in str(ex):
@@ -222,7 +279,7 @@ class CallRecordingController():
             try:
                 if event.event_type == 'Microsoft.EventGrid.SubscriptionValidationEvent':
                     try:
-                        subscription_validation_event: SubscriptionValidationEventData = event_data
+                        subscription_validation_event = event_data
                         code = subscription_validation_event['validationCode']
                         if code:
                             data = {"validationResponse": code}
@@ -235,10 +292,9 @@ class CallRecordingController():
                         return web.Response(text=str(ex), status=500)
 
                 if event.event_type == 'Microsoft.Communication.RecordingFileStatusUpdated':
-                    acs_recording_file_status_updated_event_data: AcsRecordingFileStatusUpdatedEventData = event_data
-                    acs_recording_chunk_info_properties: AcsRecordingChunkInfoProperties = \
-                        acs_recording_file_status_updated_event_data[
-                            'recordingStorageInfo']['recordingChunks'][0]
+                    acs_recording_file_status_updated_event_data = event_data
+                    acs_recording_chunk_info_properties = acs_recording_file_status_updated_event_data[
+                        'recordingStorageInfo']['recordingChunks'][0]
 
                     Logger.log_message(
                         Logger.INFORMATION, "acsRecordingChunkInfoProperties response data --> " + str(acs_recording_chunk_info_properties))
@@ -247,31 +303,34 @@ class CallRecordingController():
                     content_location = acs_recording_chunk_info_properties['contentLocation']
                     metadata_location = acs_recording_chunk_info_properties['metadataLocation']
 
-                    process_recording_response = CallRecordingController.process_file(
+                    process_metadata_response = CallRecordingController.process_file(
                         document_id,
-                        content_location,
-                        'mp4',
-                        'recording')
+                        metadata_location,
+                        FileFormat.json,
+                        DownloadType.METADATA)
 
-                    if process_recording_response is True:
+                    if process_metadata_response is True:
                         Logger.log_message(
-                            Logger.INFORMATION, "Start processing metadata -- >")
+                            Logger.INFORMATION, "Processing metadata file completed successfully.")
+                        Logger.log_message(
+                            Logger.INFORMATION, "Start processing recording file -- >")
 
-                        process_metadata_response = CallRecordingController.process_file(
+                        process_recording_response = CallRecordingController.process_file(
                             document_id,
-                            metadata_location,
-                            'json',
-                            'metadata')
+                            content_location,
+                            CallRecordingController.recFileFormat,
+                            DownloadType.RECORDING)
 
-                        if process_metadata_response is True:
+                        if process_recording_response is True:
                             Logger.log_message(
                                 Logger.INFORMATION, "Processing recording and metadata files completed successfully.")
                         else:
                             Logger.log_message(
-                                Logger.INFORMATION, "Processing metadata file failed with message --> " + str(process_metadata_response))
+                                Logger.INFORMATION, "Processing recording file failed with message --> " + str(process_recording_response))
+
                     else:
                         Logger.log_message(
-                            Logger.INFORMATION, "Processing recording file failed with message --> " + str(process_recording_response))
+                            Logger.INFORMATION, "Processing metadata file failed with message --> " + str(process_metadata_response))
 
             except Exception as ex:
                 Logger.log_message(
@@ -302,6 +361,18 @@ class CallRecordingController():
                             rec_file.close()
                         except Exception as ex:
                             rec_file.close()
+
+                        if download_type == DownloadType.METADATA:
+                            with open(file_name) as f:
+                                deserializedFile = json.load(f)
+                                obj = Root(**deserializedFile)
+
+                                format = obj.recordingInfo['format'] if obj.recordingInfo[
+                                    'format'] in Mapper.rec_format else FileFormat.mp4
+                                CallRecordingController.recFileFormat = format
+
+                                Logger.log_message(
+                                    Logger.INFORMATION, "Recording File Format is -- > " + CallRecordingController.recFileFormat)
 
                     upload_response = BlobStorageHelper.upload_file_to_storage(
                         container_name=container_name,
