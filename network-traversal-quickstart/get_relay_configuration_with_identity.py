@@ -14,7 +14,7 @@ import os
 
 class CommunicationRelayClientSamples(object):
 
-    connection_string = ''
+    connection_string = 'https://<RESOURCE_NAME>.communication.azure.com/;accesskey=<YOUR_ACCESS_KEY>'
 
     def get_relay_config(self):
         from azure.communication.networktraversal import (

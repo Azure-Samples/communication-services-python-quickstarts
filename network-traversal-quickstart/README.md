@@ -36,14 +36,14 @@ pip install azure-communication-networktraversal==1.0.0b2
 2. Open an instance of PowerShell, Windows Terminal, Command Prompt or equivalent and navigate to the directory that you'd like to clone the sample to.
 3. `git clone https://github.com/Azure-Samples/communication-services-python-quickstarts.git`
 4. With the Communication Services procured in pre-requisites, add connection string in the code.
-6. Run whichever samples you like (note that some samples may require additional setup, see the table above):
+6. Run whichever quickstarts you like (note that some quickstarts may require additional setup, see the table above):
 ```bash
-python sample_file.py
+python get_relay_configuration.py
 ```
 
 ## Next Steps
 
-Take a look at our [API Documentation][apiref] for more information about the APIs that are available in the clients.
+Take a look at our [API Documentation][apiref] for more information about the APIs that are available in the clients:
 
 [getrelayconfiguration]: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/communication/azure-communication-networktraversal/samples
 [freesub]: https://azure.microsoft.com/free/
