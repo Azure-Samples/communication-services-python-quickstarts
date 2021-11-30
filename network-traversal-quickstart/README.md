@@ -14,9 +14,9 @@ These quickstart programs show how to use the Python client libraries for Azure 
 
 | **File Name**                                     | **Description**                 |
 | ------------------------------------------------- | ------------------------------- |
-| [get_relay_configuration_with_identity.py][getrelayconfiguration] | Issue a new Relay configuration |
-| [get_relay_configuration_with_route_type.py][getrelayconfiguration] | Issue a new Relay configuration |
-| [get_relay_configuration_without_identity.py][getrelayconfiguration] | Issue a new Relay configuration |
+| [get_relay_configuration.py][getrelayconfiguration] | Issue a new Relay configuration |
+| [get_relay_configuration_with_route_type.py][getrelayconfiguration] | Issue a new Relay configuration providing a Route Type|
+| [get_relay_configuration_with_identity.py][getrelayconfiguration] | Issue a new Relay configuration providing a User Identity|
 
 ## Prerequisites
 
@@ -30,19 +30,13 @@ These quickstart programs show how to use the Python client libraries for Azure 
 To run the quickstarts using the published version of the package:
 
 1. Install the dependencies using `pip`:
-
 ```bash
 pip install azure-communication-networktraversal==1.0.0b2
 ```
-
 2. Open an instance of PowerShell, Windows Terminal, Command Prompt or equivalent and navigate to the directory that you'd like to clone the sample to.
-
 3. `git clone https://github.com/Azure-Samples/communication-services-python-quickstarts.git`
-
 4. With the Communication Services procured in pre-requisites, add connection string in the code.
-
 6. Run whichever samples you like (note that some samples may require additional setup, see the table above):
-
 ```bash
 python sample_file.py
 ```

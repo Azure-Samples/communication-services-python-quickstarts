@@ -11,7 +11,6 @@ DESCRIPTION:
     This quickstart demonstrates how to get a relay configuration.
 """
 import os
-from azure.communication.networktraversal import RouteType
 
 class CommunicationRelayClientSamples(object):
 
@@ -21,11 +20,20 @@ class CommunicationRelayClientSamples(object):
         from azure.communication.networktraversal import (
             CommunicationRelayClient
         )
+        from azure.communication.identity import (
+            CommunicationIdentityClient
+        )
 
+        identity_client = CommunicationIdentityClient.from_connection_string(self.connection_string)
         relay_client = CommunicationRelayClient.from_connection_string(self.connection_string)
+        
+        print("Creating new user")
+        user = identity_client.create_user()
+        
+        print("User created with id:" + user.properties.get('id'))
 
         print("Getting relay configuration")
-        relay_configuration = relay_client.get_relay_configuration(route_type = RouteType.NEAREST)
+        relay_configuration = relay_client.get_relay_configuration(user)
 
         for iceServer in relay_configuration.ice_servers:
             print("Ice server:")
