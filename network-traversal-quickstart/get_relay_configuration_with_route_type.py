@@ -12,9 +12,10 @@ DESCRIPTION:
 """
 import os
 from azure.communication.networktraversal import RouteType
+from aiortc import RTCPeerConnection
 
 class CommunicationRelayClientSamples(object):
-
+    
     connection_string = 'https://<RESOURCE_NAME>.communication.azure.com/;accesskey=<YOUR_ACCESS_KEY>'
 
     def get_relay_config(self):
@@ -30,6 +31,9 @@ class CommunicationRelayClientSamples(object):
         for iceServer in relay_configuration.ice_servers:
             print("Ice server:")
             print(iceServer)
+        
+        # You can now initialize the RTCPeerConnection    
+        pc = RTCPeerConnection(relay_configuration)
 
 if __name__ == '__main__':
     sample = CommunicationRelayClientSamples()
