@@ -11,7 +11,7 @@ DESCRIPTION:
     These samples demonstrates how to get a relay configuration.
 """
 import os
-from aiortc import RTCPeerConnection
+from aiortc import RTCPeerConnection, RTCConfiguration, RTCIceServer
 
 class CommunicationRelayClientSamples(object):
 
@@ -31,8 +31,18 @@ class CommunicationRelayClientSamples(object):
             print("Ice server:")
             print(iceServer)
 
-        # You can now initialize the RTCPeerConnection    
-        pc = RTCPeerConnection(relay_configuration)
+        # You can now setup the RTCPeerConnection
+        iceServersList = []
+
+        # Create the list of RTCIceServers
+        for iceServer in relay_configuration.ice_servers:
+            iceServersList.append(RTCIceServer(username = iceServer.username, credential=iceServer.credential, urls = iceServer.urls))
+
+        # Initialize the RTCConfiguration
+        config = RTCConfiguration(iceServersList)
+
+        # Initialize the RTCPeerConnection 
+        pc = RTCPeerConnection(config)
 
 if __name__ == '__main__':
     sample = CommunicationRelayClientSamples()
