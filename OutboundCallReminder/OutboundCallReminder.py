@@ -304,7 +304,10 @@ class OutboundCallReminder:
             add_participant_response: AddParticipantResult = self.call_connection.add_participant(participant=participant,
                                                                                                   alternate_caller_id=alternate_caller_id, operation_context=operation_context)
             Logger.log_message(
-                Logger.INFORMATION, "addParticipantWithResponse -- > " + add_participant_response.participant_id)
+            Logger.INFORMATION, "addParticipantWithResponse -- > " + add_participant_response.additional_properties.get("operationId"))
+
+            Logger.log_message(
+            Logger.INFORMATION, "addParticipantWithResponse -- > " + add_participant_response.additional_properties.get("status"))
 
     def register_to_add_participants_result_event(self, operation_context):
         if(self.add_participant_complete_task):
