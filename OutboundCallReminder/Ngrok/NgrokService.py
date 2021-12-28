@@ -5,6 +5,7 @@ import subprocess
 import psutil
 import signal
 from pathlib import Path
+from subprocess import CREATE_NEW_CONSOLE
 
 
 class NgrokService:
@@ -57,8 +58,7 @@ class NgrokService:
 
         executable = str(Path(ngrokPath, "ngrok.exe"))
         os.chmod(executable, 0o777)
-        self.__ngrokProcess = subprocess.Popen(
-            [executable, "http", "http://localhost:9007/", "-host-header", "localhost:9007"])
+        self.__ngrokProcess = subprocess.Popen([executable, "http", "http://localhost:9007/", "-host-header", "localhost:9007"],creationflags=CREATE_NEW_CONSOLE)
 
     # <summary>
     # Get Ngrok URL
