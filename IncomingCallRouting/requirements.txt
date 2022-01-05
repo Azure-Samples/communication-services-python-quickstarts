@@ -1,0 +1,32 @@
+aiohttp==3.7.4.post0
+async-timeout==3.0.1
+attrs==21.2.0
+azure-cognitiveservices-speech==1.18.0
+azure-common==1.1.27
+# format : @ file:///D:/sdk/dist/azure_communication_callingserver-1.0.0b1-py2.py3-none-any.whl
+azure-communication-callingserver @ file:///C:/sources/azure-sdk-for-python/sdk/communication/azure-communication-callingserver/dist/azure_communication_callingserver-1.0.0b1-py2.py3-none-any.whl
+azure-communication-chat==1.0.0
+azure-communication-identity==1.0.1
+azure-core==1.19.1
+azure-nspkg==3.0.2
+azure-storage==0.36.0
+certifi==2021.5.30
+cffi==1.14.6
+chardet==4.0.0
+charset-normalizer==2.0.4
+cryptography==3.4.8
+idna==3.2
+isodate==0.6.0
+msrest==0.6.21
+multidict==5.1.0
+nest-asyncio==1.5.1
+oauthlib==3.1.1
+psutil==5.8.0
+pycparser==2.20
+python-dateutil==2.8.2
+requests==2.26.0
+requests-oauthlib==1.3.0
+six==1.16.0
+typing-extensions==3.10.0.0
+urllib3==1.26.6
+yarl==1.6.3
