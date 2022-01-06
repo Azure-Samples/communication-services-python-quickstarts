@@ -29,7 +29,7 @@ class IncomingCallHandler:
     _transfer_to_participant_complete_task: asyncio.Future = None
     _max_retry_attempt_count = 3
 
-    def init(self, calling_server_client: CallingServerClient, call_configuration: CallConfiguration):
+    def __init__(self, calling_server_client: CallingServerClient, call_configuration: CallConfiguration):
         self._call_configuration = call_configuration
         self._calling_server_client = calling_server_client
         self._target_participant = call_configuration.targetParticipantpython
