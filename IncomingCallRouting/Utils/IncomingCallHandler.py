@@ -2,24 +2,25 @@ import re
 import traceback
 import uuid
 import asyncio
-import Constants
-import CommunicationIdentifierKind
-from Logger import Logger
-from CommunicationIdentifierKind import CommunicationIdentifierKind
+from Utils.Logger import Logger
+from Utils.Constants import Constants
+from Utils.CommunicationIdentifierKind import CommunicationIdentifierKind
+from Utils.CallConfiguration import CallConfiguration
 from EventHandler.EventDispatcher import EventDispatcher
-from CallConfiguration import CallConfiguration
-from azure.communication.callingserver.aio import CallingServerClient, CancellationTokenSource, CallConnection, CallConnectionStateChangedEvent, ToneReceivedEvent, ToneInfo, PlayAudioResultEvent, AddParticipantResultEvent, CallMediaType, CallingEventSubscriptionType, CreateCallOptions, CallConnectionState, CallingOperationStatus, ToneValue, PlayAudioOptions, CallingServerEventType, PlayAudioResult, AddParticipantResult
+from azure.communication.callingserver.aio import *
 from azure.communication.callingserver import *
 from azure.communication.identity._shared.models import *
 
+# #CallingServerClient, CancellationTokenSource, CallConnection, CallConnectionStateChangedEvent, ToneReceivedEvent, ToneInfo, PlayAudioResultEvent, AddParticipantResultEvent, CallMediaType, CallingEventSubscriptionType, CreateCallOptions, CallConnectionState, CallingOperationStatus, ToneValue, PlayAudioOptions, CallingServerEventType, PlayAudioResult, AddParticipantResult
 PLAY_AUDIO_AWAIT_TIMER = 10
+
 
 class IncomingCallHandler:
     _calling_server_client = None
     _call_configuration = None
     _call_connection = None
     _report_cancellation_token_source = None
-    _report_cancellation_token = None 
+    _report_cancellation_token = None
     _target_participant = None
 
     _call_estabished_task: asyncio.Future = None
@@ -45,20 +46,24 @@ class IncomingCallHandler:
             # answer call
             response = await self._calling_server_client.answer_call(
                 self._incoming_call_context,
-                requested_media_types = {CallMediaType.AUDIO},
-                requested_call_events = {CallingEventSubscriptionType.PARTICIPANTS_UPDATED, CallingEventSubscriptionType.TONE_RECEIVED},
-                callback_uri = self._call_configuration.appCallbackUrl
+                requested_media_types={CallMediaType.AUDIO},
+                requested_call_events={
+                    CallingEventSubscriptionType.PARTICIPANTS_UPDATED, CallingEventSubscriptionType.TONE_RECEIVED},
+                callback_uri=self._call_configuration.appCallbackUrl
             )
 
-            Logger.log_message(Logger.MessageType.INFORMATION, "AnswerCall Response ----->", response.ToString())
-            
+            Logger.log_message(Logger.MessageType.INFORMATION,
+                               "AnswerCall Response ----->", response.ToString())
+
             self._call_connection = response.value
-            register_to_call_state_change_event(self._call_connection.call_connection_id)
+            register_to_call_state_change_event(
+                self._call_connection.call_connection_id)
 
             # wait for the call to get connected
             await self._call_estabished_task()
 
-            register_to_dtmf_result_event(self._call_connection.callConnectionId)
+            register_to_dtmf_result_event(
+                self._call_connection.callConnectionId)
 
             await self.play_audio_async()
             play_audio_completed = await self._play_audio_completed_task
@@ -69,41 +74,46 @@ class IncomingCallHandler:
                 tone_received_completed_task = await self._tone_received_completed_task()
                 if(tone_received_completed_task == True):
                     participant: str = self._target_participant
-                    Logger.log_message(Logger.MessageType.INFORMATION, "Transfering call to participant ----->", participant)
+                    Logger.log_message(
+                        Logger.MessageType.INFORMATION, "Transfering call to participant ----->", participant)
                     transfer_to_participant_completed = await transfer_to_participant(participant)
                     if(transfer_to_participant_completed == False):
                         await retry_transfer_to_participant_async(participant)
                 await hang_up_async()
             await self._call_termination_task()
         except Exception as ex:
-            Logger.log_message(Logger.MessageType.ERROR, "Call ended unexpectedly, reason:: ", str(ex))
+            Logger.log_message(Logger.MessageType.ERROR,
+                               "Call ended unexpectedly, reason:: ", str(ex))
             raise Exception(
                 "Failed to report incoming call --> " + str(ex))
 
     async def retry_transfer_to_participant_async(self, participant):
         retry_attempt_count = 1
         while(retry_attempt_count <= self._max_retry_attempt_count):
-            Logger.log_message(Logger.MessageType.INFORMATION, "Retrying Transfer participant attempt ", retry_attempt_count, " is in progress")
+            Logger.log_message(Logger.MessageType.INFORMATION,
+                               "Retrying Transfer participant attempt ", retry_attempt_count, " is in progress")
             transfer_to_participant_result = await transfer_to_participant(participant)
             if(transfer_to_participant_result):
                 return
             else:
-                Logger.log_message(Logger.MessageType.INFORMATION, "Retrying Transfer participant attempt ", retry_attempt_count, " has failed")
+                Logger.log_message(Logger.MessageType.INFORMATION,
+                                   "Retrying Transfer participant attempt ", retry_attempt_count, " has failed")
                 retry_attempt_count += 1
-    
 
     async def play_audio_async(self):
         try:
             operation_context = str(uuid.uuid4())
             play_audio_response = await self._call_connection.play_audio(
-                audio_url = self._call_configuration.audio_file_url,
-                is_looped = True,
-                operation_context = operation_context
+                audio_url=self._call_configuration.audio_file_url,
+                is_looped=True,
+                operation_context=operation_context
             )
-            Logger.log_message(Logger.MesMessageTypes.INFORMATION, "PlayAudioAsync response --> ", response.GetRawResponse(), ", Id: ", response.Value.OperationId, ", Status: ", response.Value.Status, ", OperationContext: ", response.Value.OperationContext, ", ResultInfo: ", response.Value.ResultDetails)
+            Logger.log_message(Logger.MesMessageTypes.INFORMATION, "PlayAudioAsync response --> ", response.GetRawResponse(), ", Id: ", response.Value.OperationId,
+                               ", Status: ", response.Value.Status, ", OperationContext: ", response.Value.OperationContext, ", ResultInfo: ", response.Value.ResultDetails)
 
             if (play_audio_response.Value.Status == CallingOperationStatus.Running):
-                Logger.log_message(Logger.MessageType.INFORMATION, "Play Audio state: ", response.Value.Status)
+                Logger.log_message(Logger.MessageType.INFORMATION,
+                                   "Play Audio state: ", response.Value.Status)
                 # listen to play audio events
                 self.register_to_play_audio_result_event(
                     play_audio_response.operation_context)
@@ -113,7 +123,7 @@ class IncomingCallHandler:
                 tasks.append(asyncio.create_task(
                     asyncio.sleep(PLAY_AUDIO_AWAIT_TIMER)))
 
-                await asyncio.wait(tasks, return_when = asyncio.FIRST_COMPLETED)
+                await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
                 if (not self.play_audio_completed_task.done()):
                     try:
                         self.play_audio_completed_task.set_result(True)
@@ -125,41 +135,36 @@ class IncomingCallHandler:
                     except Exception as ex:
                         pass
         except TaskCanceledException as tce:
-            Logger.log_message(Logger.MessageType.ERROR, "Play audio operation cancelled")
+            Logger.log_message(Logger.MessageType.ERROR,
+                               "Play audio operation cancelled")
         except Exception as ex:
-            Logger.log_message(Logger.MessageType.ERROR, "Failure occured while playing audio on the call. Exception: ", str(ex))
+            Logger.log_message(
+                Logger.MessageType.ERROR, "Failure occured while playing audio on the call. Exception: ", str(ex))
 
     async def hang_up_async(self):
         if(self._report_cancellation_token.isCancellationRequested):
-            Logger.log_message(Logger.MessageType.INFORMATION, "Cancellation request, Hangup will not be performed")
+            Logger.log_message(Logger.MessageType.INFORMATION,
+                               "Cancellation request, Hangup will not be performed")
             return
-        Logger.log_message(Logger.MessageType.INFORMATION, "Performing Hangup operation")
+        Logger.log_message(Logger.MessageType.INFORMATION,
+                           "Performing Hangup operation")
         hang_up_response = await self._call_connection.hang_up_async(self._report_cancellation_token)
-        Logger.log_message(Logger.MessageType.INFORMATION, "hang_up_async response -----> ", hang_up_response)
-
+        Logger.log_message(Logger.MessageType.INFORMATION,
+                           "hang_up_async response -----> ", hang_up_response)
 
     async def cancel_all_media_operations(self):
         if(self._report_cancellation_token.isCancellationRequested):
-            Logger.log_message(Logger.MessageType.INFORMATION, "Cancellation request, CancelMediaProcessing will not be performed")
+            Logger.log_message(Logger.MessageType.INFORMATION,
+                               "Cancellation request, CancelMediaProcessing will not be performed")
             return
-        Logger.log_message(Logger.MessageType.INFORMATION, "Cancellation request, CancelMediaProcessing will not be performed")
+        Logger.log_message(Logger.MessageType.INFORMATION,
+                           "Cancellation request, CancelMediaProcessing will not be performed")
 
         operation_context = str(uuid.uuid4())
         response = await self._call_connection.CancelAllMediaOperationsAsync(operation_context, self._report_cancellation_token)
 
-        Logger.log_message(Logger.MessageType.INFORMATION, "PlayAudioAsync response --> ", response.ContentStream, ",  Id: ", response.Content, ", Status: ", response.Status)
-
-
-
-
-
-
-
-
-
-
-
-
+        Logger.log_message(Logger.MessageType.INFORMATION, "PlayAudioAsync response --> ",
+                           response.ContentStream, ",  Id: ", response.Content, ", Status: ", response.Status)
 
     def register_to_call_state_change_event(self, call_leg_id):
         self.call_terminated_task = asyncio.Future()
@@ -189,7 +194,6 @@ class IncomingCallHandler:
         EventDispatcher.get_instance().subscribe(CallingServerEventType.CALL_CONNECTION_STATE_CHANGED_EVENT,
                                                  call_leg_id, call_state_change_notificaiton)
 
-
     def cancel_media_processing(self):
         Logger.log_message(
             Logger.INFORMATION, "Performing cancel media processing operation to stop playing audio")
@@ -198,6 +202,7 @@ class IncomingCallHandler:
 
     def register_to_play_audio_result_event(self, operation_context):
         self._play_audio_completed_task = asyncio.Future()
+
         def play_prompt_response_notification(call_event):
             play_audio_result_event: PlayAudioResultEvent = call_event
             Logger.log_message(
@@ -220,7 +225,6 @@ class IncomingCallHandler:
         EventDispatcher.get_instance().subscribe(CallingServerEventType.PLAY_AUDIO_RESULT_EVENT,
                                                  operation_context, play_prompt_response_notification)
 
-     
     def register_to_dtmf_result_event(self, call_leg_id):
         self.tone_received_complete_task = asyncio.Future()
 
@@ -251,6 +255,5 @@ class IncomingCallHandler:
         EventDispatcher.get_instance().subscribe(
             CallingServerEventType.TONE_RECEIVED_EVENT, call_leg_id, dtmf_received_event)
 
-
     def _get_identifier_kind(participant_number: str):
-        return  CommunicationIdentifierKind.USER_IDENTITY if re.search(Constants.userIdentityRegex, participant_number, re.IGNORECASE) else CommunicationIdentifierKind.PHONE_IDENTITY if re.search(Constants.phoneIdentityRegex, participant_number, re.IGNORECASE) else CommunicationIdentifierKind.UNKNOWN_IDENTITY
+        return CommunicationIdentifierKind.USER_IDENTITY if re.search(Constants.userIdentityRegex, participant_number, re.IGNORECASE) else CommunicationIdentifierKind.PHONE_IDENTITY if re.search(Constants.phoneIdentityRegex, participant_number, re.IGNORECASE) else CommunicationIdentifierKind.UNKNOWN_IDENTITY

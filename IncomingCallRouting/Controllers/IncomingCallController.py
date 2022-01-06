@@ -1,18 +1,18 @@
+import json
+import ast
 from typing import List
 from aiohttp import web
 from aiohttp.web_routedef import post
-from Logger import Logger
-import json
-import ast
-from CallConfiguration import CallConfiguration
+from Utils.Logger import Logger
+from Utils.CallConfiguration import CallConfiguration
 from azure.communication.callingserver import CallingServerClient
 from EventHandler.EventAuthHandler import EventAuthHandler
 from EventHandler.EventDispatcher import EventDispatcher
-from azure.messaging.eventgrid import SystemEvents, EventGridEvent
+from azure.core.messaging import CloudEvent
 from Utils.IncomingCallHandler import IncomingCallHandler
 
 
-class IncomingCallController():
+class IncomingCallController:
 
     app = web.Application()
 

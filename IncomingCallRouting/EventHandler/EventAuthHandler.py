@@ -1,4 +1,4 @@
-from Logger import Logger
+from Utils.Logger import Logger
 
 
 class EventAuthHandler:

@@ -4,9 +4,10 @@ attrs==21.2.0
 azure-cognitiveservices-speech==1.18.0
 azure-common==1.1.27
 # format : @ file:///D:/sdk/dist/azure_communication_callingserver-1.0.0b1-py2.py3-none-any.whl
-azure-communication-callingserver @ file:///C:/sources/azure-sdk-for-python/sdk/communication/azure-communication-callingserver/dist/azure_communication_callingserver-1.0.0b1-py2.py3-none-any.whl
+azure-communication-callingserver @ file:///C:\Users\torresyang\Desktop/azure_communication_callingserver-1.0.0b1-py2.py3-none-any.whl
 azure-communication-chat==1.0.0
 azure-communication-identity==1.0.1
+
 azure-core==1.19.1
 azure-nspkg==3.0.2
 azure-storage==0.36.0
