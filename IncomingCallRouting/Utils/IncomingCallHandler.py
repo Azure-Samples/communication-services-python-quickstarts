@@ -66,7 +66,7 @@ class IncomingCallHandler:
             if(play_audio_completed == False):
                 await self._hang_up_async()
             else:
-                tone_received_completed_task = await self._tone_received_completed_task()
+                tone_received_completed_task = await self._tone_received_completed_task
                 if(tone_received_completed_task == True):
                     participant: str = self._target_participant
                     Logger.log_message(
@@ -103,25 +103,25 @@ class IncomingCallHandler:
                 is_looped=True,
                 operation_context=operation_context
             )
-            Logger.log_message(Logger.INFORMATION, "PlayAudioAsync response --> " + play_audio_response.GetRawResponse() +  ", Id: " + play_audio_response.Value.OperationId +
-                               ", Status: " + play_audio_response.Value.Status + ", OperationContext: " + str(play_audio_response.Value.OperationContext), ", ResultInfo: " + play_audio_response.Value.ResultDetails)
+            Logger.log_message(Logger.INFORMATION, "PlayAudioAsync response --> " + str(play_audio_response) +  ", Id: " + play_audio_response.operation_id +
+                               ", Status: " + play_audio_response.status + ", OperationContext: " + str(play_audio_response.operation_context) + ", ResultInfo: " + str(play_audio_response.result_details))
 
-            if (play_audio_response.Status == CallingOperationStatus.Running):
+            if (play_audio_response.status == CallingOperationStatus.RUNNING):
                 Logger.log_message(Logger.INFORMATION,
-                                   "Play Audio state: " + play_audio_response.Value.Status)
+                                   "Play Audio state: " + play_audio_response.status)
                 # listen to play audio events
                 self._register_to_play_audio_result_event(
                     play_audio_response.operation_context)
 
                 tasks = []
-                tasks.append(self.play_audio_completed_task)
+                tasks.append(self._play_audio_completed_task)
                 tasks.append(asyncio.create_task(
                     asyncio.sleep(PLAY_AUDIO_AWAIT_TIMER)))
 
                 await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-                if (not self.play_audio_completed_task.done()):
+                if (not self._play_audio_completed_task.done()):
                     try:
-                        self.play_audio_completed_task.set_result(True)
+                        self._play_audio_completed_task.set_result(True)
                     except Exception as ex:
                         pass
                     try:
@@ -150,7 +150,7 @@ class IncomingCallHandler:
         response = await self._call_connection.cancel_all_media_operations()
 
         Logger.log_message(Logger.INFORMATION, "PlayAudioAsync response --> " +
-                           response.ContentStream + ",  Id: " + response.Content + ", Status: " + response.Status)
+                           response.content_stream + ",  Id: " + response.content + ", Status: " + response.status)
 
     def _register_to_call_state_change_event(self, call_leg_id):
         self._call_terminated_task = asyncio.Future()
@@ -192,12 +192,12 @@ class IncomingCallHandler:
                 EventDispatcher.get_instance().unsubscribe(
                     CallingServerEventType.PLAY_AUDIO_RESULT_EVENT, operation_context)
                 try:
-                    self.play_audio_completed_task.set_result(True)
+                    self._play_audio_completed_task.set_result(True)
                 except:
                     pass
             elif (play_audio_result_event.status == CallingOperationStatus.FAILED):
                 try:
-                    self.play_audio_completed_task.set_result(False)
+                    self._play_audio_completed_task.set_result(False)
                 except:
                     pass
 
@@ -265,8 +265,8 @@ class IncomingCallHandler:
         async def transfer_to_participant_received_event(call_event):
             transfer_to_participant_updated_event: ParticipantsUpdatedEvent = call_event
             if(transfer_to_participant_updated_event != None):
-                Logger.log_message(Logger.INFORMATION, "Transfer participant callconnection ID - " + transfer_to_participant_updated_event.CallConnectionId)
-                EventDispatcher.get_instance().unsubscribe(CallingServerEventType.ParticipantsUpdatedEvent, operation_context)
+                Logger.log_message(Logger.INFORMATION, "Transfer participant callconnection ID - " + transfer_to_participant_updated_event.call_connection_id)
+                EventDispatcher.get_instance().unsubscribe(CallingServerEventType.PARTICIPANTS_UPDATED_EVENT, operation_context)
                 Logger.log_message(Logger.INFORMATION, "Sleeping for 60 seconds before proceeding further")
                 await asyncio.sleep(60)
                 self._transfer_to_participant_complete_task.set_result(True)
