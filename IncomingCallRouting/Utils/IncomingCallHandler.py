@@ -7,11 +7,10 @@ from Utils.Constants import Constants
 from Utils.CommunicationIdentifierKind import CommunicationIdentifierKind
 from Utils.CallConfiguration import CallConfiguration
 from EventHandler.EventDispatcher import EventDispatcher
-from azure.communication.callingserver.aio import *
-from azure.communication.callingserver import *
-from azure.communication.identity._shared.models import *
+from azure.communication.callingserver.aio import CallingServerClient
+from azure.communication.callingserver import CallConnectionStateChangedEvent, ToneReceivedEvent, ToneInfo, PlayAudioResultEvent, CallMediaType, CallingEventSubscriptionType, CallConnectionState, CallingOperationStatus, ToneValue, CallingServerEventType, ParticipantsUpdatedEvent, CommunicationUserIdentifier, PhoneNumberIdentifier
+# from azure.communication.identity import 
 
-# #CallingServerClient, CancellationTokenSource, CallConnection, CallConnectionStateChangedEvent, ToneReceivedEvent, ToneInfo, PlayAudioResultEvent, AddParticipantResultEvent, CallMediaType, CallingEventSubscriptionType, CreateCallOptions, CallConnectionState, CallingOperationStatus, ToneValue, PlayAudioOptions, CallingServerEventType, PlayAudioResult, AddParticipantResult
 PLAY_AUDIO_AWAIT_TIMER = 10
 
 
@@ -126,7 +125,7 @@ class IncomingCallHandler:
                         pass
                     try:
                         # After playing audio for 10 sec, make toneReceivedCompleteTask true.
-                        self.tone_received_complete_task.set_result(True)
+                        self._tone_received_completed_task.set_result(True)
                     except Exception as ex:
                         pass
         except Exception as ex:
@@ -206,7 +205,7 @@ class IncomingCallHandler:
                                                  operation_context, play_prompt_response_notification)
 
     def _register_to_dtmf_result_event(self, call_leg_id):
-        self.tone_received_complete_task = asyncio.Future()
+        self._tone_received_completed_task = asyncio.Future()
 
         def dtmf_received_event(call_event):
             tone_received_event: ToneReceivedEvent = call_event
@@ -217,12 +216,12 @@ class IncomingCallHandler:
 
             if (tone_info.tone == ToneValue.TONE1):
                 try:
-                    self.tone_received_complete_task.set_result(True)
+                    self._tone_received_completed_task.set_result(True)
                 except:
                     pass
             else:
                 try:
-                    self.tone_received_complete_task.set_result(False)
+                    self._tone_received_completed_task.set_result(False)
                 except:
                     pass
 
@@ -276,5 +275,11 @@ class IncomingCallHandler:
         EventDispatcher.get_instance().unsubscribe(CallingServerEventType.ParticipantsUpdatedEvent, operation_context, transfer_to_participant_received_event)
 
         
-    def _get_identifier_kind(participant_number: str):
-        return CommunicationIdentifierKind.USER_IDENTITY if re.search(Constants.userIdentityRegex, participant_number, re.IGNORECASE) else CommunicationIdentifierKind.PHONE_IDENTITY if re.search(Constants.phoneIdentityRegex, participant_number, re.IGNORECASE) else CommunicationIdentifierKind.UNKNOWN_IDENTITY
+    def _get_identifier_kind(self, participant_number: str):
+        # if(re.search(Constants.userIdentityRegex.value, participant_number, re.IGNORECASE)):
+        #     return CommunicationIdentifierKind.USER_IDENTITY
+        # elif(re.search(Constants.phoneIdentityRegex.value, participant_number, re.IGNORECASE)):
+        #     return CommunicationIdentifierKind.PHONE_IDENTITY
+        # else:
+        #     return CommunicationIdentifierKind.UNKNOWN_IDENTITY
+        return CommunicationIdentifierKind.USER_IDENTITY if re.search(Constants.userIdentityRegex.value, participant_number, re.IGNORECASE) else CommunicationIdentifierKind.PHONE_IDENTITY if re.search(Constants.phoneIdentityRegex.value, participant_number, re.IGNORECASE) else CommunicationIdentifierKind.UNKNOWN_IDENTITY
