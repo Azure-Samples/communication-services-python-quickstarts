@@ -74,7 +74,7 @@ class IncomingCallHandler:
                     if(transfer_to_participant_completed == False):
                         await self._retry_transfer_to_participant_async(participant)
                 await self._hang_up_async()
-            await self._call_termination_task()
+            await self._call_terminatied_task
         except Exception as ex:
             Logger.log_message(Logger.ERROR,
                                "Call ended unexpectedly, reason: " + str(ex))
@@ -120,6 +120,8 @@ class IncomingCallHandler:
                 await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
                 if (not self._play_audio_completed_task.done()):
                     try:
+                        # cancel playing audio
+                        await self._cancel_all_media_operations()
                         self._play_audio_completed_task.set_result(True)
                     except Exception as ex:
                         pass
@@ -140,16 +142,9 @@ class IncomingCallHandler:
                            "hang_up_async response -----> " + hang_up_response)
 
     async def _cancel_all_media_operations(self):
-        if(self._report_cancellation_token.isCancellationRequested):
-            Logger.log_message(Logger.INFORMATION,
-                               "Cancellation request, CancelMediaProcessing will not be performed")
-            return
         Logger.log_message(Logger.INFORMATION,
-                           "Cancellation request, CancelMediaProcessing will not be performed")
-        response = await self._call_connection.cancel_all_media_operations()
-
-        Logger.log_message(Logger.INFORMATION, "PlayAudioAsync response --> " +
-                           response.content_stream + ",  Id: " + response.content + ", Status: " + response.status)
+                           "Cancellation request, CancelMediaProcessing will be performed")
+        await self._call_connection.cancel_all_media_operations()
 
     def _register_to_call_state_change_event(self, call_leg_id):
         self._call_terminated_task = asyncio.Future()
@@ -204,10 +199,10 @@ class IncomingCallHandler:
         EventDispatcher.get_instance().subscribe(CallingServerEventType.PLAY_AUDIO_RESULT_EVENT,
                                                  operation_context, play_prompt_response_notification)
 
-    def _register_to_dtmf_result_event(self, call_leg_id):
+    async def _register_to_dtmf_result_event(self, call_leg_id):
         self._tone_received_completed_task = asyncio.Future()
 
-        def dtmf_received_event(call_event):
+        async def dtmf_received_event(call_event):
             tone_received_event: ToneReceivedEvent = call_event
             tone_info: ToneInfo = tone_received_event.tone_info
 
@@ -228,7 +223,7 @@ class IncomingCallHandler:
             EventDispatcher.get_instance().unsubscribe(
                 CallingServerEventType.TONE_RECEIVED_EVENT, call_leg_id)
             # cancel playing audio
-            self._cancel_all_media_operations()
+            await self._cancel_all_media_operations()
 
         # Subscribe to event
         EventDispatcher.get_instance().subscribe(
@@ -250,11 +245,12 @@ class IncomingCallHandler:
             if (identifier_kind == CommunicationIdentifierKind.USER_IDENTITY):
                 identifier = CommunicationUserIdentifier(target_participant)
                 response = await self._call_connection.transfer_to_participant(identifier, operation_context = operation_context)
-                Logger.log_message(Logger.INFORMATION, "transfered call to temp")
+                Logger.log_message(Logger.INFORMATION, "TransferParticipantAsync response --> " + str(response) + ", status: " + response.status
+                     + ", OperationContext: " + response.operation_context + ", OperationId: " + response.operation_id + ", ResultDetails: " + str(response.result_details))
             elif (identifier_kind == CommunicationIdentifierKind.PHONE_IDENTITY):
                 identifier =  PhoneNumberIdentifier(target_participant)
                 response = await self._call_connection.transfer_to_participant(identifier, operation_context = operation_context)
-                Logger.log_message(Logger.INFORMATION, "transfered call to temp")
+                Logger.log_message(Logger.INFORMATION, "TransferParticipantAsync response --> " + str(response))
         
         transfer_to_participant_completed = await self._transfer_to_participant_complete_task
         return transfer_to_participant_completed
@@ -276,10 +272,4 @@ class IncomingCallHandler:
 
         
     def _get_identifier_kind(self, participant_number: str):
-        # if(re.search(Constants.userIdentityRegex.value, participant_number, re.IGNORECASE)):
-        #     return CommunicationIdentifierKind.USER_IDENTITY
-        # elif(re.search(Constants.phoneIdentityRegex.value, participant_number, re.IGNORECASE)):
-        #     return CommunicationIdentifierKind.PHONE_IDENTITY
-        # else:
-        #     return CommunicationIdentifierKind.UNKNOWN_IDENTITY
         return CommunicationIdentifierKind.USER_IDENTITY if re.search(Constants.userIdentityRegex.value, participant_number, re.IGNORECASE) else CommunicationIdentifierKind.PHONE_IDENTITY if re.search(Constants.phoneIdentityRegex.value, participant_number, re.IGNORECASE) else CommunicationIdentifierKind.UNKNOWN_IDENTITY
