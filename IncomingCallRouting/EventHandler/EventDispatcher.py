@@ -1,11 +1,11 @@
 import threading
+import json
 from Utils.Logger import Logger
 from threading import Lock
 from azure.core.messaging import CloudEvent
 from azure.communication.callingserver import CallingServerEventType, \
     CallConnectionStateChangedEvent, ToneReceivedEvent, \
-    PlayAudioResultEvent
-# ParticipantsUpdatedEvent
+    PlayAudioResultEvent, ParticipantsUpdatedEvent
 
 
 class EventDispatcher:
@@ -72,26 +72,27 @@ class EventDispatcher:
             return key
         return None
 
-    def extract_event(self, cloudEvent: CloudEvent):
+    def extract_event(self, request: str):
         try:
-            if cloudEvent.event_type == CallingServerEventType.CALL_CONNECTION_STATE_CHANGED_EVENT:
+            event = CloudEvent.from_dict(json.loads(request)[0])
+            if event.type == CallingServerEventType.CALL_CONNECTION_STATE_CHANGED_EVENT:
                 call_connection_state_changed_event = CallConnectionStateChangedEvent.deserialize(
-                    cloudEvent.data)
+                    event.data)
                 return call_connection_state_changed_event
 
-            if cloudEvent.event_type == CallingServerEventType.PLAY_AUDIO_RESULT_EVENT:
+            if event.type == CallingServerEventType.PLAY_AUDIO_RESULT_EVENT:
                 play_audio_result_event = PlayAudioResultEvent.deserialize(
-                    cloudEvent.data)
+                    event.data)
                 return play_audio_result_event
 
-            # if cloudEvent.event_type == CallingServerEventType.PARTICIPANTS_UPDATED_EVENT:
-            #    participants_updated_result_event = ParticipantsUpdatedEvent.deserialize(
-            #        cloudEvent.data)
-            #    return participants_updated_result_event
+            if event.type == CallingServerEventType.PARTICIPANTS_UPDATED_EVENT:
+               participants_updated_result_event = ParticipantsUpdatedEvent.deserialize(
+                   event.data)
+               return participants_updated_result_event
 
-            if cloudEvent.event_type == CallingServerEventType.TONE_RECEIVED_EVENT:
+            if event.type == CallingServerEventType.TONE_RECEIVED_EVENT:
                 tone_received_event = ToneReceivedEvent.deserialize(
-                    cloudEvent.data)
+                    event.data)
                 return tone_received_event
 
         except Exception as ex:

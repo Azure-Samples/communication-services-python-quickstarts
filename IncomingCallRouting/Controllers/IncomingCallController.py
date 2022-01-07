@@ -5,7 +5,8 @@ from aiohttp import web
 from aiohttp.web_routedef import post
 from Utils.Logger import Logger
 from Utils.CallConfiguration import CallConfiguration
-from azure.communication.callingserver import CallingServerClient
+from azure.communication.callingserver.aio import CallingServerClient
+from azure.eventgrid import EventGridEvent
 from EventHandler.EventAuthHandler import EventAuthHandler
 from EventHandler.EventDispatcher import EventDispatcher
 from azure.core.messaging import CloudEvent
@@ -21,17 +22,17 @@ class IncomingCallController:
     _call_configuration: CallConfiguration = None
 
     def __init__(self, configuration):
+        self._call_configuration = CallConfiguration.get_call_configuration(
+            configuration)
+        self._calling_server_client = CallingServerClient.from_connection_string(
+            self._call_configuration.connection_string)
+        self._incoming_calls = []
         self.app.add_routes(
             [web.post('/OnIncomingCall', self.on_incoming_call)])
-        self.app.add_routes([web.get(
+        self.app.add_routes([web.post(
             '/CallingServerAPICallBacks', self.calling_server_api_callbacks)])
         web.run_app(self.app, port=9007)
 
-        self._calling_server_client = CallingServerClient(
-            configuration['ResourceConnectionString'])
-        self._incoming_calls = []
-        self._call_configuration = CallConfiguration.get_call_configuration(
-            configuration)
 
     async def on_incoming_call(self, request):
         try:
@@ -47,29 +48,29 @@ class IncomingCallController:
                     code = event_data['validationCode']
 
                     if (code):
-                        response_data = {"validationResponse": code}
-                        if(response_data.ValidationResponse != None):
+                        response_data = {"ValidationResponse": code}
+                        if(response_data["ValidationResponse"] != None):
                             return web.Response(body=str(response_data), status=200)
-                elif (cloud_event.EventType == 'Microsoft.Communication.IncomingCall'):
-                    event_data = str(request)
-                    if(event_data != None):
-                        incoming_call_context = event_data.split(
+                elif (cloud_event.event_type == 'Microsoft.Communication.IncomingCall'):
+                    if(post_data != None):
+                        incoming_call_context = post_data.split(
                             "\"incomingCallContext\":\"")[1].split("\"}")[0]
-                        self._incoming_calls.append(await IncomingCallHandler(self._calling_server_client, self._call_configuration).Report(incoming_call_context))
+                        self._incoming_calls.append(await IncomingCallHandler(self._calling_server_client, self._call_configuration).report(incoming_call_context))
 
             return web.Response(status=200)
 
         except Exception as ex:
             raise Exception("Failed to handle incoming call --> " + str(ex))
 
-    async def calling_server_api_callbacks(self, request, secret: str):
+    async def calling_server_api_callbacks(self, request):
         try:
-            eventHandler = EventAuthHandler()
-            if EventAuthHandler.authorize(secret):
-                if request != None:
+            event_handler = EventAuthHandler()
+            param = request.rel_url.query
+            if (param.get('secret') and event_handler.authorize(param['secret'])):
+                if (request != None):
                     http_content = await request.content.read()
                     Logger.log_message(
-                        Logger.MessageType.INFORMATION, "CallingServerAPICallBacks-------> {request.ToString()}")
+                        Logger.INFORMATION, "CallingServerAPICallBacks -------> " + str(request))
                     eventDispatcher: EventDispatcher = EventDispatcher.get_instance()
                     eventDispatcher.process_notification(
                         str(http_content.decode('UTF-8')))

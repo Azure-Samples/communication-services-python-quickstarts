@@ -5,12 +5,12 @@ import asyncio
 
 if __name__ == '__main__':
     config_manager = ConfigurationManager.get_instance()
-    config = CallConfiguration(
-        config_manager.get_app_settings("Connectionstring"),
-        config_manager.get_app_settings("BaseUrl"),
-        config_manager.get_app_settings("AudioFileUri"),
-        config_manager.get_app_settings("TargetParticipant")
-    )
+    config = {
+        "connection_string": config_manager.get_app_settings("Connectionstring"),
+        "app_base_url": config_manager.get_app_settings("BaseUrl"),
+        "audio_file_uri": config_manager.get_app_settings("AudioFileUri"),
+        "target_participant": config_manager.get_app_settings("TargetParticipant")
+    }
 
     loop = asyncio.get_event_loop()
     loop.run_until_complete(IncomingCallController(config))

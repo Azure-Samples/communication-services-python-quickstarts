@@ -11,14 +11,15 @@ class CallConfiguration:
         eventhandler = EventAuthHandler()
         self.app_callback_url: str = app_base_url + \
             "/CallingServerAPICallBacks?" + eventhandler.get_secret_querystring()
-        self.targetParticipant: str = str(participant)
+        self.target_participant: str = str(participant)
 
-    def get_call_configuration(self, configuration):
-        if(self.callConfiguration != None):
-            self.callConfiguration = CallConfiguration(
+    @classmethod
+    def get_call_configuration(cls, configuration):
+        if(cls.callConfiguration == None):
+            cls.callConfiguration = CallConfiguration(
                 configuration["connection_string"],
                 configuration["app_base_url"],
                 configuration["audio_file_uri"],
-                configuration["participant"])
+                configuration["target_participant"])
 
-        return self.callConfiguration
+        return cls.callConfiguration
