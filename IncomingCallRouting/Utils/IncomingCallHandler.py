@@ -199,7 +199,7 @@ class IncomingCallHandler:
         EventDispatcher.get_instance().subscribe(CallingServerEventType.PLAY_AUDIO_RESULT_EVENT,
                                                  operation_context, play_prompt_response_notification)
 
-    async def _register_to_dtmf_result_event(self, call_leg_id):
+    def _register_to_dtmf_result_event(self, call_leg_id):
         self._tone_received_completed_task = asyncio.Future()
 
         async def dtmf_received_event(call_event):
@@ -219,7 +219,6 @@ class IncomingCallHandler:
                     self._tone_received_completed_task.set_result(False)
                 except:
                     pass
-
             EventDispatcher.get_instance().unsubscribe(
                 CallingServerEventType.TONE_RECEIVED_EVENT, call_leg_id)
             # cancel playing audio

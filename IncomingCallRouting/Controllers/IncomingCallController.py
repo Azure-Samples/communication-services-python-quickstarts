@@ -52,7 +52,7 @@ class IncomingCallController:
                         if(response_data["ValidationResponse"] != None):
                             return web.Response(body=str(response_data), status=200)
                 elif (cloud_event.event_type == 'Microsoft.Communication.IncomingCall'):
-                    if(post_data != None):
+                    if(post_data != None and cloud_event.data["to"]['rawId'] == self._call_configuration.bot_identity):
                         incoming_call_context = post_data.split(
                             "\"incomingCallContext\":\"")[1].split("\"}")[0]
                         self._incoming_calls.append(await IncomingCallHandler(self._calling_server_client, self._call_configuration).report(incoming_call_context))
