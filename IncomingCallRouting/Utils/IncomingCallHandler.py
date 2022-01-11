@@ -8,7 +8,7 @@ from Utils.CommunicationIdentifierKind import CommunicationIdentifierKind
 from Utils.CallConfiguration import CallConfiguration
 from EventHandler.EventDispatcher import EventDispatcher
 from azure.communication.callingserver.aio import CallingServerClient
-from azure.communication.callingserver import CallConnectionStateChangedEvent, ToneReceivedEvent, ToneInfo, PlayAudioResultEvent, CallMediaType, CallingEventSubscriptionType, CallConnectionState, CallingOperationStatus, ToneValue, CallingServerEventType, ParticipantsUpdatedEvent, CommunicationUserIdentifier, PhoneNumberIdentifier
+from azure.communication.callingserver import CallConnectionStateChangedEvent, ToneReceivedEvent, ToneInfo, PlayAudioResultEvent, CallMediaType, CallingEventSubscriptionType, CallConnectionState, CallingOperationStatus, ToneValue, CallingServerEventType, TransferCallResultEvent, CommunicationUserIdentifier, PhoneNumberIdentifier
 # from azure.communication.identity import 
 
 PLAY_AUDIO_AWAIT_TIMER = 10
@@ -22,7 +22,6 @@ class IncomingCallHandler:
 
     _call_established_task: asyncio.Future = None
     _play_audio_completed_task: asyncio.Future = None
-    _call_terminatied_task: asyncio.Future = None
     _tone_received_completed_task: asyncio.Future = None
     _transfer_to_participant_complete_task: asyncio.Future = None
     _max_retry_attempt_count = 3
@@ -66,6 +65,7 @@ class IncomingCallHandler:
                 await self._hang_up_async()
             else:
                 tone_received_completed_task = await self._tone_received_completed_task
+                transfer_to_participant_completed = False
                 if(tone_received_completed_task == True):
                     participant: str = self._target_participant
                     Logger.log_message(
@@ -73,8 +73,8 @@ class IncomingCallHandler:
                     transfer_to_participant_completed = await self._transfer_to_participant(participant)
                     if(transfer_to_participant_completed == False):
                         await self._retry_transfer_to_participant_async(participant)
-                await self._hang_up_async()
-            await self._call_terminatied_task
+                if(transfer_to_participant_completed == False):    
+                    await self._hang_up_async()
         except Exception as ex:
             Logger.log_message(Logger.ERROR,
                                "Call ended unexpectedly, reason: " + str(ex))
@@ -255,19 +255,17 @@ class IncomingCallHandler:
         return transfer_to_participant_completed
 
 
-    async def _register_to_transfer_participants_result_event(self, operation_context: str):        
-        async def transfer_to_participant_received_event(call_event):
-            transfer_to_participant_updated_event: ParticipantsUpdatedEvent = call_event
-            if(transfer_to_participant_updated_event != None):
-                Logger.log_message(Logger.INFORMATION, "Transfer participant callconnection ID - " + transfer_to_participant_updated_event.call_connection_id)
-                EventDispatcher.get_instance().unsubscribe(CallingServerEventType.PARTICIPANTS_UPDATED_EVENT, operation_context)
-                Logger.log_message(Logger.INFORMATION, "Sleeping for 60 seconds before proceeding further")
-                await asyncio.sleep(60)
+    def _register_to_transfer_participants_result_event(self, operation_context: str):        
+        def transfer_to_participant_received_event(call_event):
+            transfer_call_result_event: TransferCallResultEvent = call_event
+            if(transfer_call_result_event != None):
+                Logger.log_message(Logger.INFORMATION, "Transfer participant callconnection ID - " + transfer_call_result_event.operation_context)
+                EventDispatcher.get_instance().unsubscribe(CallingServerEventType.TRANSFER_CALL_RESULT_EVENT, transfer_call_result_event.operation_context)
                 self._transfer_to_participant_complete_task.set_result(True)
             else:
                 self._transfer_to_participant_complete_task.set_result(False)
         
-        EventDispatcher.get_instance().unsubscribe(CallingServerEventType.ParticipantsUpdatedEvent, operation_context, transfer_to_participant_received_event)
+        EventDispatcher.get_instance().subscribe(CallingServerEventType.TRANSFER_CALL_RESULT_EVENT, operation_context, transfer_to_participant_received_event)
 
         
     def _get_identifier_kind(self, participant_number: str):

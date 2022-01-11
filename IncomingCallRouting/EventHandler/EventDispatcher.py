@@ -5,7 +5,7 @@ from threading import Lock
 from azure.core.messaging import CloudEvent
 from azure.communication.callingserver import CallingServerEventType, \
     CallConnectionStateChangedEvent, ToneReceivedEvent, \
-    PlayAudioResultEvent, ParticipantsUpdatedEvent
+    PlayAudioResultEvent, TransferCallResultEvent
 
 
 class EventDispatcher:
@@ -65,10 +65,10 @@ class EventDispatcher:
             key = self.build_event_key(
                 CallingServerEventType.PLAY_AUDIO_RESULT_EVENT, operation_context)
             return key
-        elif type(call_event_base) == ParticipantsUpdatedEvent:
-            call_leg_id = call_event_base.call_connection_id
+        elif type(call_event_base) == TransferCallResultEvent:
+            call_leg_id = call_event_base.operation_context
             key = self.build_event_key(
-                CallingServerEventType.PARTICIPANTS_UPDATED_EVENT, call_leg_id)
+                CallingServerEventType.TRANSFER_CALL_RESULT_EVENT, call_leg_id)
             return key
         return None
 
@@ -85,10 +85,10 @@ class EventDispatcher:
                     event.data)
                 return play_audio_result_event
 
-            if event.type == CallingServerEventType.PARTICIPANTS_UPDATED_EVENT:
-               participants_updated_result_event = ParticipantsUpdatedEvent.deserialize(
+            if event.type == CallingServerEventType.TRANSFER_CALL_RESULT_EVENT:
+               transfer_call_result_event = TransferCallResultEvent.deserialize(
                    event.data)
-               return participants_updated_result_event
+               return transfer_call_result_event
 
             if event.type == CallingServerEventType.TONE_RECEIVED_EVENT:
                 tone_received_event = ToneReceivedEvent.deserialize(
