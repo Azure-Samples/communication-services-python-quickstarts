@@ -213,9 +213,9 @@ class IncomingCallHandler:
             
             EventDispatcher.get_instance().unsubscribe(
                 CallingServerEventType.TONE_RECEIVED_EVENT, call_leg_id)
-            # cancel playing audio
             
-            # asyncio.run(self._cancel_all_media_operations())
+            
+            # cancel playing audio
             future = asyncio.run_coroutine_threadsafe(self._cancel_all_media_operations(), loop)
             future.result()
 
