@@ -33,9 +33,6 @@ class IncomingCallHandler:
 
     async def report(self, incomming_call_context: str):
         try:
-            # wait for 10 sec before answering the call.
-            await asyncio.sleep(10)
-
             # answer call
             response = await self._calling_server_client.answer_call(
                 incomming_call_context,
@@ -122,12 +119,7 @@ class IncomingCallHandler:
                     try:
                         # cancel playing audio
                         await self._cancel_all_media_operations()
-                        self._play_audio_completed_task.set_result(True)
-                    except Exception as ex:
-                        pass
-                    try:
-                        # After playing audio for 10 sec, make toneReceivedCompleteTask true.
-                        self._tone_received_completed_task.set_result(True)
+                        self._play_audio_completed_task.set_result(False)
                     except Exception as ex:
                         pass
         except Exception as ex:
@@ -137,9 +129,7 @@ class IncomingCallHandler:
     async def _hang_up_async(self):
         Logger.log_message(Logger.INFORMATION,
                            "Performing Hangup operation")
-        hang_up_response = await self._call_connection.hang_up()
-        Logger.log_message(Logger.INFORMATION,
-                           "hang_up_async response -----> " + hang_up_response)
+        await self._call_connection.hang_up()
 
     async def _cancel_all_media_operations(self):
         Logger.log_message(Logger.INFORMATION,
@@ -201,8 +191,9 @@ class IncomingCallHandler:
 
     def _register_to_dtmf_result_event(self, call_leg_id):
         self._tone_received_completed_task = asyncio.Future()
+        loop = asyncio.get_event_loop()
 
-        async def dtmf_received_event(call_event):
+        def dtmf_received_event(call_event):
             tone_received_event: ToneReceivedEvent = call_event
             tone_info: ToneInfo = tone_received_event.tone_info
 
@@ -219,10 +210,19 @@ class IncomingCallHandler:
                     self._tone_received_completed_task.set_result(False)
                 except:
                     pass
+            
             EventDispatcher.get_instance().unsubscribe(
                 CallingServerEventType.TONE_RECEIVED_EVENT, call_leg_id)
             # cancel playing audio
-            await self._cancel_all_media_operations()
+            
+            # asyncio.run(self._cancel_all_media_operations())
+            future = asyncio.run_coroutine_threadsafe(self._cancel_all_media_operations(), loop)
+            future.result()
+
+            try:
+                self._play_audio_completed_task.set_result(True)
+            except:
+                pass
 
         # Subscribe to event
         EventDispatcher.get_instance().subscribe(

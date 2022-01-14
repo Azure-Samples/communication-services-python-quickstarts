@@ -46,6 +46,7 @@ class EventDispatcher:
             notification_callback = self.notification_callbacks.get(
                 self.get_event_key(call_event))
             if (notification_callback != None):
+                
                 threading.Thread(target=notification_callback,
                                  args=(call_event,)).start()
 
@@ -75,6 +76,7 @@ class EventDispatcher:
     def extract_event(self, request: str):
         try:
             event = CloudEvent.from_dict(json.loads(request)[0])
+            print(event)
             if event.type == CallingServerEventType.CALL_CONNECTION_STATE_CHANGED_EVENT:
                 call_connection_state_changed_event = CallConnectionStateChangedEvent.deserialize(
                     event.data)
