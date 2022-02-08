@@ -32,7 +32,7 @@ To run the quickstarts using the published version of the package:
 1. Install the dependencies using `pip`:
 ```bash
 pip install aiortc
-pip install azure-communication-networktraversal==1.0.0b2
+pip install azure-communication-networktraversal==1.0.0
 ```
 2. Open an instance of PowerShell, Windows Terminal, Command Prompt or equivalent and navigate to the directory that you'd like to clone the sample to.
 3. `git clone https://github.com/Azure-Samples/communication-services-python-quickstarts.git`
