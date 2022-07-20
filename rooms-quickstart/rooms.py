@@ -12,10 +12,10 @@ from azure.communication.identity import CommunicationUserIdentifier
 class RoomsQuickstart(object):
     roomsCollection = []
     connection_string = '<connection_string>'
-    participant1 = '<communication_identifiers>'
-    participant2 = '<communication_identifiers>'
-    participant3 = '<communication_identifiers>'
-    participant4 = '<communication_identifiers>'
+    participant1 = '<communication_identifier>'
+    participant2 = '<communication_identifier>'
+    participant3 = '<communication_identifier>'
+    participant4 = '<communication_identifier>'
 
     def setUp(self):
         self.rooms_client = RoomsClient.from_connection_string(self.connection_string)
@@ -27,23 +27,18 @@ class RoomsQuickstart(object):
         try:
             valid_from = datetime.now()
             valid_until = valid_from + relativedelta(months=+1,days=+20)
-
             participants = []
             participants.append(RoomParticipant(CommunicationUserIdentifier(self.participant1)))
-
             create_room_response = self.rooms_client.create_room(valid_from=valid_from, valid_until=valid_until, participants=participants)
             print('\nRoom created...')
             self.print_room(create_room_response)
-
             self.roomsCollection.append(create_room_response.id)
-
         except Exception as ex:
             print(ex)
 
     def update_room(self, room_id:str):
         valid_from = datetime.now()
         valid_until = valid_from + relativedelta(months=+1,days=+20)
-
         try:
             update_room_response = self.rooms_client.update_room(room_id=room_id, valid_from=valid_from, valid_until=valid_until)
             print('\nRoom updated...')
@@ -100,7 +95,6 @@ if __name__ == '__main__':
     rooms.get_participants_in_room(rooms.roomsCollection[0])
     rooms.remove_participant_from_room(rooms.roomsCollection[0], [rooms.participant3, rooms.participant4])
     rooms.get_participants_in_room(rooms.roomsCollection[0])
-
     rooms.tearDown()
 
     print('-----------------Completed room operations of create --> update --> add --> get --> delete-----------------------')
