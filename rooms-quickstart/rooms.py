@@ -3,7 +3,9 @@ from dateutil.relativedelta import relativedelta
 from azure.core.exceptions import HttpResponseError
 from azure.communication.rooms import (
     RoomsClient,
-    RoomParticipant
+    RoomParticipant,
+    RoleType,
+    RoomJoinPolicy
 )
 from azure.communication.identity import CommunicationUserIdentifier
 
@@ -25,9 +27,8 @@ class RoomsQuickstart(object):
         try:
             valid_from = datetime.now(timezone.utc)
             valid_until = valid_from + relativedelta(months=+1,days=+20)
-            participants = [RoomParticipant(CommunicationUserIdentifier(self.participant1))]
-            created_room = self.rooms_client.create_room(valid_from, valid_until, participants)
-            
+            participants = [RoomParticipant(CommunicationUserIdentifier(self.participant1), RoleType.PRESENTER)]
+            created_room = self.rooms_client.create_room(valid_from, valid_until, RoomJoinPolicy.COMMUNICATION_SERVICE_USERS, participants)
             print('\nRoom created.')
             self.print_room(created_room)
             self.roomsCollection.append(created_room.id)
@@ -67,7 +68,7 @@ class RoomsQuickstart(object):
         try:
             participants = []
             for p in participants_list:
-                participants.append(RoomParticipant(CommunicationUserIdentifier(p)))
+                participants.append(RoomParticipant(CommunicationUserIdentifier(p), RoleType.ATTENDEE))
             self.rooms_client.add_participants(room_id, participants)
             
             print(str(len(participants)) + ' new participants added to the room : ' + str(room_id))
@@ -91,9 +92,9 @@ if __name__ == '__main__':
     rooms.setup()
     rooms.create_room()
     rooms.update_room(room_id=rooms.roomsCollection[0])
-    rooms.add_participants_to_room(room_id=rooms.roomsCollection[0], participants=[rooms.participant2, rooms.participant3, rooms.participant4])
+    rooms.add_participants_to_room(room_id=rooms.roomsCollection[0], participants_list=[rooms.participant2, rooms.participant3, rooms.participant4])
     rooms.get_participants_in_room(room_id=rooms.roomsCollection[0])
-    rooms.remove_participants_from_room(room_id=rooms.roomsCollection[0], participants=[rooms.participant3, rooms.participant4])
+    rooms.remove_participants_from_room(room_id=rooms.roomsCollection[0], participants_list=[rooms.participant3, rooms.participant4])
     rooms.get_participants_in_room(room_id=rooms.roomsCollection[0])
     rooms.teardown()
 
