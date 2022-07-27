@@ -12,12 +12,19 @@ from azure.communication.identity import CommunicationUserIdentifier
 class RoomsQuickstart(object):
     roomsCollection = []
     connection_string = '<connection_string>'
+<<<<<<< HEAD
     participant1 = '<communication_identifier>'
     participant2 = '<communication_identifier>'
     participant3 = '<communication_identifier>'
     participant4 = '<communication_identifier>'
     participant5 = '<communication_identifier>'
     participant6 = '<communication_identifier>'
+=======
+    participant1 = '<communication_identifier1>'
+    participant2 = '<communication_identifier2>'
+    participant3 = '<communication_identifier3>'
+    participant4 = '<communication_identifier4>'
+>>>>>>> 8a8886b9e2712c0edf0c4ebd2a7f3365a6492a8e
 
     def setup(self):
         self.rooms_client = RoomsClient.from_connection_string(self.connection_string)
