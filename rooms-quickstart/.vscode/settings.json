@@ -1,6 +1,0 @@
-{
-    "python.analysis.extraPaths": [
-        "./src/azure-communication-rooms/sdk/communication/azure-communication-identity",
-        "./src/azure-communication-rooms/sdk/communication/azure-communication-rooms"
-    ]
-}
