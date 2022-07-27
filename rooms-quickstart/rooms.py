@@ -10,23 +10,13 @@ from azure.communication.rooms import (
 from azure.communication.identity import CommunicationUserIdentifier
 class RoomsQuickstart(object):
     roomsCollection = []
-    # connection_string = '<connection_string>'
-    # participant1 = '<communication_identifier>'
-    # participant2 = '<communication_identifier>'
-    # participant3 = '<communication_identifier>'
-    # participant4 = '<communication_identifier>'
-    # participant5 = '<communication_identifier>'
-    # participant6 = '<communication_identifier>'
-
-    roomsCollection = []
-    connection_string = 'endpoint=https://acs-app-validations.communication.azure.com/;accesskey=YHuzUTXJtHAuvglEyy0yf97vGEhZJ0rQ3QGSdMioovuohQcTeeUVHx3in0XNFot816J2+eIlxzwdw8VXlsqrwQ=='
-    participant1 = '8:acs:e333a5b5-c1e4-4984-b752-447bf92d10b7_00000012-bf6f-a2b1-b8ba-a43a0d001066'
-    participant2 = '8:acs:e333a5b5-c1e4-4984-b752-447bf92d10b7_00000012-bf6f-a2b1-b8ba-a43a0d001067'
-    participant3 = '8:acs:e333a5b5-c1e4-4984-b752-447bf92d10b7_00000012-bf6f-a2b1-b8ba-a43a0d001068'
-    participant4 = '8:acs:e333a5b5-c1e4-4984-b752-447bf92d10b7_00000012-bf6f-a2b1-b8ba-a43a0d001069'
-    participant5 = '8:acs:e333a5b5-c1e4-4984-b752-447bf92d10b7_00000012-bf6f-a2b1-b8ba-a43a0d001070'
-    participant6 = '8:acs:e333a5b5-c1e4-4984-b752-447bf92d10b7_00000012-bf6f-a2b1-b8ba-a43a0d001071'
-
+    connection_string = '<connection_string>'
+    participant1 = '<communication_identifier>'
+    participant2 = '<communication_identifier>'
+    participant3 = '<communication_identifier>'
+    participant4 = '<communication_identifier>'
+    participant5 = '<communication_identifier>'
+    participant6 = '<communication_identifier>'
 
     def setup(self):
         self.rooms_client = RoomsClient.from_connection_string(self.connection_string)
