@@ -28,7 +28,7 @@ For full instructions on how to build this code sample from scratch, look at [Qu
 From a console prompt, navigate to the directory containing the rooms.py file, then execute the following command:
 
 - pip install azure_communication_rooms-1.1.0-py2.py3-none-any.whl
-- pip install azure.communication.identity
+- pip install azure-communication-identity
 
 ## Before running sample code
 
