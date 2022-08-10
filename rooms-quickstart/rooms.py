@@ -1,5 +1,4 @@
-from datetime import datetime, timezone
-from dateutil.relativedelta import relativedelta
+from datetime import datetime, timezone, timedelta
 from azure.core.exceptions import HttpResponseError
 from azure.communication.rooms import (
     RoomsClient,
@@ -20,20 +19,24 @@ class RoomsQuickstart(object):
 
     def setup(self):
         self.rooms_client = RoomsClient.from_connection_string(self.connection_string)
-        
+
     def teardown(self):
         self.delete_all_rooms()
-    
+
     def create_room(self):
         try:
             valid_from = datetime.now(timezone.utc)
-            valid_until = valid_from + relativedelta(months=+1,days=+20)
-            participants = [RoomParticipant(CommunicationUserIdentifier(self.participant1), RoleType.PRESENTER)]
-            participant_1 = RoomParticipant(CommunicationUserIdentifier(self.participant1), RoleType.PRESENTER)
-            participant_2 = RoomParticipant(CommunicationUserIdentifier(self.participant2), RoleType.CONSUMER)
-            participant_3 = RoomParticipant(CommunicationUserIdentifier(self.participant3), RoleType.ATTENDEE)
+            valid_until = valid_from + timedelta(weeks=7)
+            participants = [RoomParticipant(communication_identifier=CommunicationUserIdentifier(self.participant1), role=RoleType.PRESENTER)]
+            participant_1 = RoomParticipant(communication_identifier=CommunicationUserIdentifier(self.participant1), role=RoleType.PRESENTER)
+            participant_2 = RoomParticipant(communication_identifier=CommunicationUserIdentifier(self.participant2), role=RoleType.CONSUMER)
+            participant_3 = RoomParticipant(communication_identifier=CommunicationUserIdentifier(self.participant3), role=RoleType.ATTENDEE)
             participants = [participant_1, participant_2, participant_3]
-            created_room = self.rooms_client.create_room(valid_from, valid_until, RoomJoinPolicy.COMMUNICATION_SERVICE_USERS, participants)
+            created_room = self.rooms_client.create_room(
+                valid_from=valid_from,
+                valid_until=valid_until,
+                room_join_policy=RoomJoinPolicy.COMMUNICATION_SERVICE_USERS,
+                participants=participants)
             print('\nRoom created.')
             self.print_room(created_room)
             self.roomsCollection.append(created_room.id)
@@ -42,7 +45,7 @@ class RoomsQuickstart(object):
 
     def update_room(self, room_id:str):
         valid_from = datetime.now(timezone.utc)
-        valid_until = valid_from + relativedelta(months=+1,days=+1)
+        valid_until = valid_from + timedelta(weeks=1)
         try:
             updated_room = self.rooms_client.update_room(room_id=room_id, valid_from=valid_from, valid_until=valid_until)
             print('\nRoom updated with new valid_from and valid_until time.')
@@ -54,8 +57,8 @@ class RoomsQuickstart(object):
         try:
             participants = []
             for p in participants_list:
-                participants.append(RoomParticipant(CommunicationUserIdentifier(p), RoleType.ATTENDEE))
-            self.rooms_client.update_participants(room_id, participants)
+                participants.append(RoomParticipant(communication_identifier=CommunicationUserIdentifier(p), role=RoleType.ATTENDEE))
+            self.rooms_client.update_participants(room_id=room_id, participants=participants)
             print('\nRoom participants updated.')
         except HttpResponseError as ex:
             print(ex)
@@ -74,24 +77,24 @@ class RoomsQuickstart(object):
 
     def print_room(self, room):
         print("\nRoom Id: " + room.id +
-              "\nCreated date time: " + str(room.created_date_time) +
+              "\nCreated date time: " + str(room.created_on) +
               "\nValid From: " + str(room.valid_from) + "\nValid Until: " + str(room.valid_until))
         print("Participants : \n" )
         for i in range(len(room.participants)):
-            print(str(i+1), room.participants[i].communication_identifier.properties['id'])
+            print(str(i+1), room.participants[i].communication_identifier.properties['id'], room.participants[i].role)
 
     def get_participants_in_room(self, room_id:str):
         participants = self.rooms_client.get_participants(room_id)
         print('\nParticipants in Room Id :', room_id)
         for i in range(len(participants.participants)):
-            print(str(i+1), participants.participants[i].communication_identifier.properties['id'])
+            print(str(i+1), participants.participants[i].communication_identifier.properties['id'], participants.participants[i].role)
 
     def add_participants_to_room(self, room_id:str, participants_list:list):
         try:
             participants = []
             for p in participants_list:
-                participants.append(RoomParticipant(CommunicationUserIdentifier(p), RoleType.ATTENDEE))
-            self.rooms_client.add_participants(room_id, participants)
+                participants.append(RoomParticipant(communication_identifier=CommunicationUserIdentifier(p), role=RoleType.ATTENDEE))
+            self.rooms_client.add_participants(room_id=room_id, participants=participants)
             print('\n(' + str(len(participants)) + ') new participants added to the room : ' + str(room_id))
         except Exception as ex:
             print('Error in adding participants to room.',ex)
