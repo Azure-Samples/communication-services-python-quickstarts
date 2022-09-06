@@ -16,8 +16,10 @@ Azure Communication Services enable developers to add communication capabilities
 
 3. [Create and manage access tokens](https://docs.microsoft.com/azure/communication-services/quickstarts/access-tokens?pivots=programming-language-python)
 
-4. [Manage Phone Numbers](https://docs.microsoft.com/azure/communication-services/quickstarts/telephony-sms/get-phone-number?pivots=programming-language-python)
+4. [Set up and manage access tokens for Teams users](https://docs.microsoft.com/azure/communication-services/quickstarts/manage-teams-identity?pivots=programming-language-python)
 
-5. [Use managed identities](https://docs.microsoft.com/azure/communication-services/quickstarts/managed-identity?pivots=programming-language-python)
+5. [Manage Phone Numbers](https://docs.microsoft.com/azure/communication-services/quickstarts/telephony-sms/get-phone-number?pivots=programming-language-python)
 
-6. [Get started with Rooms](https://docs.microsoft.com/en-us/azure/communication-services/quickstarts/rooms/get-started-rooms?pivots=programming-language-python)
+6. [Use managed identities](https://docs.microsoft.com/azure/communication-services/quickstarts/managed-identity?pivots=programming-language-python)
+
+7. [Get started with Rooms](https://docs.microsoft.com/en-us/azure/communication-services/quickstarts/rooms/get-started-rooms?pivots=programming-language-python)
