@@ -1,5 +1,6 @@
-from azure.communication.email import EmailClient, EmailContent,EmailAddress,EmailMessage,EmailRecipients
 import time
+from azure.communication.email import EmailClient, EmailContent, EmailAddress, EmailMessage, EmailRecipients
+
 def main():
     try:
         connection_string = "<ACS_CONNECTION_STRING>"
@@ -20,29 +21,29 @@ def main():
         )
 
         response = client.send(message)
-        if (response == None or response.message_id=='undfined' or response.message_id==''):
+        if (not response or response.message_id=='undefined' or response.message_id==''):
             print("Message Id not found.")
-        else:  
-            print("Send email succeed MessageId :"+ response.message_id)
-            messageId = response.message_id
+        else:
+            print("Send email succeeded for message_id :"+ response.message_id)
+            message_id = response.message_id
             counter = 0
-            time.sleep(20) # wait max 20 seconds to check the send status for mail.
             while True:
                 counter+=1
-                sendStatus = client.get_send_status(messageId)
+                send_status = client.get_send_status(message_id)
 
-                if (sendStatus):
-                   print("Email status for messageId %s is %s" %(messageId,sendStatus.status))
-                if (sendStatus.status.lower() == "queued" and counter < 12):
-                    continue
+                if (send_status):
+                    print(f"Email status for message_id {message_id} is {send_status.status}.")
+                if (send_status.status.lower() == "queued" and counter < 12):
+                    time.sleep(10)  # wait for 10 seconds before checking next time.
+                    counter +=1
                 else:
-                    if(sendStatus.status.lower() == "outfordelivery" ):
-                       print("Email is sucessfully delivered  for messageId %s" %(messageId))
-                       break
-                    else:
-                        print("Looks like we timed out for email")
+                    if(send_status.status.lower() == "outfordelivery"):
+                        print(f"Email delivered for message_id {message_id}.")
                         break
-            time.sleep(20)
-    except Exception as e:
-        print(e)
+                    else:
+                        print("Looks like we timed out for checking email send status.")
+                        break
+
+    except Exception as ex:
+        print(ex)
 main()
