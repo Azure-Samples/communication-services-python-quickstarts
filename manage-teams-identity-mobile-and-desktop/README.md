@@ -32,9 +32,11 @@ To be able to use the token for Calling, use it to initialize the `Communication
 1. Navigate to the `manage-teams-identity-mobile-and-desktop` directory.
 1. With the Communication Services procured in pre-requisites, add connection string, an Azure AD client ID and tenant ID to environment variable using below commands:
 
+```console
 setx COMMUNICATION_SERVICES_CONNECTION_STRING <COMMUNICATION_SERVICES_CONNECTION_STRING>
 setx AAD_CLIENT_ID <CONTOSO_AZURE_AD_CLIENT_ID>
 setx AAD_TENANT_ID <FABRIKAM_AZURE_AD_TENANT_ID>
+```
 
 ## Run the code
 
