@@ -31,7 +31,7 @@ try:
 	
 	# Create an identity and issue an access token with validity of 24 hours within the same request
 	identity_token_result = client.create_user_and_token(["voip"])
-    # Get the token details from the response
+	# Get the token details from the response
 	identity = identity_token_result[0].properties['id']
 	token = identity_token_result[1].token
 	expires_on = identity_token_result[1].expires_on
