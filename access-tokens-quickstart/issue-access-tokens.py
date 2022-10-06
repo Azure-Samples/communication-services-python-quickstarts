@@ -32,21 +32,21 @@ try:
 	# Create an identity and issue an access token with validity of 24 hours within the same request
 	identity_token_result = client.create_user_and_token(["voip"])
 	# Get the token details from the response
-	identity = identity_token_result[0].properties['id']
+	identity = identity_token_result[0]
 	token = identity_token_result[1].token
 	expires_on = identity_token_result[1].expires_on
-	print("\nCreated an identity with ID: " + identity)
+	print("\nCreated an identity with ID: " + identity.properties['id'])
 	print("\nIssued an access token with 'voip' scope that expires at " + expires_on + ":")
 	print(token)
  
 	# Create an identity and issue an access token with validity of an hour within the same request
 	identity_token_result = client.create_user_and_token(["voip"], token_expires_in=token_expires_in)
 	# Get the token details from the response
-	identity = identity_token_result[0].properties['id']
+	identity = identity_token_result[0]
 	token = identity_token_result[1].token
 	expires_on = identity_token_result[1].expires_on
-	print("\nCreated an identity with ID: " + identity)
-	print("\n**ßIssued an access token with 'voip' scope and custom expiration that expires at " + expires_on + ":")
+	print("\nCreated an identity with ID: " + identity.properties['id'])
+	print("\nIssued an access token with 'voip' scope and custom expiration that expires at " + expires_on + ":")
 	print(token)
  	
 	# Refresh access tokens - existingIdentity represents identity of Azure Communication Services stored during identity creation
