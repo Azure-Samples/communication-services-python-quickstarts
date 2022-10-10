@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from azure.communication.identity import CommunicationIdentityClient, CommunicationUserIdentifier
 
 try:
@@ -17,21 +18,25 @@ try:
 	#Store the identity to issue access tokens later
 	existingIdentity = identity	
 
-	# Issue an access token with the "voip" scope for an identity
+	# Issue an access token with a validity of 24 hours and the "voip" scope for an identity
 	token_result = client.get_token(identity, ["voip"])
-	expires_on = token_result.expires_on.strftime("%d/%m/%y %I:%M %S %p")
-	print("\nIssued an access token with 'voip' scope that expires at " + expires_on + ":")
+	print("\nIssued an access token with 'voip' scope that expires at " + token_result.expires_on + ":")
 	print(token_result.token)
+ 
+	# Issue an access token with a validity of an hour and the "voip" scope for an identity
+	token_expires_in = timedelta(hours=1)
+	token_result = client.get_token(identity, ["voip"], token_expires_in=token_expires_in)
 	
-	# Create an identity and issue an access token within the same request
+	# Create an identity and issue an access token with a validity of 24 hours within the same request
 	identity_token_result = client.create_user_and_token(["voip"])
-	identity = identity_token_result[0].properties['id']
+	# Get the token details from the response
+	identity = identity_token_result[0]
 	token = identity_token_result[1].token
-	expires_on = identity_token_result[1].expires_on.strftime("%d/%m/%y %I:%M %S %p")
-	print("\nCreated an identity with ID: " + identity)
+	expires_on = identity_token_result[1].expires_on
+	print("\nCreated an identity with ID: " + identity.properties['id'])
 	print("\nIssued an access token with 'voip' scope that expires at " + expires_on + ":")
 	print(token)
-
+ 	
 	# Refresh access tokens - existingIdentity represents identity of Azure Communication Services stored during identity creation
 	identity = CommunicationUserIdentifier(existingIdentity.properties['id'])
 	token_result = client.get_token( identity, ["voip"])
