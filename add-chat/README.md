@@ -16,7 +16,7 @@ For full instructions on how to build this code sample from scratch, look at [Qu
 ## Prerequisites
 
 - An Azure account with an active subscription. [Create an account for free](https://azure.microsoft.com/free/?WT.mc_id=A261C142F). 
-- Install [Python](https://www.python.org/downloads/).
+- Install [Python](https://www.python.org/downloads/) 3.7 or above.
 - Create an Azure Communication Services resource. For details, see [Quickstart: Create and manage Communication Services resources](https://docs.microsoft.com/azure/communication-services/quickstarts/create-communication-resource). You'll need to record your resource endpoint for this quickstart.
 - A [user access token](https://docs.microsoft.com/azure/communication-services/quickstarts/access-tokens?pivots=programming-language-python). Be sure to set the scope to **chat**, and note the **token** string as well as the **userId** string.
 

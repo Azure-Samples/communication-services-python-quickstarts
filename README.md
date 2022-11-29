@@ -5,7 +5,7 @@ Azure Communication Services enable developers to add communication capabilities
 ## Prerequisites
 
 - Create an Azure account with an active subscription. For details, see [Create an account for free](https://azure.microsoft.com/free/?WT.mc_id=A261C142F). 
-- Install [Python](https://www.python.org/downloads/)
+- Install [Python](https://www.python.org/downloads/) 3.7 or above.
 - Create an Azure Communication Services resource. For details, see [Create an Azure Communication Resource](https://docs.microsoft.com/en-us/azure/communication-services/quickstarts/create-communication-resource?tabs=windows&pivots=platform-azp).
 
 ## Quickstarts
