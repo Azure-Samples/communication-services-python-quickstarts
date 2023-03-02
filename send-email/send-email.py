@@ -22,7 +22,6 @@ try:
     client = EmailClient.from_connection_string(connection_string)
 
     poller = client.begin_send(message);
-    print("creating poller")
 
     time_elapsed = 0
     while not poller.done():
