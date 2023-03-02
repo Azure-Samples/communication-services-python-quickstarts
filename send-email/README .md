@@ -35,27 +35,39 @@ Additional documentation for this sample can be found on [Microsoft Docs](https:
 1. Open an instance of PowerShell, Windows Terminal, Command Prompt or equivalent program and navigate to the directory that you'd like to clone the sample to.
 2. `git clone https://github.com/Azure-Samples/communication-services-python-quickstarts.git`
 
+
+## Create virtual environment
+
+Navigate to the `send-email` directory in the console. Create a virtual environment and activate it using the following commands.
+
+```
+python -m venv venv
+.\venv\Scripts\activate
+```
+
 ## Install the packages
 
-From a console prompt, navigate to the directory containing the send-email.py file, then execute the following command:
+Execute the following command to install the SDK.
 
-- pip install azure-communication-email
+```
+pip install azure-communication-email
+```
 
 ### Locally configuring the application
 
-Open the send-email.py file and configure the following settings:
+Open the `send-email.py` file and configure the following settings:
 
-- `connectionstring`: Replace `<ACS_CONNECTION_STRING>` with the connection string found within the Azure Communication Service resource.
-- `sender`: Replace `<SENDER_EMAIL>` with the sender email obtained from Azure Communication Service.
-- `recipient`: Replace `<RECIPIENT_EMAIL>` with the recipient email.
-- `display_name` : Replace `<RECIPIENT_DISPLAY_NAME>` with the recipient display name.
-- `emailContent`: Either use PlainText or Html to set the email content.
+- `connection_string`: Replace `<ACS_CONNECTION_STRING>` with the connection string found within the Azure Communication Service resource.
+- `sender_address`: Replace `<SENDER_EMAIL_ADDRESS>` with the sender email address obtained from the linked domain resource.
+- `recipient_address`: Replace `<RECIPIENT_EMAIL_ADDRESS>` with the recipient email address.
 
 ## Run Locally
 
-From a console prompt, navigate to the directory containing the rooms.py file, then execute the following command to run the app.
+Execute the following command to run the app.
 
+```
 python ./send-email.py
+```
 
 ## ❤️ Feedback
 
