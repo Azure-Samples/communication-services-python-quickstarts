@@ -33,7 +33,7 @@ try:
         if time_elapsed > 18 * POLLER_WAIT_TIME:
             raise RuntimeError("Polling timed out.")
 
-    if poller.status() == "Succeeded":
+    if poller.result()["status"] == "Succeeded":
         print(f"Successfully sent the email (operation id: {poller.result()['id']})")
     else:
         raise RuntimeError(str(poller.result()["error"]))
