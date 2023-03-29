@@ -15,7 +15,7 @@ This is a sample email application to show how we can use the `azure-communicati
 This sample sends an email to the selected recipients of any domain using an [Email Communication Services resource](https://docs.microsoft.com/azure/communication-services/quickstarts/email/create-email-communication-resource).
 This is a console application built using python 3.10.6.
 
-Additional documentation for this sample can be found on [Microsoft Docs](https://pypi.org/project/azure-communication-email).
+Additional documentation for this sample can be found on [Microsoft Docs](https://docs.microsoft.com/azure/communication-services/concepts/email/email-overview).
 
 ## Prerequisites
 
@@ -31,9 +31,17 @@ Additional documentation for this sample can be found on [Microsoft Docs](https:
 - In a terminal or command window, run the `python --version` command to check that Python is installed.
 - To view the domains verified with your Email Communication Services resource, sign in to the [Azure portal](https://portal.azure.com/). Locate your Email Communication Services resource and open the **Provision domains** tab from the left navigation pane.
 
-## Code Structure
+## Code structure
 
-- **./send-email/send-email.py:** contains code for sending emails.
+The advanced version of send-email includes the following sub samples.
+
+### Send email with attachments
+
+- ./send-email-advanced/send-email-attachments/send-email-attachments.py
+
+### Send email to multiple recipients
+
+- ./send-email-advanced/send-email-multiple-recipients/send-email-multiple-recipients.py
 
 ## Before running the sample for the first time
 
@@ -59,7 +67,7 @@ pip install azure-communication-email
 
 ### Locally configuring the application
 
-Open the `send-email.py` file and configure the following settings:
+Open the corresponding py file of the sample to configure the following settings:
 
 - `connection_string`: Replace `<ACS_CONNECTION_STRING>` with the connection string found within the 'Keys' blade of the Azure Communication Service resource.
 - `sender_address`: Replace `<SENDER_EMAIL_ADDRESS>` with the sender email address obtained from the linked domain resource.
@@ -70,7 +78,7 @@ Open the `send-email.py` file and configure the following settings:
 Execute the following command to run the app.
 
 ```cmd
-python ./send-email.py
+python ./<FILENAME>.py
 ```
 
 ## ❤️ Feedback
