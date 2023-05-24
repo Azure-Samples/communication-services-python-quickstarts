@@ -112,6 +112,7 @@ if __name__ == '__main__':
     rooms.setup()
     rooms.create_room()
     rooms.update_room(room_id=rooms.roomsCollection[0])
+    rooms.get_room_after_participants_update(room_id=rooms.roomsCollection[0])
     rooms.add_or_update_participants(room_id=rooms.roomsCollection[0], participants_list=[rooms.participant4.raw_id, rooms.participant5.raw_id])
     rooms.list_all_rooms()
     rooms.get_participants_in_room(room_id=rooms.roomsCollection[0])
