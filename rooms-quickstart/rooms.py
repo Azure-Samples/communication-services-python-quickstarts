@@ -73,12 +73,17 @@ class RoomsQuickstart(object):
 
     def list_all_rooms(self):
         rooms = self.rooms_client.list_rooms()
-        print('\nList all valid rooms')
-        for r in rooms:
-             print("\nRoom Id: " + r.id +
-              "\nCreated date time: " + str(r.created_at) +
-              "\nValid From: " + str(r.valid_from) + "\nValid Until: " + str(r.valid_until))
+        print('\nList all active rooms')
 
+        count = 0
+        for room in rooms:
+            if count == 1:
+                break
+            print("\nPrinting the first room in list"
+              "\nRoom Id: " + room.id +
+              "\nCreated date time: " + str(room.created_at) +
+              "\nValid From: " + str(room.valid_from) + "\nValid Until: " + str(room.valid_until))
+            count += 1
 
     def delete_all_rooms(self):
         for room_id in self.roomsCollection:
