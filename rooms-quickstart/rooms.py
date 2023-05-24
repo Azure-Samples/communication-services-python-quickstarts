@@ -54,6 +54,13 @@ class RoomsQuickstart(object):
         except HttpResponseError as ex:
             print(ex)
 
+    def get_room_after_participants_update(self, room_id:str):
+        try:
+            get_room = self.rooms_client.get_room(room_id=room_id)
+            self.print_room(get_room)
+        except HttpResponseError as ex:
+            print(ex)
+
     def add_or_update_participants(self, room_id:str, participants_list:list):
         try:
             participants = []
