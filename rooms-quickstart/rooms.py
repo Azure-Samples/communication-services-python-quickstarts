@@ -60,14 +60,7 @@ class RoomsQuickstart(object):
             for p in participants_list:
                 participants.append(RoomParticipant(communication_identifier=CommunicationUserIdentifier(p), role=ParticipantRole.ATTENDEE))
             self.rooms_client.add_or_update_participants(room_id=room_id, participants=participants)
-            print('\nRoom participants updated.')
-        except HttpResponseError as ex:
-            print(ex)
-
-    def get_room_after_participants_update(self, room_id:str):
-        try:
-            get_room = self.rooms_client.get_room(room_id=room_id)
-            self.print_room(get_room)
+            print('\nRoom participants added or updated.')
         except HttpResponseError as ex:
             print(ex)
 
@@ -112,8 +105,7 @@ if __name__ == '__main__':
     rooms.setup()
     rooms.create_room()
     rooms.update_room(room_id=rooms.roomsCollection[0])
-    rooms.add_or_update_participants(room_id=rooms.roomsCollection[0], participants_list=[rooms.participant1.raw_id, rooms.participant3.raw_id])
-    rooms.get_room_after_participants_update(room_id=rooms.roomsCollection[0])
+    rooms.add_or_update_participants(room_id=rooms.roomsCollection[0], participants_list=[rooms.participant4.raw_id, rooms.participant5.raw_id])
     rooms.list_all_rooms()
     rooms.get_participants_in_room(room_id=rooms.roomsCollection[0])
     rooms.remove_participants_from_room(room_id=rooms.roomsCollection[0], participants_list=[rooms.participant4.raw_id, rooms.participant5.raw_id])
