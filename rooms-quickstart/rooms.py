@@ -13,11 +13,11 @@ class RoomsQuickstart(object):
     roomsCollection = []
     connection_string = '<connection_string>'
     identity_client = CommunicationIdentityClient.from_connection_string(connection_string)
-    participant1 = identity_client.create_user()
-    participant2 = identity_client.create_user()
-    participant3 = identity_client.create_user()
-    participant4 = identity_client.create_user()
-    participant5 = identity_client.create_user()
+    user1 = identity_client.create_user()
+    user2 = identity_client.create_user()
+    user3 = identity_client.create_user()
+    user4 = identity_client.create_user()
+    user5 = identity_client.create_user()
 
     def setup(self):
         self.rooms_client = RoomsClient.from_connection_string(self.connection_string)
@@ -30,9 +30,9 @@ class RoomsQuickstart(object):
             valid_from = datetime.now(timezone.utc)
             valid_until = valid_from + timedelta(weeks=7)
             participants = []
-            participant_1 = RoomParticipant(communication_identifier=self.participant1, role=ParticipantRole.PRESENTER)
-            participant_2 = RoomParticipant(communication_identifier=self.participant2, role=ParticipantRole.CONSUMER)
-            participant_3 = RoomParticipant(communication_identifier=self.participant3, role=ParticipantRole.ATTENDEE)
+            participant_1 = RoomParticipant(communication_identifier=self.user1, role=ParticipantRole.PRESENTER)
+            participant_2 = RoomParticipant(communication_identifier=self.user2, role=ParticipantRole.CONSUMER)
+            participant_3 = RoomParticipant(communication_identifier=self.user3, role=ParticipantRole.ATTENDEE)
             participants = [participant_1, participant_2, participant_3]
             created_room = self.rooms_client.create_room(
                 valid_from=valid_from,
@@ -118,10 +118,10 @@ if __name__ == '__main__':
     rooms.create_room()
     rooms.update_room(room_id=rooms.roomsCollection[0])
     rooms.get_room(room_id=rooms.roomsCollection[0])
-    rooms.add_or_update_participants(room_id=rooms.roomsCollection[0], participants_list=[rooms.participant4.raw_id, rooms.participant5.raw_id])
+    rooms.add_or_update_participants(room_id=rooms.roomsCollection[0], participants_list=[rooms.user4.raw_id, rooms.user5.raw_id])
     rooms.list_all_rooms()
     rooms.get_participants_in_room(room_id=rooms.roomsCollection[0])
-    rooms.remove_participants_from_room(room_id=rooms.roomsCollection[0], participants_list=[rooms.participant4.raw_id, rooms.participant5.raw_id])
+    rooms.remove_participants_from_room(room_id=rooms.roomsCollection[0], participants_list=[rooms.user4.raw_id, rooms.user5.raw_id])
     rooms.get_participants_in_room(room_id=rooms.roomsCollection[0])
     rooms.teardown()
 
