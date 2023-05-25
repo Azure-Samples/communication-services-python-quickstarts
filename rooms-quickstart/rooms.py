@@ -74,12 +74,12 @@ class RoomsQuickstart(object):
     def list_all_rooms(self):
         rooms = self.rooms_client.list_rooms()
         print('\nList all active rooms')
-
+        print('\nPrinting the first two rooms in list')
         count = 0
         for room in rooms:
-            if count == 1:
+            if count == 2:
                 break
-            print("\nPrinting the first room in list"
+            print(
               "\nRoom Id: " + room.id +
               "\nCreated date time: " + str(room.created_at) +
               "\nValid From: " + str(room.valid_from) + "\nValid Until: " + str(room.valid_until))
