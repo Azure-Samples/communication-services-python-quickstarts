@@ -1,0 +1,1 @@
+Flask==2.3.2azure-eventgrid==4.11.0azure-communication-callautomation==1.0.0a20230518001
