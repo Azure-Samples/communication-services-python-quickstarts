@@ -1,33 +1,23 @@
-from azure.core.exceptions import HttpResponseError
-from werkzeug.exceptions import HTTPException
-from flask import json, current_app as app
+from flask import json
+from flask.wrappers import Response
+from callautomation_appointmentbooking.exception.call_automation_exception import CallAutomationException
 
 
-@app.errorhandler(HttpResponseError)
-def handle_exception(e):
-    """Return JSON instead of HTML for HTTP errors."""
-    # start with the correct headers and status code from the error
-    response = e.get_response()
-    # replace the body with JSON
-    response.data = json.dumps({
-        "code": e.code,
-        "name": e.name,
-        "description": e.description,
-    })
-    response.content_type = "application/json"
-    return response
-
-
-@app.errorhandler(HTTPException)
-def handle_exception(e):
-    """Return JSON instead of HTML for HTTP errors."""
-    # start with the correct headers and status code from the error
-    response = e.get_response()
-    # replace the body with JSON
-    response.data = json.dumps({
-        "code": e.code,
-        "name": e.name,
-        "description": e.description,
-    })
+def handle_http_exception(e):
+    if isinstance(e.original_exception, CallAutomationException):
+        response = Response()
+        response.status_code = e.original_exception.error_details.status_code
+        response.data = json.dumps({
+            "code": e.original_exception.error_details.status_code,
+            "name": e.original_exception.error_details.message,
+            "description": e.original_exception.error_details.message,
+        })
+    else:
+        response = e.get_response()
+        response.data = json.dumps({
+            "code": e.code,
+            "name": e.name,
+            "description": e.description,
+        })
     response.content_type = "application/json"
     return response
