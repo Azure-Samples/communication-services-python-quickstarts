@@ -7,8 +7,10 @@ from service.call_automation_service import CallAutomationService
 class EventsHandler:
     def handle_incoming_events(self, event):
         app.logger.info("Event received: %s", event.event_type)
+        # this section is for handling initial handshaking with Event webhook registration
         if event.event_type == SystemEventNames.EventGridSubscriptionValidationEventName:
             return CallAutomationService(None).validate_subscription(event)
+        # Answer Incoming call with incoming call event data, incomingCallContext can be used to answer the call
         elif event.event_type == SystemEventNames.AcsIncomingCallEventName:
             CallAutomationService(None).answer_call(event)
         return None
@@ -17,4 +19,6 @@ class EventsHandler:
         call_connection_id = event.data['callConnectionId']
         app.logger.info("Event received: %s, for call connection id:%s", event.type, call_connection_id)
         appointment_booking_service = AppointmentBookingService(call_connection_id)
+        # Utilizing event handler to easily handle mid-call call automation events.
+        # process event into processor, so events could be handled in appointment booking service.
         appointment_booking_service.invoke_top_level_menu(event)

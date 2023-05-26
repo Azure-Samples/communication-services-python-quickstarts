@@ -4,7 +4,10 @@ from core.events_handler import EventsHandler
 
 incoming_call_api = Blueprint('incoming_call_api', __name__)
 
-
+"""
+This is the controller for receiving an inbound call.
+See README files how to setup incoming call and its incoming call event
+"""
 @incoming_call_api.route('/api/incomingCall', methods=['POST'])
 def incoming_call_handler():
     for event_dict in request.json:

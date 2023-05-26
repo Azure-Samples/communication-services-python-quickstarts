@@ -13,6 +13,9 @@ from callautomation_appointmentbooking.exception.call_automation_exception impor
 
 
 class CallAutomationService:
+    """
+    Reusable common calling actions for business needs
+    """
     def __init__(self, call_connection_id):
         self.call_connection_id = call_connection_id
         self.call_connection = CallConnectionClient.from_connection_string(Config.ACS_CONNECTION_STRING, call_connection_id)
@@ -30,6 +33,7 @@ class CallAutomationService:
             app.logger.info("Answering call")
             caller_id = event.data["from"]["rawId"]
             incoming_call_context = event.data['incomingCallContext']
+            # Crating and setting up callback endpoint mid-call events
             event_callback_uri = Config.BASE_CALLBACK_URI + "api/event?callerId=" + caller_id
             call_connection_properties = self.call_automation.answer_call(incoming_call_context, event_callback_uri)
             return call_connection_properties
@@ -73,12 +77,15 @@ class CallAutomationService:
 
     def parse_choice_from_recognize_event(self, event):
         app.logger.info("Parsing choice from event for call with connection id %s", self.call_connection_id)
+        # success recognition - return the tones detected.
         if event.type == constants.RECOGNIZE_COMPLETED_EVENT:
+            # check if it collected the minimum digit it needed
             if len(event.data['collectTonesResult']['tones']) == 1:
                 choice = event.data['collectTonesResult']['tones'][0]
                 return choice
             else:
                 return None
+        # failed recognition - likely timeout
         elif event.type == constants.RECOGNIZE_FAILED_EVENT:
             return None
 
