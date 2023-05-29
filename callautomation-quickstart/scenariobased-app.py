@@ -44,10 +44,10 @@ def callback_events_handler():
     for event_dict in request.json:
         event = CloudEvent.from_dict(event_dict)
         call_connection_id = event.data['callConnectionId']
+        call_connection = CallConnectionClient.from_connection_string(ACS_CONNECTION_STRING, call_connection_id)
         if event.type == "Microsoft.Communication.CallConnected" or \
                 (event.type == "Microsoft.Communication.PlayCompleted" and event.data['operationContext'] == "RETRY_RECOGNIZE"):
             target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
-            call_connection = CallConnectionClient.from_connection_string(ACS_CONNECTION_STRING, call_connection_id)
             call_connection.start_recognizing_media(input_type=RecognizeInputType.DTMF,
                                                     target_participant=target_participant,
                                                     play_prompt=MAIN_MENU_PROMPT,
@@ -67,15 +67,11 @@ def callback_events_handler():
                 call_automation.start_recording(call_locator=ServerCallLocator(server_call_id),
                                                 recording_state_callback_url=CALLBACK_EVENTS_URI)
             elif choice == DtmfTone.FIVE:
-                call_connection = CallConnectionClient.from_connection_string(ACS_CONNECTION_STRING, call_connection_id)
                 call_connection.play_media_to_all(GOODBYE_PROMPT, operation_context="GOODBYE_DONE")
             else:
-                call_connection = CallConnectionClient.from_connection_string(ACS_CONNECTION_STRING, call_connection_id)
                 call_connection.play_media_to_all(RETRY_PROMPT, operation_context="RETRY_RECOGNIZE")
 
-        elif event.type == "Microsoft.Communication.PlayCompleted" \
-                and event.data['operationContext'] == "GOODBYE_DONE":
-            call_connection = CallConnectionClient.from_connection_string(ACS_CONNECTION_STRING, call_connection_id)
+        elif event.type == "Microsoft.Communication.PlayCompleted" and event.data['operationContext'] == "GOODBYE_DONE":
             call_connection.hang_up(is_for_everyone=True)
 
         return Response(status=200)
