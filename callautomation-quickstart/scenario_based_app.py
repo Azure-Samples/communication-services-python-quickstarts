@@ -10,7 +10,7 @@ from azure.communication.callautomation import (
     FileSource)
 from azure.core.messaging import CloudEvent
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="audio", static_url_path="/audio")
 
 # Your ACS resource connection string
 ACS_CONNECTION_STRING = "<ACS_CONNECTION_STRING>"
@@ -26,9 +26,10 @@ CALLBACK_HOST = "<CALLBACK_HOST_WITH_PROTOCOL>"
 CALLBACK_EVENTS_URL = CALLBACK_HOST + "/callback_events"
 
 # These recorded prompts must be uploaded to publicly available URLs
-MAIN_MENU_PROMPT_URL = "<MAIN_MENU_WAV_FILE_URL>"
-RETRY_PROMPT_URL = "<RETRY_WAV_FILE_URL>"
-GOODBYE_PROMPT_URL = "<GOODBYE_WAV_FILE_URL>"
+MAIN_MENU_PROMPT_URL = CALLBACK_HOST + "/audio/PROMPT_MAIN_MENU.wav"
+RECORDING_STARTED_PROMPT_URL = CALLBACK_HOST + "/audio/PROMPT_PLAY_RECORDING_STARTED.wav"
+RETRY_PROMPT_URL = CALLBACK_HOST + "/audio/PROMPT_RETRY.wav"
+GOODBYE_PROMPT_URL = CALLBACK_HOST + "/audio/PROMPT_GOODBYE.wav"
 
 
 @app.route('/')
@@ -60,7 +61,7 @@ def callback_events_handler():
         # or retry flow is triggered which will be identified using operationContext of PlayCompleted event
         if event.type == "Microsoft.Communication.CallConnected" or \
                 (event.type == "Microsoft.Communication.PlayCompleted" and
-                 'operationContext' in event.data and event.data['operationContext'] == "RETRY_RECOGNIZE"):
+                 'operationContext' in event.data and event.data['operationContext'] == "RESTART_RECOGNIZE"):
             app.logger.info("CallConnected event received for call connection id: ", call_connection_id)
             target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
             main_menu_prompt = FileSource(MAIN_MENU_PROMPT_URL)
@@ -79,29 +80,38 @@ def callback_events_handler():
             choice = event.data['collectTonesResult']['tones'][0]
 
             # Handle 1-3 choices as per business requirements.
+            # ...
+            # Start recording and again trigger recognize by setting operation_context as RESTART_RECOGNIZE
             if choice == DtmfTone.FOUR:
                 app.logger.info("Starting recording")
                 server_call_id = call_connection_client.get_call_properties().server_call_id
                 call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
                 call_automation_client.start_recording(call_locator=ServerCallLocator(server_call_id),
                                                        recording_state_callback_url=CALLBACK_EVENTS_URL)
+                recording_started_prompt = FileSource(RECORDING_STARTED_PROMPT_URL)
+                call_connection_client.play_media_to_all(recording_started_prompt, operation_context="RESTART_RECOGNIZE")
+
+            # Play goodbye prompt with operation context GOODBYE_PLAYED.
             elif choice == DtmfTone.FIVE:
                 app.logger.info("Playing goodbye prompt")
                 goodbye_prompt = FileSource(GOODBYE_PROMPT_URL)
-                call_connection_client.play_media_to_all(goodbye_prompt, operation_context="GOODBYE_DONE")
+                call_connection_client.play_media_to_all(goodbye_prompt, operation_context="GOODBYE_PLAYED")
+
+            # Play retry prompt and again trigger recognize by setting operation_context as RESTART_RECOGNIZE.
             else:
                 app.logger.info("Playing retry prompt")
                 retry_prompt = FileSource(RETRY_PROMPT_URL)
-                call_connection_client.play_media_to_all(retry_prompt, operation_context="RETRY_RECOGNIZE")
+                call_connection_client.play_media_to_all(retry_prompt, operation_context="RESTART_RECOGNIZE")
 
-        # Trigger retry flow if recognize failed
+        # Trigger retry flow if DTMF recognize failed due to timeout.
         elif event.type == "Microsoft.Communication.RecognizeFailed":
             app.logger.info("RecognizeFailed event received for call connection id: ", call_connection_id)
             retry_prompt = FileSource(RETRY_PROMPT_URL)
-            call_connection_client.play_media_to_all(retry_prompt, operation_context="RETRY_RECOGNIZE")
+            call_connection_client.play_media_to_all(retry_prompt, operation_context="RESTART_RECOGNIZE")
 
-        # Terminating call once goodbye prompt play is completed
-        elif event.type == "Microsoft.Communication.PlayCompleted" and event.data['operationContext'] == "GOODBYE_DONE":
+        # Terminating call once goodbye prompt play is completed.
+        elif event.type == "Microsoft.Communication.PlayCompleted" and \
+                'operationContext' in event.data and event.data['operationContext'] == "GOODBYE_PLAYED":
             app.logger.info("PlayCompleted event received for call connection id: ", call_connection_id)
             call_connection_client.hang_up(is_for_everyone=True)
 

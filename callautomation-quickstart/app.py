@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect, Response
+from flask import Flask, Response, request, redirect
 from azure.communication.callautomation import (
     CallAutomationClient,
     CallConnectionClient,
