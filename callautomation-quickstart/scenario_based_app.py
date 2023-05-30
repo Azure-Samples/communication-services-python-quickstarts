@@ -1,4 +1,5 @@
-from flask import Flask, request, Response
+from flask import Flask, Response, request
+from logging import INFO
 from azure.communication.callautomation import (
     CallAutomationClient,
     CallConnectionClient,
@@ -56,13 +57,14 @@ def callback_events_handler():
         event = CloudEvent.from_dict(event_dict)
         call_connection_id = event.data['callConnectionId']
         call_connection_client = CallConnectionClient.from_connection_string(ACS_CONNECTION_STRING, call_connection_id)
+        app.logger.info("%s event received for call connection id: %s", event.type, call_connection_id)
 
         # Triggering DTMF recognize API after call is connected
         # or retry flow is triggered which will be identified using operationContext of PlayCompleted event
         if event.type == "Microsoft.Communication.CallConnected" or \
                 (event.type == "Microsoft.Communication.PlayCompleted" and
                  'operationContext' in event.data and event.data['operationContext'] == "RESTART_RECOGNIZE"):
-            app.logger.info("CallConnected event received for call connection id: ", call_connection_id)
+            app.logger.info("Starting recognize")
             target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
             main_menu_prompt = FileSource(MAIN_MENU_PROMPT_URL)
             call_connection_client.start_recognizing_media(input_type=RecognizeInputType.DTMF,
@@ -76,9 +78,8 @@ def callback_events_handler():
 
         # Handle different scenarios based on DTMF tone received in RecognizeCompleted event
         elif event.type == "Microsoft.Communication.RecognizeCompleted":
-            app.logger.info("RecognizeCompleted event received for call connection id: ", call_connection_id)
             choice = event.data['collectTonesResult']['tones'][0]
-
+            app.logger.info("Received choice %s", choice)
             # Handle 1-3 choices as per business requirements.
             # ...
             # Start recording and again trigger recognize by setting operation_context as RESTART_RECOGNIZE
@@ -97,26 +98,27 @@ def callback_events_handler():
                 goodbye_prompt = FileSource(GOODBYE_PROMPT_URL)
                 call_connection_client.play_media_to_all(goodbye_prompt, operation_context="GOODBYE_PLAYED")
 
-            # Play retry prompt and again trigger recognize by setting operation_context as RESTART_RECOGNIZE.
+            # Play retry prompt with operation_context as RESTART_RECOGNIZE.
             else:
                 app.logger.info("Playing retry prompt")
                 retry_prompt = FileSource(RETRY_PROMPT_URL)
                 call_connection_client.play_media_to_all(retry_prompt, operation_context="RESTART_RECOGNIZE")
 
-        # Trigger retry flow if DTMF recognize failed due to timeout.
+        # DTMF recognize failed due to timeout, play retry prompt with operation_context as RESTART_RECOGNIZE.
         elif event.type == "Microsoft.Communication.RecognizeFailed":
-            app.logger.info("RecognizeFailed event received for call connection id: ", call_connection_id)
+            app.logger.info("Recognize timed out, playing retry prompt")
             retry_prompt = FileSource(RETRY_PROMPT_URL)
             call_connection_client.play_media_to_all(retry_prompt, operation_context="RESTART_RECOGNIZE")
 
         # Terminating call once goodbye prompt play is completed.
         elif event.type == "Microsoft.Communication.PlayCompleted" and \
                 'operationContext' in event.data and event.data['operationContext'] == "GOODBYE_PLAYED":
-            app.logger.info("PlayCompleted event received for call connection id: ", call_connection_id)
+            app.logger.info("Terminating call")
             call_connection_client.hang_up(is_for_everyone=True)
 
         return Response(status=200)
 
 
 if __name__ == '__main__':
+    app.logger.setLevel(INFO)
     app.run()
