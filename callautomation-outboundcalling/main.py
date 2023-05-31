@@ -11,8 +11,6 @@ from azure.communication.callautomation import (
     FileSource)
 from azure.core.messaging import CloudEvent
 
-app = Flask(__name__, static_folder="audio", static_url_path="/audio")
-
 # Your ACS resource connection string
 ACS_CONNECTION_STRING = "<ACS_CONNECTION_STRING>"
 
@@ -22,14 +20,18 @@ ACS_PHONE_NUMBER = "<ACS_PHONE_NUMBER>"
 # Target phone number you want to receive the call.
 TARGET_PHONE_NUMBER = "<TARGET_PHONE_NUMBER>"
 
-# Callback events URL to handle callback events.
+# Callback events URI to handle callback events.
 CALLBACK_URI_HOST = "<CALLBACK_URI_HOST_WITH_PROTOCOL>"
 CALLBACK_EVENTS_URI = CALLBACK_URI_HOST + "/api/callbacks"
 
-# These recorded prompts must be uploaded to publicly available URIs
-MAIN_MENU_PROMPT_URI = CALLBACK_URI_HOST + "/audio/MainMenu.wav"
-CONFIRMED_PROMPT_URI = CALLBACK_URI_HOST + "/audio/Confirmed.wav"
-GOODBYE_PROMPT_URI = CALLBACK_URI_HOST + "/audio/Goodbye.wav"
+AUDIO_FILES_PATH = "/audio"
+
+# These recorded prompts must be on publicly available URIs
+MAIN_MENU_PROMPT_URI = CALLBACK_URI_HOST + AUDIO_FILES_PATH + "/MainMenu.wav"
+CONFIRMED_PROMPT_URI = CALLBACK_URI_HOST + AUDIO_FILES_PATH + "/Confirmed.wav"
+GOODBYE_PROMPT_URI = CALLBACK_URI_HOST + AUDIO_FILES_PATH + "/Goodbye.wav"
+
+app = Flask(__name__, static_folder=AUDIO_FILES_PATH.strip("/"), static_url_path=AUDIO_FILES_PATH)
 
 
 @app.route('/api/outboundCall')
@@ -48,14 +50,14 @@ def callback_events_handler():
         # Parsing callback events
         event = CloudEvent.from_dict(event_dict)
         call_connection_id = event.data['callConnectionId']
-        call_connection_client = CallConnectionClient.from_connection_string(ACS_CONNECTION_STRING, call_connection_id)
         app.logger.info("%s event received for call connection id: %s", event.type, call_connection_id)
+        call_connection_client = CallConnectionClient.from_connection_string(ACS_CONNECTION_STRING, call_connection_id)
 
         # Starting recording and triggering DTMF recognize API after call is connected
         if event.type == "Microsoft.Communication.CallConnected":
             app.logger.info("Starting recording")
             call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
-            call_automation_client.start_recording(call_locator=ServerCallLocator(event.data['serverCallId']))
+            call_automation_client.start_recording(ServerCallLocator(event.data['serverCallId']))
 
             app.logger.info("Starting recognize")
             target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
@@ -69,7 +71,7 @@ def callback_events_handler():
                                                            dtmf_max_tones_to_collect=1,
                                                            dtmf_stop_tones=[DtmfTone.POUND])
 
-        # Handle different scenarios based on DTMF tone received in RecognizeCompleted event
+        # Perform different actions based on DTMF tone received from RecognizeCompleted event
         elif event.type == "Microsoft.Communication.RecognizeCompleted":
             selected_tone = event.data['collectTonesResult']['tones'][0]
             app.logger.info("Received DTMF tone %s", selected_tone)

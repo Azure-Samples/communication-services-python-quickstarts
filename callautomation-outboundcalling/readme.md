@@ -19,7 +19,7 @@ This sample application is also capable of making multiple concurrent outbound c
 - A deployed Communication Services resource. [Create a Communication Services resource](https://docs.microsoft.com/azure/communication-services/quickstarts/create-communication-resource).
 - A [phone number](https://learn.microsoft.com/en-us/azure/communication-services/quickstarts/telephony/get-phone-number) in your Azure Communication Services resource that can make outbound calls. NB: phone numbers are not available in free subscriptions.
 - Create and host a Azure Dev Tunnel. Instructions [here](https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/get-started)
-- [Python](https://www.python.org/downloads/) 3.7+.
+- [Python](https://www.python.org/downloads/) 3.7 or above.
 
 ## Before running the sample for the first time
 
@@ -53,8 +53,8 @@ Open the main.py file to configure the following settings
 3. `TARGET_PHONE_NUMBER`: Target phone number to add in the call. For e.g. "+1425XXXAAAA"
 4. `CALLBACK_URI_HOST`: Base url of the app. (For local development use dev tunnel url)
 
-### Run app locally
+## Run app locally
 
-1. Navigate to `callautomation-outboundcalling` folder and run `main.py` in debug mode or use command `python main.py` to run it from PowerShell, Command Prompt or Unix Terminal
-2. Browser should pop up page with option to `Make outbound call`
-3. To initiate the call, click on `Make outbound call` or make a Http get request to `https://<CALLBACK_URI_HOST>/api/outboundCall`
+1. Navigate to `callautomation-outboundcalling` folder and run `main.py` in debug mode or use command `python ./main.py` to run it from PowerShell, Command Prompt or Unix Terminal
+2. Open `http://127.0.0.1:8080` or your dev tunnel url in browser and should get option to `Make outbound call`
+3. To initiate the call, click on `Make outbound call` link or make a Http get request to `https://<CALLBACK_URI_HOST>/api/outboundCall`
