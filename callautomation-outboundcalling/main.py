@@ -1,4 +1,4 @@
-from flask import Flask, Response, request, jsonify
+from flask import Flask, Response, request
 from logging import INFO
 from azure.communication.callautomation import (
     CallAutomationClient,

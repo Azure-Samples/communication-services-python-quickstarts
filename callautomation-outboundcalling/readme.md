@@ -29,7 +29,7 @@ This sample application is also capable of making multiple concurrent outbound c
 
 ### Setup the Python environment
 
-Create virtual environment and install required packages using following command 
+Create and activate python virtual environment and install required packages using following command 
 ```
 pip install -r requirements.txt
 ```
