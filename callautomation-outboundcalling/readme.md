@@ -1,6 +1,6 @@
-|page_type| languages                              |products
-|---|----------------------------------------|---|
-|sample| <table><tr><td>Pyhon</tr></td></table> |<table><tr><td>azure</td><td>azure-communication-services</td></tr></table>|
+|page_type| languages                               |products
+|---|-----------------------------------------|---|
+|sample| <table><tr><td>Python</tr></td></table> |<table><tr><td>azure</td><td>azure-communication-services</td></tr></table>|
 
 # Call Automation - Quick Start Sample
 
@@ -16,7 +16,7 @@ This sample application is also capable of making multiple concurrent outbound c
 ## Prerequisites
 
 - An Azure account with an active subscription. [Create an account for free](https://azure.microsoft.com/free/?WT.mc_id=A261C142F). 
-- A deployed Communication Services resource. [Create a Communication Services resource](../../create-communication-resource.md).
+- A deployed Communication Services resource. [Create a Communication Services resource](https://docs.microsoft.com/azure/communication-services/quickstarts/create-communication-resource).
 - A [phone number](https://learn.microsoft.com/en-us/azure/communication-services/quickstarts/telephony/get-phone-number) in your Azure Communication Services resource that can make outbound calls. NB: phone numbers are not available in free subscriptions.
 - Create and host a Azure Dev Tunnel. Instructions [here](https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/get-started)
 - [Python](https://www.python.org/downloads/) 3.7+.
@@ -55,6 +55,6 @@ Open the main.py file to configure the following settings
 
 ### Run app locally
 
-1. Run the `callautomation-outboundcalling` project in debug mode
+1. Navigate to `callautomation-outboundcalling` folder and run `main.py` in debug mode or use command `python main.py` to run it from PowerShell, Command Prompt or Unix Terminal
 2. Browser should pop up page with option to `Make outbound call`
 3. To initiate the call, click on `Make outbound call` or make a Http get request to `https://<CALLBACK_URI_HOST>/api/outboundCall`
