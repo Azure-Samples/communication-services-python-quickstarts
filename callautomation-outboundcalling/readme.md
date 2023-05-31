@@ -46,7 +46,7 @@ devtunnel host
 
 ### Configuring application
 
-Open the main.py file to configure the following settings
+Open `main.py` file to configure the following settings
 
 1. `ACS_CONNECTION_STRING`: Azure Communication Service resource's connection string.
 2. `ACS_PHONE_NUMBER`: Phone number associated with the Azure Communication Service resource. For e.g. "+1425XXXAAAA"

@@ -35,13 +35,13 @@ app = Flask(__name__, static_folder=AUDIO_FILES_PATH.strip("/"), static_url_path
 
 
 @app.route('/api/outboundCall')
-def create_outbound_call_handler():
+def outbound_call_handler():
     target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
-    source_caller_id_number = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
-    call_invite = CallInvite(target=target_participant, source_caller_id_number=source_caller_id_number)
+    source_caller = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
+    call_invite = CallInvite(target=target_participant, source_caller_id_number=source_caller)
     call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
-    create_call_result = call_automation_client.create_call(call_invite, CALLBACK_EVENTS_URI)
-    return "Created call with connection id: " + create_call_result.call_connection_id
+    call_connection_properties = call_automation_client.create_call(call_invite, CALLBACK_EVENTS_URI)
+    return "Created call with connection id: " + call_connection_properties.call_connection_id
 
 
 @app.route('/api/callbacks', methods=['POST'])
