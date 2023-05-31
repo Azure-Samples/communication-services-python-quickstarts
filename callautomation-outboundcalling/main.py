@@ -73,15 +73,15 @@ def callback_events_handler():
 
         # Perform different actions based on DTMF tone received from RecognizeCompleted event
         elif event.type == "Microsoft.Communication.RecognizeCompleted":
-            selected_tone = event.data['collectTonesResult']['tones'][0]
+            selected_tone = event.data['dtmfResult']['tones'][0]
             app.logger.info("Received DTMF tone %s", selected_tone)
 
             if selected_tone == DtmfTone.ONE:
                 app.logger.info("Playing confirmed prompt")
-                call_connection_client.play_media_to_all(FileSource(CONFIRMED_PROMPT_URI))
+                call_connection_client.play_media_to_all([FileSource(CONFIRMED_PROMPT_URI)])
             elif selected_tone == DtmfTone.TWO:
                 app.logger.info("Playing goodbye prompt")
-                call_connection_client.play_media_to_all(FileSource(GOODBYE_PROMPT_URI))
+                call_connection_client.play_media_to_all([FileSource(GOODBYE_PROMPT_URI)])
             else:
                 app.logger.info("Invalid selection, terminating call")
                 call_connection_client.hang_up(is_for_everyone=True)
