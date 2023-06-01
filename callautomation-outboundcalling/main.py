@@ -1,8 +1,8 @@
-from flask import Flask, Response, request
+from azure.eventgrid import EventGridEvent, SystemEventNames
+from flask import Flask, Response, request, json, send_file
 from logging import INFO
 from azure.communication.callautomation import (
     CallAutomationClient,
-    CallConnectionClient,
     PhoneNumberIdentifier,
     ServerCallLocator,
     CallInvite,
@@ -30,6 +30,11 @@ AUDIO_FILES_PATH = "/audio"
 MAIN_MENU_PROMPT_URI = CALLBACK_URI_HOST + AUDIO_FILES_PATH + "/MainMenu.wav"
 CONFIRMED_PROMPT_URI = CALLBACK_URI_HOST + AUDIO_FILES_PATH + "/Confirmed.wav"
 GOODBYE_PROMPT_URI = CALLBACK_URI_HOST + AUDIO_FILES_PATH + "/Goodbye.wav"
+INVALID_PROMPT_URI = CALLBACK_URI_HOST + AUDIO_FILES_PATH + "/Invalid.wav"
+TIMEOUT_PROMPT_URI = CALLBACK_URI_HOST + AUDIO_FILES_PATH + "/Timeout.wav"
+
+recording_id = None
+recording_chunks_location = []
 
 app = Flask(__name__, static_folder=AUDIO_FILES_PATH.strip("/"), static_url_path=AUDIO_FILES_PATH)
 
@@ -46,18 +51,20 @@ def outbound_call_handler():
 
 @app.route('/api/callbacks', methods=['POST'])
 def callback_events_handler():
+    global recording_id
     for event_dict in request.json:
         # Parsing callback events
         event = CloudEvent.from_dict(event_dict)
         call_connection_id = event.data['callConnectionId']
         app.logger.info("%s event received for call connection id: %s", event.type, call_connection_id)
-        call_connection_client = CallConnectionClient.from_connection_string(ACS_CONNECTION_STRING, call_connection_id)
+        call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
+        call_connection_client = call_automation_client.get_call_connection(call_connection_id)
 
         # Starting recording and triggering DTMF recognize API after call is connected
         if event.type == "Microsoft.Communication.CallConnected":
             app.logger.info("Starting recording")
-            call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
-            call_automation_client.start_recording(ServerCallLocator(event.data['serverCallId']))
+            recording_properties = call_automation_client.start_recording(ServerCallLocator(event.data['serverCallId']))
+            recording_id = recording_properties.recording_id
 
             app.logger.info("Starting recognize")
             target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
@@ -84,13 +91,47 @@ def callback_events_handler():
                 call_connection_client.play_media_to_all([FileSource(GOODBYE_PROMPT_URI)])
             else:
                 app.logger.info("Invalid selection, terminating call")
-                call_connection_client.hang_up(is_for_everyone=True)
+                call_connection_client.play_media_to_all([FileSource(INVALID_PROMPT_URI)])
 
-        elif event.type in ["Microsoft.Communication.PlayCompleted", "Microsoft.Communication.RecognizeFailed"]:
+        elif event.type == "Microsoft.Communication.RecognizeFailed":
+            app.logger.info("Failed to recognize tone")
+            call_connection_client.play_media_to_all([FileSource(TIMEOUT_PROMPT_URI)])
+
+        elif event.type in ["Microsoft.Communication.PlayCompleted", "Microsoft.Communication.PlayFailed"]:
             app.logger.info("Terminating call")
+            call_automation_client.stop_recording(recording_id)
             call_connection_client.hang_up(is_for_everyone=True)
 
         return Response(status=200)
+
+
+@app.route('/api/recordingCallbacks', methods=['POST'])
+def recording_callback_events_handler():
+    for event_dict in request.json:
+        event = EventGridEvent.from_dict(event_dict)
+        app.logger.info("Event received: %s", event.event_type)
+        if event.event_type == SystemEventNames.EventGridSubscriptionValidationEventName:
+            app.logger.info("Validating subscription")
+            validation_code = event.data['validationCode']
+            validation_response = {'validationResponse': validation_code}
+            return Response(response=json.dumps(validation_response), status=200)
+        elif event.event_type == SystemEventNames.AcsRecordingFileStatusUpdatedEventName:
+            global recording_chunks_location
+            for recording_chunks in event.data['recordingStorageInfo']['recordingChunks']:
+                recording_chunks_location.append(recording_chunks['contentLocation'])
+        return Response(status=200)
+
+
+@app.route('/api/recordingDownload')
+def recording_download_handler():
+    call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
+    with open("recording.wav", 'wb') as recording_file:
+        for recording_chunk in recording_chunks_location:
+            chunk_stream = call_automation_client.download_recording(recording_chunk)
+            chunk_data = chunk_stream.read()
+            if chunk_data:
+                recording_file.write(chunk_data)
+    return send_file(recording_file.name, mimetype="audio/wav", as_attachment=True, download_name=recording_file.name)
 
 
 @app.route('/')
