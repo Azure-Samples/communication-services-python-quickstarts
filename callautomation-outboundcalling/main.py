@@ -117,6 +117,7 @@ def recording_callback_events_handler():
             return Response(response=json.dumps(validation_response), status=200)
         elif event.event_type == SystemEventNames.AcsRecordingFileStatusUpdatedEventName:
             global recording_chunks_location
+            recording_chunks_location.clear()
             for recording_chunks in event.data['recordingStorageInfo']['recordingChunks']:
                 recording_chunks_location.append(recording_chunks['contentLocation'])
         return Response(status=200)
