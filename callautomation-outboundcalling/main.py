@@ -34,6 +34,7 @@ GOODBYE_PROMPT_URI = CALLBACK_URI_HOST + AUDIO_FILES_PATH + "/Goodbye.wav"
 INVALID_PROMPT_URI = CALLBACK_URI_HOST + AUDIO_FILES_PATH + "/Invalid.wav"
 TIMEOUT_PROMPT_URI = CALLBACK_URI_HOST + AUDIO_FILES_PATH + "/Timeout.wav"
 
+call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
 recording_id = None
 recording_chunks_location = []
 
@@ -48,7 +49,6 @@ def outbound_call_handler():
     target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
     source_caller = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
     call_invite = CallInvite(target=target_participant, source_caller_id_number=source_caller)
-    call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
     call_connection_properties = call_automation_client.create_call(call_invite, CALLBACK_EVENTS_URI)
     app.logger.info("Created call with connection id: %s", call_connection_properties.call_connection_id)
     return redirect("/")
@@ -62,7 +62,6 @@ def callback_events_handler():
         event = CloudEvent.from_dict(event_dict)
         call_connection_id = event.data['callConnectionId']
         app.logger.info("%s event received for call connection id: %s", event.type, call_connection_id)
-        call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
         call_connection_client = call_automation_client.get_call_connection(call_connection_id)
 
         # Starting recording and triggering DTMF recognize API after call is connected
@@ -130,7 +129,6 @@ def recording_callback_events_handler():
 
 @app.route('/download')
 def recording_download_handler():
-    call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
     with open("recording.wav", 'wb') as recording_file:
         for recording_chunk in recording_chunks_location:
             chunk_stream = call_automation_client.download_recording(recording_chunk)
