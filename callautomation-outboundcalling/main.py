@@ -54,6 +54,7 @@ def outbound_call_handler():
     app.logger.info("Created call with connection id: %s", call_connection_properties.call_connection_id)
     return redirect("/")
 
+
 # POST endpoint to handle callback events
 @app.route('/api/callbacks', methods=['POST'])
 def callback_events_handler():
@@ -109,6 +110,7 @@ def callback_events_handler():
 
         return Response(status=200)
 
+
 # POST endpoint to receive recording events
 @app.route('/api/recordingFileStatus', methods=['POST'])
 def recording_file_status_handler():
@@ -127,6 +129,7 @@ def recording_file_status_handler():
                 recording_chunks_location.append(recording_chunks['contentLocation'])
         return Response(status=200)
 
+
 # GET endpoint to download call recording
 @app.route('/download')
 def recording_download_handler():
@@ -137,6 +140,7 @@ def recording_download_handler():
             if chunk_data:
                 recording_file.write(chunk_data)
     return send_file(recording_file.name, mimetype="audio/wav", as_attachment=True, download_name=recording_file.name)
+
 
 # GET endpoint to render the menus
 @app.route('/')
