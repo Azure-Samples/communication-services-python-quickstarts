@@ -44,6 +44,7 @@ app = Flask(__name__,
             template_folder=TEMPLATE_FILES_PATH)
 
 
+# GET endpoint to place phone call
 @app.route('/outboundCall')
 def outbound_call_handler():
     target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
@@ -53,7 +54,7 @@ def outbound_call_handler():
     app.logger.info("Created call with connection id: %s", call_connection_properties.call_connection_id)
     return redirect("/")
 
-
+# POST endpoint to handle callback events
 @app.route('/api/callbacks', methods=['POST'])
 def callback_events_handler():
     global recording_id
@@ -108,9 +109,9 @@ def callback_events_handler():
 
         return Response(status=200)
 
-
+# POST endpoint to receive recording events
 @app.route('/api/recordingFileStatus', methods=['POST'])
-def recording_callback_events_handler():
+def recording_file_status_handler():
     for event_dict in request.json:
         event = EventGridEvent.from_dict(event_dict)
         app.logger.info("Event received: %s", event.event_type)
@@ -126,7 +127,7 @@ def recording_callback_events_handler():
                 recording_chunks_location.append(recording_chunks['contentLocation'])
         return Response(status=200)
 
-
+# GET endpoint to download call recording
 @app.route('/download')
 def recording_download_handler():
     with open("recording.wav", 'wb') as recording_file:
@@ -137,7 +138,7 @@ def recording_download_handler():
                 recording_file.write(chunk_data)
     return send_file(recording_file.name, mimetype="audio/wav", as_attachment=True, download_name=recording_file.name)
 
-
+# GET endpoint to render the menus
 @app.route('/')
 def index_handler():
     return render_template("index.html")
