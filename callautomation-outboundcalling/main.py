@@ -1,5 +1,5 @@
 from azure.eventgrid import EventGridEvent, SystemEventNames
-from flask import Flask, Response, request, json, send_file
+from flask import Flask, Response, request, json, send_file, render_template, redirect
 from logging import INFO
 from azure.communication.callautomation import (
     CallAutomationClient,
@@ -25,6 +25,7 @@ CALLBACK_URI_HOST = "<CALLBACK_URI_HOST_WITH_PROTOCOL>"
 CALLBACK_EVENTS_URI = CALLBACK_URI_HOST + "/api/callbacks"
 
 AUDIO_FILES_PATH = "/audio"
+TEMPLATE_FILES_PATH = "template"
 
 # These recorded prompts must be on publicly available URIs
 MAIN_MENU_PROMPT_URI = CALLBACK_URI_HOST + AUDIO_FILES_PATH + "/MainMenu.wav"
@@ -36,17 +37,21 @@ TIMEOUT_PROMPT_URI = CALLBACK_URI_HOST + AUDIO_FILES_PATH + "/Timeout.wav"
 recording_id = None
 recording_chunks_location = []
 
-app = Flask(__name__, static_folder=AUDIO_FILES_PATH.strip("/"), static_url_path=AUDIO_FILES_PATH)
+app = Flask(__name__,
+            static_folder=AUDIO_FILES_PATH.strip("/"),
+            static_url_path=AUDIO_FILES_PATH,
+            template_folder=TEMPLATE_FILES_PATH)
 
 
-@app.route('/api/outboundCall')
+@app.route('/outboundCall')
 def outbound_call_handler():
     target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
     source_caller = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
     call_invite = CallInvite(target=target_participant, source_caller_id_number=source_caller)
     call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
     call_connection_properties = call_automation_client.create_call(call_invite, CALLBACK_EVENTS_URI)
-    return "Created call with connection id: " + call_connection_properties.call_connection_id
+    app.logger.info("Created call with connection id: %s", call_connection_properties.call_connection_id)
+    return redirect("/")
 
 
 @app.route('/api/callbacks', methods=['POST'])
@@ -105,7 +110,7 @@ def callback_events_handler():
         return Response(status=200)
 
 
-@app.route('/api/recordingCallbacks', methods=['POST'])
+@app.route('/api/recordingFileStatus', methods=['POST'])
 def recording_callback_events_handler():
     for event_dict in request.json:
         event = EventGridEvent.from_dict(event_dict)
@@ -123,7 +128,7 @@ def recording_callback_events_handler():
         return Response(status=200)
 
 
-@app.route('/api/recordingDownload')
+@app.route('/download')
 def recording_download_handler():
     call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
     with open("recording.wav", 'wb') as recording_file:
@@ -137,8 +142,7 @@ def recording_download_handler():
 
 @app.route('/')
 def index_handler():
-    welcome_message = "<a href='/api/outboundCall'>Make outbound call to {0}</a><br><br>"
-    return welcome_message.format(TARGET_PHONE_NUMBER)
+    return render_template("index.html")
 
 
 if __name__ == '__main__':
