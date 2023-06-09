@@ -4,10 +4,10 @@ languages:
 - python
 products:
 - azure
-- azure-communication-CallAutomation
+- azure-communication-callautomation
 ---
 
-#  Sample
+#  Call Recording APIs Sample
 This is a sample application to showcase how the Call Automation SDK can be used to add recording features to any application.
 The application is a console based application build using Python 3.9 and above.
 It harnesses the power of Azure Communication Services to establish connections and enable communication features within the application. A separate branch with end to end implementation is available. It's a public preview branch and uses beta SDKs that are not meant for production use. Please use the main branch sample for any production scenarios.
@@ -28,6 +28,7 @@ It harnesses the power of Azure Communication Services to establish connections 
     - ngrok http {portNumber}(For e.g. ngrok http 58963)
     - Get Ngrok Url generated. Ngrok Url will be in the form of e.g. "https://95b6-43-230-212-228.ngrok-free.app"
 - Create a webhook and subscribe to the recording events. For details, see [Create webhook](https://docs.microsoft.com/azure/communication-services/quickstarts/voice-video-calling/download-recording-file-sample)
+- **Note:** Phone number is required to successfully run this sample.
 
 ## Clone the code local and update configuration
 
@@ -40,7 +41,7 @@ It harnesses the power of Azure Communication Services to establish connections 
 	| -------- | -------- | -------- |
 	| `ACSResourceConnectionString`    | \<ACS Connection String>   | Input your ACS connection string in the variable   |
 	| `ACSAcquiredPhoneNumber`    | \<ACS Acquired Number>   | Phone number associated with the Azure Communication Service resource   |
-	| `BaseUri`    | \<ngrok url>   | Base url of the app, don't add `/` at end. generate ngrok url as mentioned above.   |
+	| `CallbackUri`    | \<ngrok url>   | Base url of the app, don't add `/` at end. generate ngrok url as mentioned above.   |
 
 
 ## Code structure
@@ -59,17 +60,28 @@ pip install -r requirements.txt
 ## Run app locally
 
 1. Navigate to `call-recording` folder and run `App.py` in debug mode or use command `python ./App.py` to run it from PowerShell, Command Prompt or Unix Terminal
-2. Import `call-recording\data\Recordings API.postman_collection.json` file into postman
-3. update `Host_Name` in postman API's before making a call.
+2. Import `call-recording\data\Recordings API.postman_collection.json` file into postman, you get `Recordings API` collection. For details, see [Importing and exporting data](https://learning.postman.com/docs/getting-started/importing-and-exporting-data/)
+3. Select `Recordings API`, under Variables, update `HOST_URL` and `TARGET_PHONE_NUMBER` before making calls.
 
-### Step by step guid for testing recording APIs via swagger.
-1. Step 1. Start a call invoke OutboundCall.
-	- Try it out `GET OutboundCall`, provide the Target PSTN phone number under query params to get the call.
-	- `Send`, accept the call on Target PSTN Phone number, Keep call running.
-2. Step 2. Start Recording.
-	-	Try it out `GET StartRecording`, provide the serverCallId value, optional if recording the same call started in *step1*.
-	- 	`Send`, recording would be started.
-3. Step 3. (Optional) Execute `GET PauseRecording` and then `GET ResumeRecording`, passing recordingId is optional.
-4. Step 4. Execute `GET StopReocording` to stop the recording, passing recordingId is optional.
-5. Step 5. Execute `GET DownloadRecording` for downloading the recording from server, only last recorded file will be downloaded.
-6. Step 6. Execute `DELETE DeleteRecording` for delete the recording at server.
+# Step by step guid for testing recording APIs via postman.
+
+Once App is running locally,
+1. Create webhook (Follow "Create Webhook for Microsoft.Communication.RecordingFileStatus event" section below )
+2. Start a call by invoking Qutbound Call request. 
+	- Accept the call on Target PSTN Phone number, Keep call running.
+5. Send Request to StartRecording.
+	- Recording would be started.
+6. (Optional) PauseRecording, ResumeRecording and GetRecordingState.
+7. Send Request for StopRecording.
+8. Send Request for DownloadRecording from server, only last recorded file will be downloaded.
+9. Send Request for DeleteRecording at server.
+
+## Create Webhook for Microsoft.Communication.RecordingFileStatus event
+Call Recording enables you to record multiple calling scenarios available in Azure Communication Services by providing you with a set of APIs to start, stop, pause and resume recording. To learn more about it, see [this guide](https://learn.microsoft.com/en-us/azure/communication-services/concepts/voice-video-calling/call-recording). 
+1. Navigate to your Communication Service resource on Azure portal and select `Events` from the left side blade.
+2. Click `+ Event Subscription` to create a new subscription, provide `Name` field value. 
+3. Under Topic details, choose a System Topic or create new, no changes required if its already have topic name.  
+4. Under `Event Types` Filter for `Recording File Status Updated(Preview)` event. 
+5. Choose `Endpoint Type` as `Web Hook` and provide the public url generated by Ngrok. It would look like `https://2c0a-49-207-209-111.ngrok-free.app/recordingFileStatus`.  
+6. Click `Create` to complete the event grid subscription. The subscription is ready when the provisioning status is marked as succeeded.  
+**Note:** Application should be running to able to create the `Web Hook` successfully. 

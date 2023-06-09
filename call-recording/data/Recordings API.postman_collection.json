@@ -1,9 +1,9 @@
 {
 	"info": {
-		"_postman_id": "15dc15f3-3228-4a3f-93a4-be6a052cbf63",
+		"_postman_id": "be622dd7-585a-4b41-b10e-750a9d1ad2f8",
 		"name": "Recordings API",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-		"_exporter_id": "16222952"
+		"_exporter_id": "1437196"
 	},
 	"item": [
 		{
@@ -14,13 +14,7 @@
 			},
 			"request": {
 				"method": "GET",
-				"header": [
-					{
-						"key": "Authorization",
-						"value": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSIsInR5cCI6IkpXVCIsIng1dCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSJ9.eyJuYmYiOjE2ODUxMTA5OTAsImV4cCI6MTY4NTExMTI5MCwiaXNzIjoiaHR0cHM6Ly9hY3NjYWxsYXV0b21hdGlvbi5jb21tdW5pY2F0aW9uLmF6dXJlLmNvbSIsImF1ZCI6ImUzMzNhNWI1LWMxZTQtNDk4NC1iNzUyLTQ0N2JmOTJkMTBiNyJ9.IyZoE9RPXZj506JZJ5L1jnazGBfyKntVkBpT276ifnFcj8zcwmNrhEGCmK8mIUz4ndAb5wAcLMHYdbuPQozMkxtKWK3bVBgYwegAHmOSX7CnKCV5t9Wg9kmk9cfcFSxOSD9gOitpKYqTpZcE0YBkI4aHdDT-jXEk4ONlwZmAssgccC0TtXgHQiMBnbeM-gbqMdCY_8zK73Nh5gQfyhYb3jzp8dHcJE3D9-W-nqYiFvC1DeWG-abI7WUSgZd9JyisuifXE9u5Z6-2UVqSDiuInMcu-hLHCkhIP_PBJ0ZGVBzmhsmEJMBle12acA679Bjg3Ny7jZJUBSZ1ytQTEZLBZQ",
-						"type": "text"
-					}
-				],
+				"header": [],
 				"body": {
 					"mode": "raw",
 					"raw": "",
@@ -31,10 +25,9 @@
 					}
 				},
 				"url": {
-					"raw": "https://{Host_Name}/outboundCall?targetPhoneNumber={PHONE_NUMBER}",
-					"protocol": "https",
+					"raw": "{{HOST_URL}}/outboundCall?targetPhoneNumber={{TARGET_PHONE_NUMBER}}",
 					"host": [
-						"{Host_Name}"
+						"{{HOST_URL}}"
 					],
 					"path": [
 						"outboundCall"
@@ -42,7 +35,7 @@
 					"query": [
 						{
 							"key": "targetPhoneNumber",
-							"value": "{PHONE_NUMBER}"
+							"value": "{{TARGET_PHONE_NUMBER}}"
 						}
 					]
 				}
@@ -57,13 +50,7 @@
 			},
 			"request": {
 				"method": "GET",
-				"header": [
-					{
-						"key": "Authorization",
-						"value": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSIsInR5cCI6IkpXVCIsIng1dCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSJ9.eyJuYmYiOjE2ODUxMTA5OTAsImV4cCI6MTY4NTExMTI5MCwiaXNzIjoiaHR0cHM6Ly9hY3NjYWxsYXV0b21hdGlvbi5jb21tdW5pY2F0aW9uLmF6dXJlLmNvbSIsImF1ZCI6ImUzMzNhNWI1LWMxZTQtNDk4NC1iNzUyLTQ0N2JmOTJkMTBiNyJ9.IyZoE9RPXZj506JZJ5L1jnazGBfyKntVkBpT276ifnFcj8zcwmNrhEGCmK8mIUz4ndAb5wAcLMHYdbuPQozMkxtKWK3bVBgYwegAHmOSX7CnKCV5t9Wg9kmk9cfcFSxOSD9gOitpKYqTpZcE0YBkI4aHdDT-jXEk4ONlwZmAssgccC0TtXgHQiMBnbeM-gbqMdCY_8zK73Nh5gQfyhYb3jzp8dHcJE3D9-W-nqYiFvC1DeWG-abI7WUSgZd9JyisuifXE9u5Z6-2UVqSDiuInMcu-hLHCkhIP_PBJ0ZGVBzmhsmEJMBle12acA679Bjg3Ny7jZJUBSZ1ytQTEZLBZQ",
-						"type": "text"
-					}
-				],
+				"header": [],
 				"body": {
 					"mode": "raw",
 					"raw": "",
@@ -74,12 +61,9 @@
 					}
 				},
 				"url": {
-					"raw": "https://902f-2405-201-4042-d03e-f4f8-726c-b951-a492.ngrok-free.app/startRecording?serverCallId=",
-					"protocol": "https",
+					"raw": "{{HOST_URL}}/startRecording?serverCallId=",
 					"host": [
-						"902f-2405-201-4042-d03e-f4f8-726c-b951-a492",
-						"ngrok-free",
-						"app"
+						"{{HOST_URL}}"
 					],
 					"path": [
 						"startRecording"
@@ -87,7 +71,8 @@
 					"query": [
 						{
 							"key": "serverCallId",
-							"value": ""
+							"value": "",
+							"description": "Optional, if not passed, it will use last OutboundCall serverCallId"
 						}
 					]
 				}
@@ -102,13 +87,7 @@
 			},
 			"request": {
 				"method": "GET",
-				"header": [
-					{
-						"key": "Authorization",
-						"value": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSIsInR5cCI6IkpXVCIsIng1dCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSJ9.eyJuYmYiOjE2ODUxMTA5OTAsImV4cCI6MTY4NTExMTI5MCwiaXNzIjoiaHR0cHM6Ly9hY3NjYWxsYXV0b21hdGlvbi5jb21tdW5pY2F0aW9uLmF6dXJlLmNvbSIsImF1ZCI6ImUzMzNhNWI1LWMxZTQtNDk4NC1iNzUyLTQ0N2JmOTJkMTBiNyJ9.IyZoE9RPXZj506JZJ5L1jnazGBfyKntVkBpT276ifnFcj8zcwmNrhEGCmK8mIUz4ndAb5wAcLMHYdbuPQozMkxtKWK3bVBgYwegAHmOSX7CnKCV5t9Wg9kmk9cfcFSxOSD9gOitpKYqTpZcE0YBkI4aHdDT-jXEk4ONlwZmAssgccC0TtXgHQiMBnbeM-gbqMdCY_8zK73Nh5gQfyhYb3jzp8dHcJE3D9-W-nqYiFvC1DeWG-abI7WUSgZd9JyisuifXE9u5Z6-2UVqSDiuInMcu-hLHCkhIP_PBJ0ZGVBzmhsmEJMBle12acA679Bjg3Ny7jZJUBSZ1ytQTEZLBZQ",
-						"type": "text"
-					}
-				],
+				"header": [],
 				"body": {
 					"mode": "raw",
 					"raw": "",
@@ -119,12 +98,9 @@
 					}
 				},
 				"url": {
-					"raw": "https://902f-2405-201-4042-d03e-f4f8-726c-b951-a492.ngrok-free.app/pauseRecording?recordingId=",
-					"protocol": "https",
+					"raw": "{{HOST_URL}}/pauseRecording?recordingId=",
 					"host": [
-						"902f-2405-201-4042-d03e-f4f8-726c-b951-a492",
-						"ngrok-free",
-						"app"
+						"{{HOST_URL}}"
 					],
 					"path": [
 						"pauseRecording"
@@ -132,7 +108,8 @@
 					"query": [
 						{
 							"key": "recordingId",
-							"value": ""
+							"value": "",
+							"description": "Optional, if not passed, it will use current active recording Id"
 						}
 					]
 				}
@@ -147,13 +124,7 @@
 			},
 			"request": {
 				"method": "GET",
-				"header": [
-					{
-						"key": "Authorization",
-						"value": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSIsInR5cCI6IkpXVCIsIng1dCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSJ9.eyJuYmYiOjE2ODUxMTA5OTAsImV4cCI6MTY4NTExMTI5MCwiaXNzIjoiaHR0cHM6Ly9hY3NjYWxsYXV0b21hdGlvbi5jb21tdW5pY2F0aW9uLmF6dXJlLmNvbSIsImF1ZCI6ImUzMzNhNWI1LWMxZTQtNDk4NC1iNzUyLTQ0N2JmOTJkMTBiNyJ9.IyZoE9RPXZj506JZJ5L1jnazGBfyKntVkBpT276ifnFcj8zcwmNrhEGCmK8mIUz4ndAb5wAcLMHYdbuPQozMkxtKWK3bVBgYwegAHmOSX7CnKCV5t9Wg9kmk9cfcFSxOSD9gOitpKYqTpZcE0YBkI4aHdDT-jXEk4ONlwZmAssgccC0TtXgHQiMBnbeM-gbqMdCY_8zK73Nh5gQfyhYb3jzp8dHcJE3D9-W-nqYiFvC1DeWG-abI7WUSgZd9JyisuifXE9u5Z6-2UVqSDiuInMcu-hLHCkhIP_PBJ0ZGVBzmhsmEJMBle12acA679Bjg3Ny7jZJUBSZ1ytQTEZLBZQ",
-						"type": "text"
-					}
-				],
+				"header": [],
 				"body": {
 					"mode": "raw",
 					"raw": "",
@@ -164,10 +135,9 @@
 					}
 				},
 				"url": {
-					"raw": "https://{Host_Name}/getRecordingState?recordingId=",
-					"protocol": "https",
+					"raw": "{{HOST_URL}}/getRecordingState?recordingId=",
 					"host": [
-						"{Host_Name}"
+						"{{HOST_URL}}"
 					],
 					"path": [
 						"getRecordingState"
@@ -175,7 +145,8 @@
 					"query": [
 						{
 							"key": "recordingId",
-							"value": ""
+							"value": "",
+							"description": "Optional, if not passed, it will use current active recording Id"
 						}
 					]
 				}
@@ -190,13 +161,7 @@
 			},
 			"request": {
 				"method": "GET",
-				"header": [
-					{
-						"key": "Authorization",
-						"value": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSIsInR5cCI6IkpXVCIsIng1dCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSJ9.eyJuYmYiOjE2ODUxMTA5OTAsImV4cCI6MTY4NTExMTI5MCwiaXNzIjoiaHR0cHM6Ly9hY3NjYWxsYXV0b21hdGlvbi5jb21tdW5pY2F0aW9uLmF6dXJlLmNvbSIsImF1ZCI6ImUzMzNhNWI1LWMxZTQtNDk4NC1iNzUyLTQ0N2JmOTJkMTBiNyJ9.IyZoE9RPXZj506JZJ5L1jnazGBfyKntVkBpT276ifnFcj8zcwmNrhEGCmK8mIUz4ndAb5wAcLMHYdbuPQozMkxtKWK3bVBgYwegAHmOSX7CnKCV5t9Wg9kmk9cfcFSxOSD9gOitpKYqTpZcE0YBkI4aHdDT-jXEk4ONlwZmAssgccC0TtXgHQiMBnbeM-gbqMdCY_8zK73Nh5gQfyhYb3jzp8dHcJE3D9-W-nqYiFvC1DeWG-abI7WUSgZd9JyisuifXE9u5Z6-2UVqSDiuInMcu-hLHCkhIP_PBJ0ZGVBzmhsmEJMBle12acA679Bjg3Ny7jZJUBSZ1ytQTEZLBZQ",
-						"type": "text"
-					}
-				],
+				"header": [],
 				"body": {
 					"mode": "raw",
 					"raw": "",
@@ -207,10 +172,9 @@
 					}
 				},
 				"url": {
-					"raw": "https://{Host_Name}/resumeRecording?recordingId=",
-					"protocol": "https",
+					"raw": "{{HOST_URL}}/resumeRecording?recordingId=",
 					"host": [
-						"{Host_Name}"
+						"{{HOST_URL}}"
 					],
 					"path": [
 						"resumeRecording"
@@ -218,7 +182,8 @@
 					"query": [
 						{
 							"key": "recordingId",
-							"value": ""
+							"value": "",
+							"description": "Optional, if not passed, it will use current active recording Id"
 						}
 					]
 				}
@@ -232,13 +197,7 @@
 			},
 			"request": {
 				"method": "DELETE",
-				"header": [
-					{
-						"key": "Authorization",
-						"value": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSIsInR5cCI6IkpXVCIsIng1dCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSJ9.eyJuYmYiOjE2ODUxMTA5OTAsImV4cCI6MTY4NTExMTI5MCwiaXNzIjoiaHR0cHM6Ly9hY3NjYWxsYXV0b21hdGlvbi5jb21tdW5pY2F0aW9uLmF6dXJlLmNvbSIsImF1ZCI6ImUzMzNhNWI1LWMxZTQtNDk4NC1iNzUyLTQ0N2JmOTJkMTBiNyJ9.IyZoE9RPXZj506JZJ5L1jnazGBfyKntVkBpT276ifnFcj8zcwmNrhEGCmK8mIUz4ndAb5wAcLMHYdbuPQozMkxtKWK3bVBgYwegAHmOSX7CnKCV5t9Wg9kmk9cfcFSxOSD9gOitpKYqTpZcE0YBkI4aHdDT-jXEk4ONlwZmAssgccC0TtXgHQiMBnbeM-gbqMdCY_8zK73Nh5gQfyhYb3jzp8dHcJE3D9-W-nqYiFvC1DeWG-abI7WUSgZd9JyisuifXE9u5Z6-2UVqSDiuInMcu-hLHCkhIP_PBJ0ZGVBzmhsmEJMBle12acA679Bjg3Ny7jZJUBSZ1ytQTEZLBZQ",
-						"type": "text"
-					}
-				],
+				"header": [],
 				"body": {
 					"mode": "raw",
 					"raw": "",
@@ -249,10 +208,9 @@
 					}
 				},
 				"url": {
-					"raw": "https://{Host_Name}/stopRecording?recordingId=",
-					"protocol": "https",
+					"raw": "{{HOST_URL}}/stopRecording?recordingId=",
 					"host": [
-						"{Host_Name}"
+						"{{HOST_URL}}"
 					],
 					"path": [
 						"stopRecording"
@@ -260,12 +218,8 @@
 					"query": [
 						{
 							"key": "recordingId",
-							"value": ""
-						},
-						{
-							"key": "",
 							"value": "",
-							"disabled": true
+							"description": "Optional, if not passed, it will use current active recording Id"
 						}
 					]
 				}
@@ -280,13 +234,7 @@
 			},
 			"request": {
 				"method": "GET",
-				"header": [
-					{
-						"key": "Authorization",
-						"value": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSIsInR5cCI6IkpXVCIsIng1dCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSJ9.eyJuYmYiOjE2ODUxMTA5OTAsImV4cCI6MTY4NTExMTI5MCwiaXNzIjoiaHR0cHM6Ly9hY3NjYWxsYXV0b21hdGlvbi5jb21tdW5pY2F0aW9uLmF6dXJlLmNvbSIsImF1ZCI6ImUzMzNhNWI1LWMxZTQtNDk4NC1iNzUyLTQ0N2JmOTJkMTBiNyJ9.IyZoE9RPXZj506JZJ5L1jnazGBfyKntVkBpT276ifnFcj8zcwmNrhEGCmK8mIUz4ndAb5wAcLMHYdbuPQozMkxtKWK3bVBgYwegAHmOSX7CnKCV5t9Wg9kmk9cfcFSxOSD9gOitpKYqTpZcE0YBkI4aHdDT-jXEk4ONlwZmAssgccC0TtXgHQiMBnbeM-gbqMdCY_8zK73Nh5gQfyhYb3jzp8dHcJE3D9-W-nqYiFvC1DeWG-abI7WUSgZd9JyisuifXE9u5Z6-2UVqSDiuInMcu-hLHCkhIP_PBJ0ZGVBzmhsmEJMBle12acA679Bjg3Ny7jZJUBSZ1ytQTEZLBZQ",
-						"type": "text"
-					}
-				],
+				"header": [],
 				"body": {
 					"mode": "raw",
 					"raw": "",
@@ -297,10 +245,9 @@
 					}
 				},
 				"url": {
-					"raw": "https://{Host_Name}/downloadRecording",
-					"protocol": "https",
+					"raw": "{{HOST_URL}}/downloadRecording",
 					"host": [
-						"{Host_Name}"
+						"{{HOST_URL}}"
 					],
 					"path": [
 						"downloadRecording"
@@ -316,13 +263,7 @@
 			},
 			"request": {
 				"method": "DELETE",
-				"header": [
-					{
-						"key": "Authorization",
-						"value": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSIsInR5cCI6IkpXVCIsIng1dCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSJ9.eyJuYmYiOjE2ODUxMTA5OTAsImV4cCI6MTY4NTExMTI5MCwiaXNzIjoiaHR0cHM6Ly9hY3NjYWxsYXV0b21hdGlvbi5jb21tdW5pY2F0aW9uLmF6dXJlLmNvbSIsImF1ZCI6ImUzMzNhNWI1LWMxZTQtNDk4NC1iNzUyLTQ0N2JmOTJkMTBiNyJ9.IyZoE9RPXZj506JZJ5L1jnazGBfyKntVkBpT276ifnFcj8zcwmNrhEGCmK8mIUz4ndAb5wAcLMHYdbuPQozMkxtKWK3bVBgYwegAHmOSX7CnKCV5t9Wg9kmk9cfcFSxOSD9gOitpKYqTpZcE0YBkI4aHdDT-jXEk4ONlwZmAssgccC0TtXgHQiMBnbeM-gbqMdCY_8zK73Nh5gQfyhYb3jzp8dHcJE3D9-W-nqYiFvC1DeWG-abI7WUSgZd9JyisuifXE9u5Z6-2UVqSDiuInMcu-hLHCkhIP_PBJ0ZGVBzmhsmEJMBle12acA679Bjg3Ny7jZJUBSZ1ytQTEZLBZQ",
-						"type": "text"
-					}
-				],
+				"header": [],
 				"body": {
 					"mode": "raw",
 					"raw": "",
@@ -333,17 +274,48 @@
 					}
 				},
 				"url": {
-					"raw": "https://{Host_Name}/deleteRecordingFile",
-					"protocol": "https",
+					"raw": "{{HOST_URL}}/deleteRecording",
 					"host": [
-						"{Host_Name}"
+						"{{HOST_URL}}"
 					],
 					"path": [
-						"deleteRecordingFile"
+						"deleteRecording"
 					]
 				}
 			},
 			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "HOST_URL",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "TARGET_PHONE_NUMBER",
+			"value": "",
+			"type": "string"
 		}
 	]
 }

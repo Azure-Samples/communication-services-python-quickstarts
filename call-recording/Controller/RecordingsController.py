@@ -30,7 +30,7 @@ class RecordingsController():
         app.add_routes([web.delete('/stopRecording', RecordingsController.stop_recording)])
         app.add_routes([web.get('/getRecordingState', RecordingsController.get_recording_state)])
         app.add_routes([web.get('/downloadRecording', RecordingsController.download_recording)])
-        app.add_routes([web.delete('/deleteRecordingFile', RecordingsController.delete_recording)])
+        app.add_routes([web.delete('/deleteRecording', RecordingsController.delete_recording)])
         app.add_routes([web.get('/outboundCall', RecordingsController.outbound_call)])
         app.add_routes([web.post('/api/callbacks', RecordingsController.start_callback)])
         app.add_routes([web.post('/recordingFileStatus', RecordingsController.recording_file_status)])
