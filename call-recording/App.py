@@ -1,5 +1,5 @@
 from Logger import Logger
-from Controller.CallRecordingController import CallRecordingController
+from Controller.RecordingsController import RecordingsController
 
 class App():
 
@@ -7,4 +7,4 @@ class App():
         Logger.log_message(Logger.INFORMATION,"Starting call-recording App... ")
 
 if __name__ == "__main__":
-    CallRecordingController()
+    RecordingsController()

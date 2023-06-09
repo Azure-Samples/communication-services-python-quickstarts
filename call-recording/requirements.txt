@@ -1,4 +1,4 @@
-azure-communication-callautomation==1.0.0a20230526008
+azure-communication-callautomation
 aiohttp
 azure-storage-blob
 azure-eventgrid

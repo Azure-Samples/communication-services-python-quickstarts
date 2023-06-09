@@ -1,0 +1,349 @@
+{
+	"info": {
+		"_postman_id": "15dc15f3-3228-4a3f-93a4-be6a052cbf63",
+		"name": "Recordings API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "16222952"
+	},
+	"item": [
+		{
+			"name": "Outbound Call",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true,
+				"disabledSystemHeaders": {}
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSIsInR5cCI6IkpXVCIsIng1dCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSJ9.eyJuYmYiOjE2ODUxMTA5OTAsImV4cCI6MTY4NTExMTI5MCwiaXNzIjoiaHR0cHM6Ly9hY3NjYWxsYXV0b21hdGlvbi5jb21tdW5pY2F0aW9uLmF6dXJlLmNvbSIsImF1ZCI6ImUzMzNhNWI1LWMxZTQtNDk4NC1iNzUyLTQ0N2JmOTJkMTBiNyJ9.IyZoE9RPXZj506JZJ5L1jnazGBfyKntVkBpT276ifnFcj8zcwmNrhEGCmK8mIUz4ndAb5wAcLMHYdbuPQozMkxtKWK3bVBgYwegAHmOSX7CnKCV5t9Wg9kmk9cfcFSxOSD9gOitpKYqTpZcE0YBkI4aHdDT-jXEk4ONlwZmAssgccC0TtXgHQiMBnbeM-gbqMdCY_8zK73Nh5gQfyhYb3jzp8dHcJE3D9-W-nqYiFvC1DeWG-abI7WUSgZd9JyisuifXE9u5Z6-2UVqSDiuInMcu-hLHCkhIP_PBJ0ZGVBzmhsmEJMBle12acA679Bjg3Ny7jZJUBSZ1ytQTEZLBZQ",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://{Host_Name}/outboundCall?targetPhoneNumber={PHONE_NUMBER}",
+					"protocol": "https",
+					"host": [
+						"{Host_Name}"
+					],
+					"path": [
+						"outboundCall"
+					],
+					"query": [
+						{
+							"key": "targetPhoneNumber",
+							"value": "{PHONE_NUMBER}"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Start recording",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true,
+				"disabledSystemHeaders": {}
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSIsInR5cCI6IkpXVCIsIng1dCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSJ9.eyJuYmYiOjE2ODUxMTA5OTAsImV4cCI6MTY4NTExMTI5MCwiaXNzIjoiaHR0cHM6Ly9hY3NjYWxsYXV0b21hdGlvbi5jb21tdW5pY2F0aW9uLmF6dXJlLmNvbSIsImF1ZCI6ImUzMzNhNWI1LWMxZTQtNDk4NC1iNzUyLTQ0N2JmOTJkMTBiNyJ9.IyZoE9RPXZj506JZJ5L1jnazGBfyKntVkBpT276ifnFcj8zcwmNrhEGCmK8mIUz4ndAb5wAcLMHYdbuPQozMkxtKWK3bVBgYwegAHmOSX7CnKCV5t9Wg9kmk9cfcFSxOSD9gOitpKYqTpZcE0YBkI4aHdDT-jXEk4ONlwZmAssgccC0TtXgHQiMBnbeM-gbqMdCY_8zK73Nh5gQfyhYb3jzp8dHcJE3D9-W-nqYiFvC1DeWG-abI7WUSgZd9JyisuifXE9u5Z6-2UVqSDiuInMcu-hLHCkhIP_PBJ0ZGVBzmhsmEJMBle12acA679Bjg3Ny7jZJUBSZ1ytQTEZLBZQ",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://902f-2405-201-4042-d03e-f4f8-726c-b951-a492.ngrok-free.app/startRecording?serverCallId=",
+					"protocol": "https",
+					"host": [
+						"902f-2405-201-4042-d03e-f4f8-726c-b951-a492",
+						"ngrok-free",
+						"app"
+					],
+					"path": [
+						"startRecording"
+					],
+					"query": [
+						{
+							"key": "serverCallId",
+							"value": ""
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Pause recording",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true,
+				"disabledSystemHeaders": {}
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSIsInR5cCI6IkpXVCIsIng1dCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSJ9.eyJuYmYiOjE2ODUxMTA5OTAsImV4cCI6MTY4NTExMTI5MCwiaXNzIjoiaHR0cHM6Ly9hY3NjYWxsYXV0b21hdGlvbi5jb21tdW5pY2F0aW9uLmF6dXJlLmNvbSIsImF1ZCI6ImUzMzNhNWI1LWMxZTQtNDk4NC1iNzUyLTQ0N2JmOTJkMTBiNyJ9.IyZoE9RPXZj506JZJ5L1jnazGBfyKntVkBpT276ifnFcj8zcwmNrhEGCmK8mIUz4ndAb5wAcLMHYdbuPQozMkxtKWK3bVBgYwegAHmOSX7CnKCV5t9Wg9kmk9cfcFSxOSD9gOitpKYqTpZcE0YBkI4aHdDT-jXEk4ONlwZmAssgccC0TtXgHQiMBnbeM-gbqMdCY_8zK73Nh5gQfyhYb3jzp8dHcJE3D9-W-nqYiFvC1DeWG-abI7WUSgZd9JyisuifXE9u5Z6-2UVqSDiuInMcu-hLHCkhIP_PBJ0ZGVBzmhsmEJMBle12acA679Bjg3Ny7jZJUBSZ1ytQTEZLBZQ",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://902f-2405-201-4042-d03e-f4f8-726c-b951-a492.ngrok-free.app/pauseRecording?recordingId=",
+					"protocol": "https",
+					"host": [
+						"902f-2405-201-4042-d03e-f4f8-726c-b951-a492",
+						"ngrok-free",
+						"app"
+					],
+					"path": [
+						"pauseRecording"
+					],
+					"query": [
+						{
+							"key": "recordingId",
+							"value": ""
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get recording state",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true,
+				"disabledSystemHeaders": {}
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSIsInR5cCI6IkpXVCIsIng1dCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSJ9.eyJuYmYiOjE2ODUxMTA5OTAsImV4cCI6MTY4NTExMTI5MCwiaXNzIjoiaHR0cHM6Ly9hY3NjYWxsYXV0b21hdGlvbi5jb21tdW5pY2F0aW9uLmF6dXJlLmNvbSIsImF1ZCI6ImUzMzNhNWI1LWMxZTQtNDk4NC1iNzUyLTQ0N2JmOTJkMTBiNyJ9.IyZoE9RPXZj506JZJ5L1jnazGBfyKntVkBpT276ifnFcj8zcwmNrhEGCmK8mIUz4ndAb5wAcLMHYdbuPQozMkxtKWK3bVBgYwegAHmOSX7CnKCV5t9Wg9kmk9cfcFSxOSD9gOitpKYqTpZcE0YBkI4aHdDT-jXEk4ONlwZmAssgccC0TtXgHQiMBnbeM-gbqMdCY_8zK73Nh5gQfyhYb3jzp8dHcJE3D9-W-nqYiFvC1DeWG-abI7WUSgZd9JyisuifXE9u5Z6-2UVqSDiuInMcu-hLHCkhIP_PBJ0ZGVBzmhsmEJMBle12acA679Bjg3Ny7jZJUBSZ1ytQTEZLBZQ",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://{Host_Name}/getRecordingState?recordingId=",
+					"protocol": "https",
+					"host": [
+						"{Host_Name}"
+					],
+					"path": [
+						"getRecordingState"
+					],
+					"query": [
+						{
+							"key": "recordingId",
+							"value": ""
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Resume recording",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true,
+				"disabledSystemHeaders": {}
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSIsInR5cCI6IkpXVCIsIng1dCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSJ9.eyJuYmYiOjE2ODUxMTA5OTAsImV4cCI6MTY4NTExMTI5MCwiaXNzIjoiaHR0cHM6Ly9hY3NjYWxsYXV0b21hdGlvbi5jb21tdW5pY2F0aW9uLmF6dXJlLmNvbSIsImF1ZCI6ImUzMzNhNWI1LWMxZTQtNDk4NC1iNzUyLTQ0N2JmOTJkMTBiNyJ9.IyZoE9RPXZj506JZJ5L1jnazGBfyKntVkBpT276ifnFcj8zcwmNrhEGCmK8mIUz4ndAb5wAcLMHYdbuPQozMkxtKWK3bVBgYwegAHmOSX7CnKCV5t9Wg9kmk9cfcFSxOSD9gOitpKYqTpZcE0YBkI4aHdDT-jXEk4ONlwZmAssgccC0TtXgHQiMBnbeM-gbqMdCY_8zK73Nh5gQfyhYb3jzp8dHcJE3D9-W-nqYiFvC1DeWG-abI7WUSgZd9JyisuifXE9u5Z6-2UVqSDiuInMcu-hLHCkhIP_PBJ0ZGVBzmhsmEJMBle12acA679Bjg3Ny7jZJUBSZ1ytQTEZLBZQ",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://{Host_Name}/resumeRecording?recordingId=",
+					"protocol": "https",
+					"host": [
+						"{Host_Name}"
+					],
+					"path": [
+						"resumeRecording"
+					],
+					"query": [
+						{
+							"key": "recordingId",
+							"value": ""
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Stop recording",
+			"protocolProfileBehavior": {
+				"disabledSystemHeaders": {}
+			},
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSIsInR5cCI6IkpXVCIsIng1dCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSJ9.eyJuYmYiOjE2ODUxMTA5OTAsImV4cCI6MTY4NTExMTI5MCwiaXNzIjoiaHR0cHM6Ly9hY3NjYWxsYXV0b21hdGlvbi5jb21tdW5pY2F0aW9uLmF6dXJlLmNvbSIsImF1ZCI6ImUzMzNhNWI1LWMxZTQtNDk4NC1iNzUyLTQ0N2JmOTJkMTBiNyJ9.IyZoE9RPXZj506JZJ5L1jnazGBfyKntVkBpT276ifnFcj8zcwmNrhEGCmK8mIUz4ndAb5wAcLMHYdbuPQozMkxtKWK3bVBgYwegAHmOSX7CnKCV5t9Wg9kmk9cfcFSxOSD9gOitpKYqTpZcE0YBkI4aHdDT-jXEk4ONlwZmAssgccC0TtXgHQiMBnbeM-gbqMdCY_8zK73Nh5gQfyhYb3jzp8dHcJE3D9-W-nqYiFvC1DeWG-abI7WUSgZd9JyisuifXE9u5Z6-2UVqSDiuInMcu-hLHCkhIP_PBJ0ZGVBzmhsmEJMBle12acA679Bjg3Ny7jZJUBSZ1ytQTEZLBZQ",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://{Host_Name}/stopRecording?recordingId=",
+					"protocol": "https",
+					"host": [
+						"{Host_Name}"
+					],
+					"path": [
+						"stopRecording"
+					],
+					"query": [
+						{
+							"key": "recordingId",
+							"value": ""
+						},
+						{
+							"key": "",
+							"value": "",
+							"disabled": true
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Download recording",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true,
+				"disabledSystemHeaders": {}
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSIsInR5cCI6IkpXVCIsIng1dCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSJ9.eyJuYmYiOjE2ODUxMTA5OTAsImV4cCI6MTY4NTExMTI5MCwiaXNzIjoiaHR0cHM6Ly9hY3NjYWxsYXV0b21hdGlvbi5jb21tdW5pY2F0aW9uLmF6dXJlLmNvbSIsImF1ZCI6ImUzMzNhNWI1LWMxZTQtNDk4NC1iNzUyLTQ0N2JmOTJkMTBiNyJ9.IyZoE9RPXZj506JZJ5L1jnazGBfyKntVkBpT276ifnFcj8zcwmNrhEGCmK8mIUz4ndAb5wAcLMHYdbuPQozMkxtKWK3bVBgYwegAHmOSX7CnKCV5t9Wg9kmk9cfcFSxOSD9gOitpKYqTpZcE0YBkI4aHdDT-jXEk4ONlwZmAssgccC0TtXgHQiMBnbeM-gbqMdCY_8zK73Nh5gQfyhYb3jzp8dHcJE3D9-W-nqYiFvC1DeWG-abI7WUSgZd9JyisuifXE9u5Z6-2UVqSDiuInMcu-hLHCkhIP_PBJ0ZGVBzmhsmEJMBle12acA679Bjg3Ny7jZJUBSZ1ytQTEZLBZQ",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://{Host_Name}/downloadRecording",
+					"protocol": "https",
+					"host": [
+						"{Host_Name}"
+					],
+					"path": [
+						"downloadRecording"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Delete recording",
+			"protocolProfileBehavior": {
+				"disabledSystemHeaders": {}
+			},
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSIsInR5cCI6IkpXVCIsIng1dCI6IlB1SGdMbkVNLU0xVmx4U3p5MTBCVDZoRl9hRSJ9.eyJuYmYiOjE2ODUxMTA5OTAsImV4cCI6MTY4NTExMTI5MCwiaXNzIjoiaHR0cHM6Ly9hY3NjYWxsYXV0b21hdGlvbi5jb21tdW5pY2F0aW9uLmF6dXJlLmNvbSIsImF1ZCI6ImUzMzNhNWI1LWMxZTQtNDk4NC1iNzUyLTQ0N2JmOTJkMTBiNyJ9.IyZoE9RPXZj506JZJ5L1jnazGBfyKntVkBpT276ifnFcj8zcwmNrhEGCmK8mIUz4ndAb5wAcLMHYdbuPQozMkxtKWK3bVBgYwegAHmOSX7CnKCV5t9Wg9kmk9cfcFSxOSD9gOitpKYqTpZcE0YBkI4aHdDT-jXEk4ONlwZmAssgccC0TtXgHQiMBnbeM-gbqMdCY_8zK73Nh5gQfyhYb3jzp8dHcJE3D9-W-nqYiFvC1DeWG-abI7WUSgZd9JyisuifXE9u5Z6-2UVqSDiuInMcu-hLHCkhIP_PBJ0ZGVBzmhsmEJMBle12acA679Bjg3Ny7jZJUBSZ1ytQTEZLBZQ",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://{Host_Name}/deleteRecordingFile",
+					"protocol": "https",
+					"host": [
+						"{Host_Name}"
+					],
+					"path": [
+						"deleteRecordingFile"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
