@@ -3,6 +3,7 @@ from azure.communication.email import EmailClient
 connection_string = "<ACS_CONNECTION_STRING>"
 sender_address = "<SENDER_EMAIL_ADDRESS>"
 recipient_address = "<RECIPIENT_EMAIL_ADDRESS>"
+replyto_address = "<REPLYTO_EMAIL_ADDRESS>"
 
 POLLER_WAIT_TIME = 10
 
@@ -17,7 +18,8 @@ message = {
         "subject": "Test email from Python Sample",
         "plainText": "This is plaintext body of test email.",
         "html": "<html><h1>This is the html body of test email.</h1></html>",
-    }
+    },
+    "replyTo": [{ "address": replyto_address }]
 }
 
 try:
