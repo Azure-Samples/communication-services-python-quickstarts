@@ -1,0 +1,321 @@
+{
+	"info": {
+		"_postman_id": "be622dd7-585a-4b41-b10e-750a9d1ad2f8",
+		"name": "Recordings API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "1437196"
+	},
+	"item": [
+		{
+			"name": "Outbound Call",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true,
+				"disabledSystemHeaders": {}
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{HOST_URL}}/outboundCall?targetPhoneNumber={{TARGET_PHONE_NUMBER}}",
+					"host": [
+						"{{HOST_URL}}"
+					],
+					"path": [
+						"outboundCall"
+					],
+					"query": [
+						{
+							"key": "targetPhoneNumber",
+							"value": "{{TARGET_PHONE_NUMBER}}"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Start recording",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true,
+				"disabledSystemHeaders": {}
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{HOST_URL}}/startRecording?serverCallId=",
+					"host": [
+						"{{HOST_URL}}"
+					],
+					"path": [
+						"startRecording"
+					],
+					"query": [
+						{
+							"key": "serverCallId",
+							"value": "",
+							"description": "Optional, if not passed, it will use last OutboundCall serverCallId"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Pause recording",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true,
+				"disabledSystemHeaders": {}
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{HOST_URL}}/pauseRecording?recordingId=",
+					"host": [
+						"{{HOST_URL}}"
+					],
+					"path": [
+						"pauseRecording"
+					],
+					"query": [
+						{
+							"key": "recordingId",
+							"value": "",
+							"description": "Optional, if not passed, it will use current active recording Id"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get recording state",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true,
+				"disabledSystemHeaders": {}
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{HOST_URL}}/getRecordingState?recordingId=",
+					"host": [
+						"{{HOST_URL}}"
+					],
+					"path": [
+						"getRecordingState"
+					],
+					"query": [
+						{
+							"key": "recordingId",
+							"value": "",
+							"description": "Optional, if not passed, it will use current active recording Id"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Resume recording",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true,
+				"disabledSystemHeaders": {}
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{HOST_URL}}/resumeRecording?recordingId=",
+					"host": [
+						"{{HOST_URL}}"
+					],
+					"path": [
+						"resumeRecording"
+					],
+					"query": [
+						{
+							"key": "recordingId",
+							"value": "",
+							"description": "Optional, if not passed, it will use current active recording Id"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Stop recording",
+			"protocolProfileBehavior": {
+				"disabledSystemHeaders": {}
+			},
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{HOST_URL}}/stopRecording?recordingId=",
+					"host": [
+						"{{HOST_URL}}"
+					],
+					"path": [
+						"stopRecording"
+					],
+					"query": [
+						{
+							"key": "recordingId",
+							"value": "",
+							"description": "Optional, if not passed, it will use current active recording Id"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Download recording",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true,
+				"disabledSystemHeaders": {}
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{HOST_URL}}/downloadRecording",
+					"host": [
+						"{{HOST_URL}}"
+					],
+					"path": [
+						"downloadRecording"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Delete recording",
+			"protocolProfileBehavior": {
+				"disabledSystemHeaders": {}
+			},
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{HOST_URL}}/deleteRecording",
+					"host": [
+						"{{HOST_URL}}"
+					],
+					"path": [
+						"deleteRecording"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "HOST_URL",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "TARGET_PHONE_NUMBER",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

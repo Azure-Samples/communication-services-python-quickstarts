@@ -1,0 +1,5 @@
+azure-communication-callautomation
+aiohttp
+azure-storage-blob
+azure-eventgrid
+azure-common
