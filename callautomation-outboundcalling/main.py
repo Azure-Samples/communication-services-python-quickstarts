@@ -80,9 +80,7 @@ def callback_events_handler():
                                                            play_prompt=main_menu_prompt,
                                                            interrupt_prompt=True,
                                                            initial_silence_timeout=10,
-                                                           dtmf_inter_tone_timeout=10,
-                                                           dtmf_max_tones_to_collect=1,
-                                                           dtmf_stop_tones=[DtmfTone.POUND])
+                                                           dtmf_max_tones_to_collect=1)
 
         # Perform different actions based on DTMF tone received from RecognizeCompleted event
         elif event.type == "Microsoft.Communication.RecognizeCompleted":
