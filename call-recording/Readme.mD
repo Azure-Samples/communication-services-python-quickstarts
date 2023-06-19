@@ -33,7 +33,7 @@ It harnesses the power of Azure Communication Services to establish connections 
 ## Clone the code local and update configuration
 
 1. Open an instance of PowerShell, Windows Terminal, Command Prompt or equivalent and navigate to the directory that you'd like to clone the sample to.
-2. Run `git clone https://github.com/moirf/communication-services-python-quickstarts.git`
+2. Run `git clone https://github.com/Azure-Samples/communication-services-python-quickstarts.git`
 3. Once you get the code on local machine, navigate to **call-recording/config.ini** file found under the call-recording folder.
 4. Update the values for below.
 
