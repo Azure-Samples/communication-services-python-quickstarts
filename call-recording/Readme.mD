@@ -10,7 +10,7 @@ products:
 #  Call Recording APIs Sample
 This is a sample application to showcase how the Call Automation SDK can be used to add recording features to any application.
 The application is a console based application build using Python 3.9 and above.
-It harnesses the power of Azure Communication Services to establish connections and enable communication features within the application. A separate branch with end to end implementation is available. It's a public preview branch and uses beta SDKs that are not meant for production use. Please use the main branch sample for any production scenarios.
+It harnesses the power of Azure Communication Services to establish connections and enable communication features within the application. A separate branch with end to end implementation is [available](https://github.com/Azure-Samples/communication-services-web-calling-hero/tree/public-preview). It's a public preview branch and uses beta SDKs that are not meant for production use. Please use the main branch sample for any production scenarios.
 
 ## Getting started
 
@@ -46,9 +46,9 @@ It harnesses the power of Azure Communication Services to establish connections 
 
 ## Code structure
 
-- *./call-recording/Controller* : Server app core logic for calling the recording APIs using Azure Communication Services callautomation SDK
+- *./call-recording/Controller/RecordingsController.py* : Server app core logic for calling the recording APIs using Azure Communication Services callautomation SDK
 - *./call-recording/App.py* : Entry point for the server app program logic
-- *./call-recording/requirement.txt* : Contains dependencies for running and deploying the application
+- *./call-recording/requirements.txt* : Contains dependencies for running and deploying the application
 
 ### Setup the Python environment
 
