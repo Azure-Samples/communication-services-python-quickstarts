@@ -21,12 +21,12 @@ class RouterQuickstart(object):
     router_client = JobRouterClient.from_connection_string(conn_str = connection_string)
     
     distribution_policy = router_admin_client.create_distribution_policy(
-    distribution_policy_id ="distribution-policy-1",
-    distribution_policy = DistributionPolicy(
-        offer_expires_after_seconds = 60,
-        mode = LongestIdleMode(),
-        name = "My distribution policy"
-    ))
+        distribution_policy_id ="distribution-policy-1",
+        distribution_policy = DistributionPolicy(
+            offer_expires_after_seconds = 60,
+            mode = LongestIdleMode(),
+            name = "My distribution policy"
+        ))
     
     queue = router_admin_client.create_queue(
         queue_id = "queue-1",
@@ -55,7 +55,7 @@ class RouterQuickstart(object):
         router_worker = RouterWorker(
             total_capacity = 1,
             queue_assignments = {
-                queue.id: {}
+                "queue-1": {}
             },
             labels = {
                 "Some-Skill": 11
