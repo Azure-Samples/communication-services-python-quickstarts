@@ -23,7 +23,7 @@ For full instructions on how to build this code sample from scratch, look at [Qu
 
 ## Install the packages
 
-From a console prompt, navigate to the directory containing the rooms.py file, then execute the following command:
+From a console prompt, navigate to the directory containing the router-quickstart.py file, then execute the following command:
 
 - pip install azure-communication-jobrouter
 
@@ -31,7 +31,8 @@ From a console prompt, navigate to the directory containing the rooms.py file, t
 
 1. Open an instance of PowerShell/Windows Terminal/Command Prompt or equivalent and navigate to the directory that you'd like to clone the sample to.
 2. `git clone https://github.com/Azure-Samples/communication-services-python-quickstarts.git`
-3. With the Communication Services procured in pre-requisites, add connection string in **router-quickstart.py** file ```connection_string = '<connection_string>'```.
+3. `cd communication-services-python-quickstarts/jobrouter-quickstart`
+4. With the Communication Services procured in pre-requisites, add connection string in **router-quickstart.py** file ```connection_string = '<connection_string>'```.
 
 ## Run Locally
 
