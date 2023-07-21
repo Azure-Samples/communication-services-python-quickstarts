@@ -66,7 +66,7 @@ class RouterQuickstart(object):
             available_for_offers = True
         ))
     
-    time.sleep(5)
+    time.sleep(10)
     worker = router_client.get_worker(worker_id = worker.id)
     for offer in worker.offers:
         print(f"Worker {worker.id} has an active offer for job {offer.job_id}")
