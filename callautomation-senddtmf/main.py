@@ -40,7 +40,7 @@ def outbound_call_handler():
     target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
     source_caller = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
     call_invite = CallInvite(target=target_participant, source_caller_id_number=source_caller)
-    call_connection_properties = call_automation_client.create_call(call_invite, CALLBACK_EVENTS_URI)
+    call_automation_client.create_call(call_invite, CALLBACK_EVENTS_URI)
     app.logger.info("create_call")
     return redirect("/index.html")
 
@@ -54,18 +54,19 @@ def callback_events_handler():
         call_connection_client = call_automation_client.get_call_connection(call_connection_id)
 
         if event.type == "Microsoft.Communication.CallConnected":
+            # Send DTMF tones
             tones = [ DtmfTone.ONE, DtmfTone.TWO, DtmfTone.THREE ]
             target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
-            call_connection_client.send_dtmf(tones=tones,
+            call_connection_client.send_dtmf_tones(tones=tones,
                                              target_participant=target_participant)
-            app.logger.info("send_dtmf")
+            app.logger.info("send_dtmf_tones")
 
         elif event.type == "Microsoft.Communication.SendDtmfCompleted":
-            app.logger.info("send_dtmf completed successfully")
+            app.logger.info("send_dtmf_tones completed successfully")
             call_connection_client.hang_up(is_for_everyone=True)
 
         elif event.type == "Microsoft.Communication.SendDtmfFailed":
-            app.logger.info("send_dtmf failed with result information: %s", event.data['resultInformation']['message'])
+            app.logger.info("send_dtmf_tones failed with result information: %s", event.data['resultInformation']['message'])
             call_connection_client.hang_up(is_for_everyone=True)
 
         return Response(status=200)

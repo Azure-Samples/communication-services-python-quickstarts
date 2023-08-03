@@ -49,6 +49,7 @@ Open `main.py` file to configure the following settings
 
 ## Run app locally
 
-- Run `main.py`.
-- Open `http://localhost:8080/index.html` in a Web browser.
-- To initiate the call, click on the `Place a call!` button.
+1. Run `main.py`.
+2. Open `http://localhost:8080/index.html` in a Web browser.
+3. To initiate the call, click on the `Place a call!` button.
+4. On the target phone, listen for the DTMF tones.

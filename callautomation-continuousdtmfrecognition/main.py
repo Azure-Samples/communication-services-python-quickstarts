@@ -40,7 +40,7 @@ def outbound_call_handler():
     target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
     source_caller = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
     call_invite = CallInvite(target=target_participant, source_caller_id_number=source_caller)
-    call_connection_properties = call_automation_client.create_call(call_invite, CALLBACK_EVENTS_URI)
+    call_automation_client.create_call(call_invite, CALLBACK_EVENTS_URI)
     app.logger.info("create_call")
     return redirect("/index.html")
 
@@ -54,6 +54,7 @@ def callback_events_handler():
         call_connection_client = call_automation_client.get_call_connection(call_connection_id)
 
         if event.type == "Microsoft.Communication.CallConnected":
+            # Start continuous DTMF recognition
             target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
             call_connection_client.start_continuous_dtmf_recognition(target_participant=target_participant)
             app.logger.info("start_continuous_dtmf_recognition")
