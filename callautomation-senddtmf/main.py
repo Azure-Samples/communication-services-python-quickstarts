@@ -61,11 +61,11 @@ def callback_events_handler():
                                              target_participant=target_participant)
             app.logger.info("send_dtmf_tones")
 
-        elif event.type == "Microsoft.Communication.SendDtmfCompleted":
+        elif event.type == "Microsoft.Communication.SendDtmfTonesCompleted":
             app.logger.info("send_dtmf_tones completed successfully")
             call_connection_client.hang_up(is_for_everyone=True)
 
-        elif event.type == "Microsoft.Communication.SendDtmfFailed":
+        elif event.type == "Microsoft.Communication.SendDtmfTonesFailed":
             app.logger.info("send_dtmf_tones failed with result information: %s", event.data['resultInformation']['message'])
             call_connection_client.hang_up(is_for_everyone=True)
 
