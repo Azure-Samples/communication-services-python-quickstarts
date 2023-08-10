@@ -20,11 +20,14 @@ TARGET_PHONE_NUMBER = "<TARGET_PHONE_NUMBER>"
 # Callback events URI to handle callback events.
 CALLBACK_URI_HOST = "<CALLBACK_URI_HOST_WITH_PROTOCOL>"
 
+
+
 CALLBACK_EVENTS_URI = CALLBACK_URI_HOST + "/api/callbacks"
 
 TEMPLATE_FILES_PATH = "template"
 
 call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
+c2_target = TARGET_PHONE_NUMBER
 
 app = Flask(__name__,
             template_folder=TEMPLATE_FILES_PATH)
@@ -37,7 +40,7 @@ def index_handler():
 
 @app.route('/outboundCall')
 def outbound_call_handler():
-    target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
+    target_participant = PhoneNumberIdentifier(c2_target)
     source_caller = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
     call_invite = CallInvite(target=target_participant, source_caller_id_number=source_caller)
     call_automation_client.create_call(call_invite, CALLBACK_EVENTS_URI)
@@ -51,22 +54,33 @@ def callback_events_handler():
         event = CloudEvent.from_dict(event_dict)
         call_connection_id = event.data['callConnectionId']
         app.logger.info("Received event %s for call connection id: %s", event.type, call_connection_id)
-        call_connection_client = call_automation_client.get_call_connection(call_connection_id)
 
         if event.type == "Microsoft.Communication.CallConnected":
             # Start continuous DTMF recognition
-            target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
-            call_connection_client.start_continuous_dtmf_recognition(target_participant=target_participant)
-            app.logger.info("start_continuous_dtmf_recognition")
+            call_automation_client.get_call_connection(call_connection_id).start_continuous_dtmf_recognition(
+                target_participant=PhoneNumberIdentifier(c2_target),
+                operation_context="dtmf-reco-on-c2")
+            app.logger.info("Started continuous DTMF recognition")
 
-        elif event.type == "Microsoft.Communication.ContinuousDtmfRecognitionToneReceived":
-            app.logger.info("DTMF tone received: %s", event.data['toneInfo']['tone'])
-            call_connection_client.hang_up(is_for_everyone=True)
+        if event.type == "Microsoft.Communication.ContinuousDtmfRecognitionToneReceived":
+            app.logger.info("Tone detected: sequenceId=%s, tone=%s, context=%s",
+                            event.data['toneInfo']['sequenceId'],
+                            event.data['toneInfo']['tone'],
+                            event.data['operationContext'])
+            call_automation_client.get_call_connection(call_connection_id).stop_continuous_dtmf_recognition(
+                target_participant=PhoneNumberIdentifier(c2_target),
+                operation_context="dtmf-reco-on-c2")
+            app.logger.info("Stopped continuous DTMF recognition")
+            
 
-        elif event.type == "Microsoft.Communication.ContinuousDtmfRecognitionToneFailed":
-            app.logger.info("start_continuous_dtmf_recognition failed with result information: %s", event.data['resultInformation']['message'])
-            call_connection_client.hang_up(is_for_everyone=True)
+        if event.type == "Microsoft.Communication.ContinuousDtmfRecognitionToneFailed":
+            app.logger.info("Tone failed: result=%s, context=%s",
+                            event.data['resultInformation']['message'],
+                            event.data['operationContext'])
 
+        if event.type == "Microsoft.Communication.ContinuousDtmfRecognitionStopped":
+            app.logger.info("Tone stoped: context=%s",
+                            event.data['operationContext'])
         return Response(status=200)
 
 

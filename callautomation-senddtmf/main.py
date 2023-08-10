@@ -20,11 +20,16 @@ TARGET_PHONE_NUMBER = "<TARGET_PHONE_NUMBER>"
 # Callback events URI to handle callback events.
 CALLBACK_URI_HOST = "<CALLBACK_URI_HOST_WITH_PROTOCOL>"
 
+
 CALLBACK_EVENTS_URI = CALLBACK_URI_HOST + "/api/callbacks"
 
 TEMPLATE_FILES_PATH = "template"
 
+
+
+
 call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
+c2_target = TARGET_PHONE_NUMBER
 
 app = Flask(__name__,
             template_folder=TEMPLATE_FILES_PATH)
@@ -37,7 +42,7 @@ def index_handler():
 
 @app.route('/outboundCall')
 def outbound_call_handler():
-    target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
+    target_participant = PhoneNumberIdentifier(c2_target)
     source_caller = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
     call_invite = CallInvite(target=target_participant, source_caller_id_number=source_caller)
     call_automation_client.create_call(call_invite, CALLBACK_EVENTS_URI)
@@ -51,23 +56,21 @@ def callback_events_handler():
         event = CloudEvent.from_dict(event_dict)
         call_connection_id = event.data['callConnectionId']
         app.logger.info("Received event %s for call connection id: %s", event.type, call_connection_id)
-        call_connection_client = call_automation_client.get_call_connection(call_connection_id)
 
         if event.type == "Microsoft.Communication.CallConnected":
             # Send DTMF tones
             tones = [ DtmfTone.ONE, DtmfTone.TWO, DtmfTone.THREE ]
-            target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
-            call_connection_client.send_dtmf_tones(tones=tones,
-                                             target_participant=target_participant)
-            app.logger.info("send_dtmf_tones")
+            result = call_automation_client.get_call_connection(call_connection_id).send_dtmf_tones(
+                tones=tones,
+                target_participant=PhoneNumberIdentifier(c2_target),
+                operation_context="dtmfs-to-ivr")
+            app.logger.info("Send dtmf, result=%s", result)
 
-        elif event.type == "Microsoft.Communication.SendDtmfTonesCompleted":
-            app.logger.info("send_dtmf_tones completed successfully")
-            call_connection_client.hang_up(is_for_everyone=True)
+        if event.type == "Microsoft.Communication.SendDtmfTonesCompleted":
+            app.logger.info("Send dtmf succeeded: context=%s", event.data['operationContext']);
 
-        elif event.type == "Microsoft.Communication.SendDtmfTonesFailed":
-            app.logger.info("send_dtmf_tones failed with result information: %s", event.data['resultInformation']['message'])
-            call_connection_client.hang_up(is_for_everyone=True)
+        if event.type == "Microsoft.Communication.SendDtmfTonesFailed":
+            app.logger.info("Send dtmf failed: result=%s, context=%s", event.data['resultInformation']['message'], event.data['operationContext'])
 
         return Response(status=200)
 
