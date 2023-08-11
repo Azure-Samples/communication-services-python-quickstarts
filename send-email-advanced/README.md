@@ -43,6 +43,10 @@ The advanced version of send-email includes the following sub samples.
 
 - ./send-email-advanced/send-email-multiple-recipients/send-email-multiple-recipients.py
 
+### Resume send email with continuation token
+
+- ./send-email-advanced/send-email-continuation-token/send-email-continuation-token.py
+
 ## Before running the sample for the first time
 
 1. Open an instance of PowerShell, Windows Terminal, Command Prompt or equivalent program and navigate to the directory that you'd like to clone the sample to.
