@@ -5,6 +5,7 @@ sender_address = "<SENDER_EMAIL_ADDRESS>"
 recipient_address = "<RECIPIENT_EMAIL_ADDRESS>"
 
 POLLER_WAIT_TIME = 10
+MAX_POLLS = 18
 
 message = {
     "senderAddress": sender_address,
@@ -35,7 +36,7 @@ try:
         new_poller.wait(POLLER_WAIT_TIME)
         time_elapsed += POLLER_WAIT_TIME
 
-        if time_elapsed > 18 * POLLER_WAIT_TIME:
+        if time_elapsed > MAX_POLLS * POLLER_WAIT_TIME:
             raise RuntimeError("Polling timed out.")
 
     if new_poller.result()["status"] == "Succeeded":
