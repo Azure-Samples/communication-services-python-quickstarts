@@ -24,8 +24,9 @@ try:
     poller = client.begin_send(message);
 
     # Pauses operation and saves state that can be used later to resume operation
-    # Additional processing can be done between pausing and resuming the operation
     token = poller.continuation_token()
+
+    # Additional processing can be done here between pausing and resuming the operation
 
     new_client = EmailClient.from_connection_string(connection_string);
     new_poller = new_client.begin_send(message, continuation_token=token);
