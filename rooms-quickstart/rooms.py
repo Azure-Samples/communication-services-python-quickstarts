@@ -34,10 +34,13 @@ class RoomsQuickstart(object):
             participant_2 = RoomParticipant(communication_identifier=self.user2, role=ParticipantRole.CONSUMER)
             participant_3 = RoomParticipant(communication_identifier=self.user3, role=ParticipantRole.ATTENDEE)
             participants = [participant_1, participant_2, participant_3]
+            pstn_dial_out_enabled=False
             created_room = self.rooms_client.create_room(
                 valid_from=valid_from,
                 valid_until=valid_until,
-                participants=participants)
+                participants=participants,
+                pstn_dial_out_enabled=pstn_dial_out_enabled
+                )
             print('\nRoom created.')
             self.print_room(created_room)
             self.roomsCollection.append(created_room.id)
@@ -47,8 +50,9 @@ class RoomsQuickstart(object):
     def update_room(self, room_id:str):
         valid_from = datetime.now(timezone.utc)
         valid_until = valid_from + timedelta(weeks=1)
+        pstn_dial_out_enabled = True
         try:
-            updated_room = self.rooms_client.update_room(room_id=room_id, valid_from=valid_from, valid_until=valid_until)
+            updated_room = self.rooms_client.update_room(room_id=room_id, valid_from=valid_from, valid_until=valid_until,pstn_dial_out_enabled=pstn_dial_out_enabled)
             print('\nRoom updated with new valid_from and valid_until time.')
             self.print_room(updated_room)
         except HttpResponseError as ex:
@@ -82,7 +86,8 @@ class RoomsQuickstart(object):
             print(
               "\nRoom Id: " + room.id +
               "\nCreated date time: " + str(room.created_at) +
-              "\nValid From: " + str(room.valid_from) + "\nValid Until: " + str(room.valid_until))
+              "\nValid From: " + str(room.valid_from) + "\nValid Until: " + str(room.valid_until)+
+              "\nPstn dial out enabled: " + str(room.pstn_dial_out_enabled ))
             count += 1
 
     def delete_all_rooms(self):
@@ -125,4 +130,4 @@ if __name__ == '__main__':
     rooms.get_participants_in_room(room_id=rooms.roomsCollection[0])
     rooms.teardown()
 
-    print('==== Completed : Rooms API Operations - Python Quickstart Sample ====')
+    print('==== Completed : Rooms API Operations - Python Quickstart Sample ====')git
