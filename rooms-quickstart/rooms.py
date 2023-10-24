@@ -98,7 +98,7 @@ class RoomsQuickstart(object):
     def print_room(self, room):
         print("\nRoom Id: " + room.id +
               "\nCreated date time: " + str(room.created_at) +
-              "\nValid From: " + str(room.valid_from) + "\nValid Until: " + str(room.valid_until))
+              "\nValid From: " + str(room.valid_from) + "\nValid Until: " + str(room.valid_until) + "\nPstn dial out enabled: " + str(room.pstn_dial_out_enabled ))
 
     def get_participants_in_room(self, room_id:str):
         participants = self.rooms_client.list_participants(room_id)
@@ -130,4 +130,4 @@ if __name__ == '__main__':
     rooms.get_participants_in_room(room_id=rooms.roomsCollection[0])
     rooms.teardown()
 
-    print('==== Completed : Rooms API Operations - Python Quickstart Sample ====')git
+    print('==== Completed : Rooms API Operations - Python Quickstart Sample ====')
