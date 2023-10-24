@@ -11,7 +11,7 @@ from azure.communication.identity import (
 )
 class RoomsQuickstart(object):
     roomsCollection = []
-    connection_string = '<connection_string>'
+    connection_string = ''
     identity_client = CommunicationIdentityClient.from_connection_string(connection_string)
     user1 = identity_client.create_user()
     user2 = identity_client.create_user()
@@ -98,7 +98,7 @@ class RoomsQuickstart(object):
     def print_room(self, room):
         print("\nRoom Id: " + room.id +
               "\nCreated date time: " + str(room.created_at) +
-              "\nValid From: " + str(room.valid_from) + "\nValid Until: " + str(room.valid_until) + "\nPstn dial out enabled: " + room.pstn_dial_out_enabled)
+              "\nValid From: " + str(room.valid_from) + "\nValid Until: " + str(room.valid_until) + "\nPstn dial out enabled: " + str(room.pstn_dial_out_enabled ))
 
     def get_participants_in_room(self, room_id:str):
         participants = self.rooms_client.list_participants(room_id)
