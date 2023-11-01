@@ -25,6 +25,7 @@ TARGET_PHONE_NUMBER = "<TARGET_PHONE_NUMBER>"
 # Callback events URI to handle callback events.
 CALLBACK_URI_HOST = "<CALLBACK_URI_HOST_WITH_PROTOCOL>"
 CALLBACK_EVENTS_URI = CALLBACK_URI_HOST + "/api/callbacks"
+COGNITIVE_SERVICES_ENDPOINT = "<COGNITIVE_SERVICES_ENDPOINT>"
 
 TEMPLATE_FILES_PATH = "template"
 
@@ -77,7 +78,7 @@ def outbound_call_handler():
     source_caller = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
     call_invite = CallInvite(target=target_participant, source_caller_id_number=source_caller)
     call_connection_properties = call_automation_client.create_call(call_invite, CALLBACK_EVENTS_URI,
-                                                                    cognitive_services_endpoint="https://cognitive-service-waferwire.cognitiveservices.azure.com/")
+                                                                    cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT")
     app.logger.info("Created call with connection id: %s", call_connection_properties.call_connection_id)
     return redirect("/")
 
