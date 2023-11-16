@@ -1,7 +1,11 @@
 import time
+
 from azure.communication.jobrouter import (
     JobRouterClient,
-    JobRouterAdministrationClient,
+    JobRouterAdministrationClient
+)
+
+from azure.communication.jobrouter.models import (
     DistributionPolicy,
     LongestIdleMode,
     RouterQueue,
@@ -9,8 +13,9 @@ from azure.communication.jobrouter import (
     RouterWorkerSelector,
     LabelOperator,
     RouterWorker,
-    ChannelConfiguration
+    RouterChannel
 )
+
 
 class RouterQuickstart(object):
     print("Azure Communication Services - Job Router Quickstart")
@@ -20,24 +25,24 @@ class RouterQuickstart(object):
     router_admin_client = JobRouterAdministrationClient.from_connection_string(conn_str = connection_string)
     router_client = JobRouterClient.from_connection_string(conn_str = connection_string)
     
-    distribution_policy = router_admin_client.create_distribution_policy(
-        distribution_policy_id ="distribution-policy-1",
-        distribution_policy = DistributionPolicy(
+    distribution_policy = router_admin_client.upsert_distribution_policy(
+        "distribution-policy-1",
+        DistributionPolicy(
             offer_expires_after_seconds = 60,
             mode = LongestIdleMode(),
             name = "My distribution policy"
         ))
     
-    queue = router_admin_client.create_queue(
-        queue_id = "queue-1",
-        queue = RouterQueue(
+    queue = router_admin_client.upsert_queue(
+        "queue-1",
+        RouterQueue(
             name = "My Queue",
             distribution_policy_id = distribution_policy.id
         ))
     
-    job = router_client.create_job(
-        job_id = "job-1",
-        router_job = RouterJob(
+    job = router_client.upsert_job(
+        "job-1",
+        RouterJob(
             channel_id = "voice",
             queue_id = queue.id,
             priority = 1,
@@ -50,19 +55,19 @@ class RouterQuickstart(object):
             ]
         ))
     
-    worker = router_client.create_worker(
-        worker_id = "worker-1",
-        router_worker = RouterWorker(
-            total_capacity = 1,
-            queue_assignments = {
-                "queue-1": {}
-            },
+    worker = router_client.upsert_job(
+        "worker-1",
+        RouterWorker(
+            capacity = 1,
+            queues = [
+                "queue-1",
+            ],
             labels = {
                 "Some-Skill": 11
             },
-            channel_configurations = {
-                "voice": ChannelConfiguration(capacity_cost_per_job = 1)
-            },
+            channels = [
+                RouterChannel(channel_id = "voice", capacity_cost_per_job = 1)
+            ],
             available_for_offers = True
         ))
     
@@ -82,6 +87,7 @@ class RouterQuickstart(object):
 
     router_client.delete_job(accept.job_id)
     print(f"Deleting {accept.job_id}")
+
 
 if __name__ == '__main__':
     router = RouterQuickstart()
