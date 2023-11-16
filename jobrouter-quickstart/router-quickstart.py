@@ -21,7 +21,7 @@ class RouterQuickstart(object):
     print("Azure Communication Services - Job Router Quickstart")
     
     # Get a connection string to our Azure Communication Services resource.
-    connection_string = "endpoint=https://acs-wzhao.unitedstates.communication.azure.com/;accesskey=lPAh+Tg3/Mqm0+qaaBnH2cqBv7PsXr19TQqOkHi9E1rCW1NhbLRwuVF7P9d3jeO7EC2QyaQhnhqxu4XekszTjw=="
+    connection_string = "conn_str"
     router_admin_client = JobRouterAdministrationClient.from_connection_string(conn_str = connection_string)
     router_client = JobRouterClient.from_connection_string(conn_str = connection_string)
     
