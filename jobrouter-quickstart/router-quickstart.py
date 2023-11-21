@@ -6,13 +6,9 @@ from azure.communication.jobrouter import (
 )
 
 from azure.communication.jobrouter.models import (
-    DistributionPolicy,
     LongestIdleMode,
-    RouterQueue,
-    RouterJob,
     RouterWorkerSelector,
     LabelOperator,
-    RouterWorker,
     RouterChannel,
     CloseJobOptions
 )
@@ -26,50 +22,36 @@ class RouterQuickstart(object):
     router_client = JobRouterClient.from_connection_string(conn_str = connection_string)
     
     distribution_policy = router_admin_client.upsert_distribution_policy(
-        "distribution-policy-1",
-        DistributionPolicy(
-            offer_expires_after_seconds = 60,
-            mode = LongestIdleMode(),
-            name = "My distribution policy"
-        ))
+        distribution_policy_id ="distribution-policy-1",
+        offer_expires_after_seconds = 60,
+        mode = LongestIdleMode(),
+        name = "My distribution policy")
     
     queue = router_admin_client.upsert_queue(
-        "queue-1",
-        RouterQueue(
-            name = "My Queue",
-            distribution_policy_id = distribution_policy.id
-        ))
+        queue_id = "queue-1",
+        name = "My Queue",
+        distribution_policy_id = distribution_policy.id)
     
     job = router_client.upsert_job(
-        "job-1",
-        RouterJob(
-            channel_id = "voice",
-            queue_id = queue.id,
-            priority = 1,
-            requested_worker_selectors = [
-                RouterWorkerSelector(
-                    key = "Some-Skill",
-                    label_operator = LabelOperator.GREATER_THAN,
-                    value = 10
-                )
-            ]
-        ))
+        job_id = "job-1",
+        channel_id = "voice",
+        queue_id = queue.id,
+        priority = 1,
+        requested_worker_selectors = [
+            RouterWorkerSelector(
+                key = "Some-Skill",
+                label_operator = LabelOperator.GREATER_THAN,
+                value = 10
+            )
+        ])
     
     worker = router_client.upsert_worker(
-        "worker-1",
-        RouterWorker(
-            capacity = 1,
-            queues = [
-                "queue-1",
-            ],
-            labels = {
-                "Some-Skill": 11
-            },
-            channels = [
-                RouterChannel(channel_id = "voice", capacity_cost_per_job = 1)
-            ],
-            available_for_offers = True
-        ))
+        worker_id = "worker-1",
+        capacity = 1,
+        queues = ["queue-1"],
+        labels = { "Some-Skill": 11 },
+        channels = [RouterChannel(channel_id = "voice", capacity_cost_per_job = 1)],
+        available_for_offers = True)
     
     time.sleep(10)
     worker = router_client.get_worker(worker_id = worker.id)
