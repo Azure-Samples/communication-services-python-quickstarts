@@ -18,6 +18,7 @@ This sample application is also capable of making multiple concurrent outbound c
 - An Azure account with an active subscription. [Create an account for free](https://azure.microsoft.com/free/?WT.mc_id=A261C142F). 
 - A deployed Communication Services resource. [Create a Communication Services resource](https://docs.microsoft.com/azure/communication-services/quickstarts/create-communication-resource).
 - A [phone number](https://learn.microsoft.com/en-us/azure/communication-services/quickstarts/telephony/get-phone-number) in your Azure Communication Services resource that can make outbound calls. NB: phone numbers are not available in free subscriptions.
+- Create Cognitive Service resource. For details, see [Create an Azure Cognitive Search service](https://learn.microsoft.com/en-us/azure/search/search-create-service-portal)
 - Create and host a Azure Dev Tunnel. Instructions [here](https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/get-started)
 - [Python](https://www.python.org/downloads/) 3.7 or above.
 
@@ -52,6 +53,7 @@ Open `main.py` file to configure the following settings
 2. `ACS_PHONE_NUMBER`: Phone number associated with the Azure Communication Service resource. For e.g. "+1425XXXAAAA"
 3. `TARGET_PHONE_NUMBER`: Target phone number to add in the call. For e.g. "+1425XXXAAAA"
 4. `CALLBACK_URI_HOST`: Base url of the app. (For local development use dev tunnel url)
+5. `COGNITIVE_SERVICES_ENDPOINT`: Cognitive Service Endpoint
 
 ## Run app locally
 

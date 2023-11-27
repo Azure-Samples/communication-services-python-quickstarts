@@ -6,7 +6,6 @@ from azure.communication.callautomation import (
     CallConnectionClient,
     PhoneNumberIdentifier,
     ServerCallLocator,
-    CallInvite,
     RecognizeInputType,
     RecognitionChoice,
     DtmfTone,
@@ -30,16 +29,16 @@ COGNITIVE_SERVICES_ENDPOINT = "<COGNITIVE_SERVICES_ENDPOINT>"
 TEMPLATE_FILES_PATH = "template"
 
 # Prompts for text to speech
-SpeechToTextVoice = "en-US-NancyNeural"
-MainMenu = "Hello this is Contoso Bank, we’re calling in regard to your appointment tomorrow at 9am to open a new account. Please confirm if this time is still suitable for you or if you would like to cancel. This call is recorded for quality purposes."
-ConfirmedText = "Thank you for confirming your appointment tomorrow at 9am, we look forward to meeting with you."
-CancelText = "Your appointment tomorrow at 9am has been cancelled. Please call the bank directly if you would like to rebook for another date and time."
-CustomerQueryTimeout = "I’m sorry I didn’t receive a response, please try again."
-NoResponse = "I didn't receive an input, we will go ahead and confirm your appointment. Goodbye"
-InvalidAudio = "I’m sorry, I didn’t understand your response, please try again."
-ConfirmChoiceLabel = "Confirm"
-CancelChoiceLabel = "Cancel"
-RetryContext = "retry"
+SPEECH_TO_TEXT_VOICE = "en-US-NancyNeural"
+MAIN_MENU = "Hello this is Contoso Bank, we’re calling in regard to your appointment tomorrow at 9am to open a new account. Please confirm if this time is still suitable for you or if you would like to cancel. This call is recorded for quality purposes."
+CONFIRMED_TEXT = "Thank you for confirming your appointment tomorrow at 9am, we look forward to meeting with you."
+CANCEL_TEXT = "Your appointment tomorrow at 9am has been cancelled. Please call the bank directly if you would like to rebook for another date and time."
+CUSTOMER_QUERY_TIMEOUT = "I’m sorry I didn’t receive a response, please try again."
+NO_RESPONSE = "I didn't receive an input, we will go ahead and confirm your appointment. Goodbye"
+INVALID_AUDIO = "I’m sorry, I didn’t understand your response, please try again."
+CONFIRM_CHOICE_LABEL = "Confirm"
+CANCEL_CHOICE_LABEL = "Cancel"
+RETRY_CONTEXT = "retry"
 
 call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
 recording_id = None
@@ -50,13 +49,13 @@ app = Flask(__name__,
 
 def get_choices():
     choices = [
-                RecognitionChoice(label = ConfirmChoiceLabel, phrases= ["Confirm", "First", "One"], tone = DtmfTone.ONE),
-                RecognitionChoice(label = CancelChoiceLabel, phrases= ["Cancel", "Second", "Two"], tone = DtmfTone.TWO)
+                RecognitionChoice(label = CONFIRM_CHOICE_LABEL, phrases= ["Confirm", "First", "One"], tone = DtmfTone.ONE),
+                RecognitionChoice(label = CANCEL_CHOICE_LABEL, phrases= ["Cancel", "Second", "Two"], tone = DtmfTone.TWO)
             ]
     return choices
 
 def get_media_recognize_choice_options(call_connection_client: CallConnectionClient, text_to_play: str, target_participant:str, choices: any, context: str):
-     play_source =  TextSource (text= text_to_play, voice_name= SpeechToTextVoice)
+     play_source =  TextSource (text= text_to_play, voice_name= SPEECH_TO_TEXT_VOICE)
      call_connection_client.start_recognizing_media(
                 input_type=RecognizeInputType.CHOICES,
                 target_participant=target_participant,
@@ -68,7 +67,7 @@ def get_media_recognize_choice_options(call_connection_client: CallConnectionCli
             )
      
 def handle_play(call_connection_client: CallConnectionClient, text_to_play: str):
-        play_source = TextSource(text=text_to_play, voice_name=SpeechToTextVoice) 
+        play_source = TextSource(text=text_to_play, voice_name=SPEECH_TO_TEXT_VOICE) 
         call_connection_client.play_media_to_all(play_source)
 
 # GET endpoint to place phone call
@@ -76,9 +75,10 @@ def handle_play(call_connection_client: CallConnectionClient, text_to_play: str)
 def outbound_call_handler():
     target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
     source_caller = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
-    call_invite = CallInvite(target=target_participant, source_caller_id_number=source_caller)
-    call_connection_properties = call_automation_client.create_call(call_invite, CALLBACK_EVENTS_URI,
-                                                                    cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT)
+    call_connection_properties = call_automation_client.create_call(target_participant, 
+                                                                    CALLBACK_EVENTS_URI,
+                                                                    cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT,
+                                                                    source_caller_id_number=source_caller)
     app.logger.info("Created call with connection id: %s", call_connection_properties.call_connection_id)
     return redirect("/")
 
@@ -94,39 +94,36 @@ def callback_events_handler():
         app.logger.info("%s event received for call connection id: %s", event.type, call_connection_id)
         call_connection_client = call_automation_client.get_call_connection(call_connection_id)
         target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
-
         # Starting recording and triggering DTMF recognize API after call is connected
         if event.type == "Microsoft.Communication.CallConnected":
             app.logger.info("Starting recording")
             recording_properties = call_automation_client.start_recording(ServerCallLocator(event.data['serverCallId']))
             recording_id = recording_properties.recording_id
-
             app.logger.info("Starting recognize")
            
             get_media_recognize_choice_options(
                 call_connection_client=call_connection_client,
-                text_to_play=MainMenu, 
+                text_to_play=MAIN_MENU, 
                 target_participant=target_participant,
                 choices=get_choices(),context="")
             
-
         # Perform different actions based on DTMF tone received from RecognizeCompleted event
         elif event.type == "Microsoft.Communication.RecognizeCompleted":
             app.logger.info("Recognize completed: data=%s", event.data) 
             if event.data['recognitionType'] == "choices": 
-                 labelDetected = event.data['choiceResult']['label']; 
+                 label_detected = event.data['choiceResult']['label']; 
                  phraseDetected = event.data['choiceResult']['recognizedPhrase']; 
-                 app.logger.info("Recognition completed, labelDetected=%s, phraseDetected=%s, context=%s", labelDetected, phraseDetected, event.data.get('operationContext'))
-                 if labelDetected == ConfirmChoiceLabel:
-                    textToPlay = ConfirmedText
+                 app.logger.info("Recognition completed, labelDetected=%s, phraseDetected=%s, context=%s", label_detected, phraseDetected, event.data.get('operationContext'))
+                 if label_detected == CONFIRM_CHOICE_LABEL:
+                    text_to_play = CONFIRMED_TEXT
                  else:
-                    textToPlay = CancelText
-                 handle_play(call_connection_client=call_connection_client, text_to_play=textToPlay)
+                    text_to_play = CANCEL_TEXT
+                 handle_play(call_connection_client=call_connection_client, text_to_play=text_to_play)
 
         elif event.type == "Microsoft.Communication.RecognizeFailed":
             failedContext = event.data['operationContext']
-            if(failedContext and failedContext == RetryContext):
-                handle_play(call_connection_client=call_connection_client, text_to_play=NoResponse)
+            if(failedContext and failedContext == RETRY_CONTEXT):
+                handle_play(call_connection_client=call_connection_client, text_to_play=NO_RESPONSE)
             else:
                 resultInformation = event.data['resultInformation']
                 app.logger.info("Encountered error during recognize, message=%s, code=%s, subCode=%s", 
@@ -134,15 +131,15 @@ def callback_events_handler():
                                 resultInformation['code'],
                                 resultInformation['subCode'])
                 if(resultInformation['subCode'] in[8510, 8510]):
-                    textToPlay =CustomerQueryTimeout
+                    textToPlay =CUSTOMER_QUERY_TIMEOUT
                 else :
-                    textToPlay =InvalidAudio
+                    textToPlay =INVALID_AUDIO
                 
                 get_media_recognize_choice_options(
                     call_connection_client=call_connection_client,
-                    text_to_play=CustomerQueryTimeout, 
+                    text_to_play=textToPlay, 
                     target_participant=target_participant,
-                    choices=get_choices(),context=RetryContext)
+                    choices=get_choices(),context=RETRY_CONTEXT)
 
         elif event.type in ["Microsoft.Communication.PlayCompleted", "Microsoft.Communication.PlayFailed"]:
             app.logger.info("Terminating call")
