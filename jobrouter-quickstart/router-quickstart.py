@@ -1,70 +1,57 @@
 import time
+
 from azure.communication.jobrouter import (
     JobRouterClient,
-    JobRouterAdministrationClient,
-    DistributionPolicy,
+    JobRouterAdministrationClient
+)
+
+from azure.communication.jobrouter.models import (
     LongestIdleMode,
-    RouterQueue,
-    RouterJob,
     RouterWorkerSelector,
     LabelOperator,
-    RouterWorker,
-    ChannelConfiguration
+    RouterChannel,
+    CloseJobOptions
 )
 
 class RouterQuickstart(object):
     print("Azure Communication Services - Job Router Quickstart")
     
     # Get a connection string to our Azure Communication Services resource.
-    connection_string = "your_connection_string"
+    connection_string = "conn_str"
     router_admin_client = JobRouterAdministrationClient.from_connection_string(conn_str = connection_string)
     router_client = JobRouterClient.from_connection_string(conn_str = connection_string)
     
-    distribution_policy = router_admin_client.create_distribution_policy(
+    distribution_policy = router_admin_client.upsert_distribution_policy(
         distribution_policy_id ="distribution-policy-1",
-        distribution_policy = DistributionPolicy(
-            offer_expires_after_seconds = 60,
-            mode = LongestIdleMode(),
-            name = "My distribution policy"
-        ))
+        offer_expires_after_seconds = 60,
+        mode = LongestIdleMode(),
+        name = "My distribution policy")
     
-    queue = router_admin_client.create_queue(
+    queue = router_admin_client.upsert_queue(
         queue_id = "queue-1",
-        queue = RouterQueue(
-            name = "My Queue",
-            distribution_policy_id = distribution_policy.id
-        ))
+        name = "My Queue",
+        distribution_policy_id = distribution_policy.id)
     
-    job = router_client.create_job(
+    job = router_client.upsert_job(
         job_id = "job-1",
-        router_job = RouterJob(
-            channel_id = "voice",
-            queue_id = queue.id,
-            priority = 1,
-            requested_worker_selectors = [
-                RouterWorkerSelector(
-                    key = "Some-Skill",
-                    label_operator = LabelOperator.GREATER_THAN,
-                    value = 10
-                )
-            ]
-        ))
+        channel_id = "voice",
+        queue_id = queue.id,
+        priority = 1,
+        requested_worker_selectors = [
+            RouterWorkerSelector(
+                key = "Some-Skill",
+                label_operator = LabelOperator.GREATER_THAN,
+                value = 10
+            )
+        ])
     
-    worker = router_client.create_worker(
+    worker = router_client.upsert_worker(
         worker_id = "worker-1",
-        router_worker = RouterWorker(
-            total_capacity = 1,
-            queue_assignments = {
-                "queue-1": {}
-            },
-            labels = {
-                "Some-Skill": 11
-            },
-            channel_configurations = {
-                "voice": ChannelConfiguration(capacity_cost_per_job = 1)
-            },
-            available_for_offers = True
-        ))
+        capacity = 1,
+        queues = ["queue-1"],
+        labels = { "Some-Skill": 11 },
+        channels = [RouterChannel(channel_id = "voice", capacity_cost_per_job = 1)],
+        available_for_offers = True)
     
     time.sleep(10)
     worker = router_client.get_worker(worker_id = worker.id)
@@ -77,11 +64,12 @@ class RouterQuickstart(object):
     router_client.complete_job(job_id = job.id, assignment_id = accept.assignment_id)
     print(f"Worker {worker.id} has completed job {accept.job_id}")
     
-    router_client.close_job(job_id = job.id, assignment_id = accept.assignment_id, disposition_code = "Resolved")
+    router_client.close_job(job_id = job.id, assignment_id = accept.assignment_id, options = CloseJobOptions(disposition_code = "Resolved"))
     print(f"Worker {worker.id} has closed job {accept.job_id}")
 
     router_client.delete_job(accept.job_id)
     print(f"Deleting {accept.job_id}")
+
 
 if __name__ == '__main__':
     router = RouterQuickstart()
