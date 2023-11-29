@@ -21,27 +21,28 @@ from openai.api_resources import (
 )
 
 # Your ACS resource connection string
-ACS_CONNECTION_STRING = "endpoint=https://dacsrecordingtest.unitedstates.communication.azure.com/;accesskey=egR4Cab/RFWP7/fwpwEUYXvzBO9JP01nav80N0S8Ga/oAzITq6KhUNGfe5xdPv6Uqe4I4Fh6sdyq2yESEmmXJQ=="
+ACS_CONNECTION_STRING = "<ACS_CONNECTION_STRING>"
 
 # Cognitive service endpoint
-COGNITIVE_SERVICE_ENDPOINT="https://cognitive-service-waferwire.cognitiveservices.azure.com/"
+COGNITIVE_SERVICE_ENDPOINT="<COGNITIVE_SERVICE_ENDPOINT>"
 
 # Cognitive service endpoint
-AZURE_OPENAI_SERVICE_KEY = "6d67cd33c89849019687cf69dfc80149"
+AZURE_OPENAI_SERVICE_KEY = "<AZURE_OPENAI_SERVICE_KEY>"
 
-# Cognitive service endpoint
-AZURE_OPENAI_SERVICE_ENDPOINT="https://waferwireopenai.openai.azure.com/"
+# Open AI service endpoint
+AZURE_OPENAI_SERVICE_ENDPOINT="<AZURE_OPENAI_SERVICE_ENDPOINT>"
 
-# Cognitive service endpoint
-AZURE_OPENAI_DEPLOYMENT_MODEL_NAME="call-automation-deployment"
+# Azure Open AI Deployment Model Name
+AZURE_OPENAI_DEPLOYMENT_MODEL_NAME="<AZURE_OPENAI_DEPLOYMENT_MODEL_NAME>"
 
+# Azure Open AI Deployment Model
 AZURE_OPENAI_DEPLOYMENT_MODEL="gpt-3.5-turbo"
 
 # Agent Phone Number
-AGENT_PHONE_NUMBER="+14254428960"
+AGENT_PHONE_NUMBER="<AGENT_PHONE_NUMBER>"
 
 # Callback events URI to handle callback events.
-CALLBACK_URI_HOST = "https://z2bg54qn-8080.usw2.devtunnels.ms"
+CALLBACK_URI_HOST = "<CALLBACK_URI_HOST_WITH_PROTOCOL>"
 CALLBACK_EVENTS_URI = CALLBACK_URI_HOST + "/api/callbacks"
 
 ANSWER_PROMPT_SYSTEM_TEMPLATE = """ 
