@@ -6,6 +6,7 @@ from azure.eventgrid import EventGridEvent, SystemEventNames
 import requests
 from flask import Flask, Response, request, json
 from logging import INFO
+import re
 from azure.communication.callautomation import (
     CallAutomationClient,
     PhoneNumberIdentifier,
@@ -28,20 +29,52 @@ COGNITIVE_SERVICE_ENDPOINT="<COGNITIVE_SERVICE_ENDPOINT>"
 # Cognitive service endpoint
 AZURE_OPENAI_SERVICE_KEY = "<AZURE_OPENAI_SERVICE_KEY>"
 
-# Cognitive service endpoint
+# Open AI service endpoint
 AZURE_OPENAI_SERVICE_ENDPOINT="<AZURE_OPENAI_SERVICE_ENDPOINT>"
 
-# Cognitive service endpoint
+# Azure Open AI Deployment Model Name
 AZURE_OPENAI_DEPLOYMENT_MODEL_NAME="<AZURE_OPENAI_DEPLOYMENT_MODEL_NAME>"
+
+# Azure Open AI Deployment Model
+AZURE_OPENAI_DEPLOYMENT_MODEL="gpt-3.5-turbo"
+
+# Agent Phone Number
+AGENT_PHONE_NUMBER="<AGENT_PHONE_NUMBER>"
 
 # Callback events URI to handle callback events.
 CALLBACK_URI_HOST = "<CALLBACK_URI_HOST_WITH_PROTOCOL>"
 CALLBACK_EVENTS_URI = CALLBACK_URI_HOST + "/api/callbacks"
 
+ANSWER_PROMPT_SYSTEM_TEMPLATE = """ 
+    You are an assistant designed to answer the customer query and analyze the sentiment score from the customer tone. 
+    You also need to determine the intent of the customer query and classify it into categories such as sales, marketing, shopping, etc.
+    Use a scale of 1-10 (10 being highest) to rate the sentiment score. 
+    Use the below format, replacing the text in brackets with the result. Do not include the brackets in the output: 
+    Content:[Answer the customer query briefly and clearly in two lines and ask if there is anything else you can help with] 
+    Score:[Sentiment score of the customer tone] 
+    Intent:[Determine the intent of the customer query] 
+    Category:[Classify the intent into one of the categories]
+    """
+
+HELLO_PROMPT = "Hello, thank you for calling! How can I help you today?"
+TIMEOUT_SILENCE_PROMPT = "I am sorry, I did not hear anything. If you need assistance, please let me know how I can help you,"
+GOODBYE_PROMPT = "Thank you for calling! I hope I was able to assist you. Have a great day!"
+CONNECT_AGENT_PROMPT = "I'm sorry, I was not able to assist you with your request. Let me transfer you to an agent who can help you further. Please hold the line, and I willl connect you shortly."
+CALLTRANSFER_FAILURE_PROMPT = "It looks like I can not connect you to an agent right now, but we will get the next available agent to call you back as soon as possible."
+AGENT_PHONE_NUMBER_EMPTY_PROMPT = "I am sorry, we are currently experiencing high call volumes and all of our agents are currently busy. Our next available agent will call you back as soon as possible."
+END_CALL_PHRASE_TO_CONNECT_AGENT = "Sure, please stay on the line. I am going to transfer you to an agent."
+
+TRANSFER_FAILED_CONTEXT = "TransferFailed"
+CONNECT_AGENT_CONTEXT = "ConnectAgent"
+GOODBYE_CONTEXT = "Goodbye"
+
+CHAT_RESPONSE_EXTRACT_PATTERN = r"\s*Content:(.*)\s*Score:(.*\d+)\s*Intent:(.*)\s*Category:(.*)"
+
 call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
 
 recording_id = None
 recording_chunks_location = []
+max_retry = 2
 
 openai.api_key = AZURE_OPENAI_SERVICE_KEY
 openai.api_base = AZURE_OPENAI_SERVICE_ENDPOINT # your endpoint should look like the following https://YOUR_RESOURCE_NAME.openai.azure.com/
@@ -50,28 +83,33 @@ openai.api_version = '2023-05-15' # this may change in the future
 
 app = Flask(__name__)
 
-def get_chat_gpt_response(speech_input):
+def get_chat_completions_async(system_prompt,user_prompt): 
+    openai.api_key = AZURE_OPENAI_SERVICE_KEY
+    openai.api_base = AZURE_OPENAI_SERVICE_ENDPOINT # your endpoint should look like the following https://YOUR_RESOURCE_NAME.openai.azure.com/
+    openai.api_type = 'azure'
+    openai.api_version = '2023-05-15' # this may change in the future
+    
     # Define your chat completions request
     chat_request = [
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": f"In less than 200 characters: respond to this question: {speech_input}?"}
+        {"role": "system", "content": f"{system_prompt}"},
+        {"role": "user", "content": f"In less than 200 characters: respond to this question: {user_prompt}?"}
     ]
   
     global response_content
     try:
-        response = ChatCompletion.create(model=AZURE_OPENAI_DEPLOYMENT_MODEL_NAME,
-                                         deployment_id=AZURE_OPENAI_DEPLOYMENT_MODEL_NAME, 
-                                         messages=chat_request,
-                                         max_tokens = 1000)
+        response = ChatCompletion.create(model=AZURE_OPENAI_DEPLOYMENT_MODEL,deployment_id=AZURE_OPENAI_DEPLOYMENT_MODEL_NAME, messages=chat_request,max_tokens = 1000)
     except ex:
         app.logger.info("error in openai api call : %s",ex)
+       
     # Extract the response content
     if response is not None :
          response_content  =  response['choices'][0]['message']['content']
     else :
-         response_content="" 
-    app.logger.info("response from open ai: %s", response_content)
-    return response_content
+         response_content=""    
+    return response_content  
+
+def get_chat_gpt_response(speech_input):
+   return get_chat_completions_async(ANSWER_PROMPT_SYSTEM_TEMPLATE,speech_input)
 
 def handle_recognize(replyText,callerId,call_connection_id,context=""):
     play_source = TextSource(text=replyText, voice_name="en-US-NancyNeural")    
@@ -81,14 +119,35 @@ def handle_recognize(replyText,callerId,call_connection_id,context=""):
     end_silence_timeout=10, 
     play_prompt=play_source,
     operation_context=context)
+    app.logger.info("handle_recognize : data=%s",recognize_result) 
 
-def handle_play(call_connection_id):     
-    play_source = TextSource(text="Goodbye", voice_name= "en-US-NancyNeural") 
+def handle_play(call_connection_id, text_to_play, context):     
+    play_source = TextSource(text=text_to_play, voice_name= "en-US-NancyNeural") 
     call_automation_client.get_call_connection(call_connection_id).play_media_to_all(play_source,
-                                                                                     operation_context="GoodBye")
+                                                                                     operation_context=context)
     
 def handle_hangup(call_connection_id):     
     call_automation_client.get_call_connection(call_connection_id).hang_up(is_for_everyone=True)
+
+def detect_escalate_to_agent_intent(speech_text, logger):
+    return has_intent_async(user_query=speech_text, intent_description="talk to agent", logger=logger)
+
+def has_intent_async(user_query, intent_description, logger):
+    is_match=False
+    system_prompt = "You are a helpful assistant"
+    combined_prompt = f"In 1 word: does {user_query} have a similar meaning as {intent_description}?"
+    #combined_prompt = base_user_prompt.format(user_query, intent_description)
+    response = get_chat_completions_async(system_prompt, combined_prompt)
+    if "yes" in response.lower():
+        is_match =True        
+    logger.info(f"OpenAI results: is_match={is_match}, customer_query='{user_query}', intent_description='{intent_description}'")
+    return is_match
+
+def get_sentiment_score(sentiment_score):
+    pattern = r"(\d)+"
+    regex = re.compile(pattern)
+    match = regex.search(sentiment_score)
+    return int(match.group()) if match else -1
 
 @app.route("/api/incomingCall",  methods=['POST'])
 def incoming_call_handler():
@@ -139,7 +198,7 @@ def handle_callback(contextId):
 
             app.logger.info("call connected : data=%s", event.data)
             if event.type == "Microsoft.Communication.CallConnected":
-                 handle_recognize("Hello. How can I help?",
+                 handle_recognize(HELLO_PROMPT,
                                   caller_id,call_connection_id,
                                   context="GetFreeFormText") 
                  
@@ -149,34 +208,67 @@ def handle_callback(contextId):
                      app.logger.info("Recognition completed, speech_text =%s", 
                                      speech_text); 
                      if speech_text is not None and len(speech_text) > 0: 
-                        chat_gpt_response= get_chat_gpt_response(speech_text)
-                        handle_recognize(replyText=chat_gpt_response,
-                                         callerId=caller_id,
-                                         call_connection_id=call_connection_id,
-                                         context="OpenAISample")
+                        if detect_escalate_to_agent_intent(speech_text=speech_text,logger=app.logger):
+                            handle_play(call_connection_id=call_connection_id,text_to_play=END_CALL_PHRASE_TO_CONNECT_AGENT,context=CONNECT_AGENT_CONTEXT)    
+                        else: 
+                            chat_gpt_response= get_chat_gpt_response(speech_text)
+                            app.logger.info(f"Chat GPT response:{chat_gpt_response}") 
+                            regex = re.compile(CHAT_RESPONSE_EXTRACT_PATTERN)
+                            match = regex.search(chat_gpt_response)
+                            if match:
+                                answer = match.group(1)
+                                sentiment_score = match.group(2).strip()
+                                intent = match.group(3)
+                                category = match.group(4)
+                                app.logger.info(f"Chat GPT Answer={answer}, Sentiment Rating={sentiment_score}, Intent={intent}, Category={category}") 
+                                score=get_sentiment_score(sentiment_score)
+                                app.logger.info(f"Score={score}")
+                                if -1 < score < 5:
+                                    app.logger.info(f"Score is less than 5")
+                                    handle_play(call_connection_id=call_connection_id,text_to_play=CONNECT_AGENT_PROMPT,context=CONNECT_AGENT_CONTEXT)
+                                else:
+                                    app.logger.info(f"Score is more than 5")
+                                    handle_recognize(answer,caller_id,call_connection_id,context="OpenAISample")
+                            else: 
+                                app.logger.info("No match found")
+                                handle_recognize(chat_gpt_response,caller_id,call_connection_id,context="OpenAISample")
 
-            elif event.type == "Microsoft.Communication.RecognizeFailed": 
-                 resultInformation = event.data['resultInformation']
-                 reasonCode = resultInformation['subCode']
-                 context=event.data['operationContext']
-                 retryContext = "retry"
-                 if context == retryContext:
-                    handle_play(call_connection_id=call_connection_id)
-
-                 else:
-                    if reasonCode in {8510}:
-                        replyText =  "I've noticed that you have been silent. Are you still there?"
-                        handle_recognize(replyText=replyText,
-                                  callerId=caller_id,
-                                  call_connection_id=call_connection_id,
-                                  context=retryContext)
-                    else: 
-                        handle_play(call_connection_id=call_connection_id)
+            elif event.type == "Microsoft.Communication.RecognizeFailed":
+                resultInformation = event.data['resultInformation']
+                reasonCode = resultInformation['subCode']
+                context=event.data['operationContext']
+                global max_retry
+                if reasonCode == 8510 and 0 < max_retry:
+                    handle_recognize(TIMEOUT_SILENCE_PROMPT,caller_id,call_connection_id) 
+                    max_retry -= 1
+                else:
+                    handle_play(call_connection_id,GOODBYE_PROMPT, GOODBYE_CONTEXT)    
                  
-            elif event.type == "Microsoft.Communication.PlayCompleted" or event.type == "Microsoft.Communication.playFailed":
-                app.logger.info("Received PlayCompleted event")
-                handle_hangup(call_connection_id)
+            elif event.type == "Microsoft.Communication.PlayCompleted":
+                context=event.data['operationContext']    
+                if context.lower() == TRANSFER_FAILED_CONTEXT.lower() or context.lower() == GOODBYE_CONTEXT.lower() :
+                    handle_hangup()
+                elif context.lower() ==  CONNECT_AGENT_CONTEXT.lower():
+                    if not AGENT_PHONE_NUMBER or AGENT_PHONE_NUMBER.isspace():
+                        app.logger.info(f"Agent phone number is empty")
+                        handle_play(call_connection_id=call_connection_id,text_to_play=AGENT_PHONE_NUMBER_EMPTY_PROMPT)  
+                    else:
+                        app.logger.info(f"Initializing the Call transfer...")
+                        transfer_destination=PhoneNumberIdentifier(AGENT_PHONE_NUMBER)                       
+                        call_connection_client =call_automation_client.get_call_connection(call_connection_id=call_connection_id)
+                        call_connection_client.transfer_call_to_participant(target_participant=transfer_destination)
+                        app.logger.info(f"Transfer call initiated: {context}")
 	
+            elif event.type == "Microsoft.Communication.CallTransferAccepted":
+                app.logger.info(f"Call transfer accepted event received for connection id: {call_connection_id}")   
+             
+            elif event.type == "Microsoft.Communication.CallTransferFailed":
+                app.logger.info(f"Call transfer failed event received for connection id: {call_connection_id}")
+                resultInformation = event.data['resultInformation']
+                sub_code = resultInformation['subCode']
+                # check for message extraction and code
+                app.logger.info(f"Encountered error during call transfer, message=, code=, subCode={sub_code}")                
+                handle_play(call_connection_id=call_connection_id,text_to_play=CALLTRANSFER_FAILURE_PROMPT, context=TRANSFER_FAILED_CONTEXT)
         return Response(status=200) 
     except Exception as ex:
         app.logger.info("error in event handling")
