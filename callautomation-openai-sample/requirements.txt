@@ -1,0 +1,4 @@
+Flask>=2.3.2
+azure-eventgrid==4.11.0
+azure-communication-callautomation==1.1.0
+openai==0.28.1
