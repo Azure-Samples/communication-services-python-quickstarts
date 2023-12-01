@@ -247,7 +247,7 @@ def handle_callback(contextId):
             elif event.type == "Microsoft.Communication.PlayCompleted":
                 context=event.data['operationContext']    
                 if context.lower() == TRANSFER_FAILED_CONTEXT.lower() or context.lower() == GOODBYE_CONTEXT.lower() :
-                    handle_hangup()
+                    handle_hangup(call_connection_id)
                 elif context.lower() ==  CONNECT_AGENT_CONTEXT.lower():
                     if not AGENT_PHONE_NUMBER or AGENT_PHONE_NUMBER.isspace():
                         app.logger.info(f"Agent phone number is empty")
