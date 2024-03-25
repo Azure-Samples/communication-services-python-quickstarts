@@ -36,7 +36,7 @@ pip install azure-identity
 4.  Decide which lookup you would like to perform, and keep in mind that looking up all the operator details incurs a cost, while looking up only number formatting is free.
 
 > [!WARNING]
-> If you want to avoid incurring a charge, comment out lines 22-32
+> If you want to avoid incurring a charge, comment out lines 27-37
 > 
 ## Run Locally
 
