@@ -18,6 +18,7 @@ In this quickstart, we cover how you can use Call Automation SDK to make an outb
 - Create Azure AI Multi Service resource. For details, see [Create an Azure AI Multi service](https://learn.microsoft.com/en-us/azure/cognitive-services/cognitive-services-apis-create-account).
 - Create and host a Azure Dev Tunnel. Instructions [here](https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/get-started)
 - [Python](https://www.python.org/downloads/) 3.7 or above.
+- (Optional) A Microsoft Teams user with a phone license. Teams phone license is required to add Teams users to the call. Learn more about Teams licenses [here](https://www.microsoft.com/microsoft-teams/compare-microsoft-teams-bundle-options).  You also need to complete the prerequisite step [Authorization for your Azure Communication Services Resource](https://learn.microsoft.com/azure/communication-services/how-tos/call-automation/teams-interop-call-automation?pivots=programming-language-python#step-1-authorization-for-your-azure-communication-services-resource-to-enable-calling-to-microsoft-teams-users) to enable calling to Microsoft Teams users.
 
 ## Before running the sample for the first time
 
@@ -51,6 +52,13 @@ Open `main.py` file to configure the following settings
 3. `TARGET_PHONE_NUMBER`: Target phone number to add in the call. For e.g. "+1425XXXAAAA"
 4. `CALLBACK_URI_HOST`: Base url of the app. (For local development use dev tunnel url)
 5. `COGNITIVE_SERVICES_ENDPOINT`: Cognitive Service Endpoint
+6. `TARGET_TEAMS_USER_ID`: (Optional) update field with the Microsoft Teams user Id you would like to add to the call. See [Use Graph API to get Teams user Id](https://learn.microsoft.com/azure/communication-services/how-tos/call-automation/teams-interop-call-automation?pivots=programming-language-python#step-2-use-the-graph-api-to-get-microsoft-entra-object-id-for-teams-users-and-optionally-check-their-presence).  Uncomment the below snippet in main.py to enable Teams Interop scenario.
+
+```python
+call_connection_client.add_participant(target_participant = CallInvite(
+    target = MicrosoftTeamsUserIdentifier(user_id=TARGET_TEAMS_USER_ID),
+    source_display_name = "Jack (Contoso Tech Support)"))
+```
 
 ## Run app locally
 

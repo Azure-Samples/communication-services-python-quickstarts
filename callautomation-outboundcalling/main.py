@@ -6,6 +6,8 @@ from azure.communication.callautomation import (
     CallConnectionClient,
     PhoneNumberIdentifier,
     RecognizeInputType,
+    MicrosoftTeamsUserIdentifier,
+    CallInvite,
     RecognitionChoice,
     DtmfTone,
     TextSource)
@@ -24,6 +26,9 @@ TARGET_PHONE_NUMBER = "<TARGET_PHONE_NUMBER>"
 CALLBACK_URI_HOST = "<CALLBACK_URI_HOST_WITH_PROTOCOL>"
 CALLBACK_EVENTS_URI = CALLBACK_URI_HOST + "/api/callbacks"
 COGNITIVE_SERVICES_ENDPOINT = "<COGNITIVE_SERVICES_ENDPOINT>"
+
+#(OPTIONAL) Your target Microsoft Teams user Id ex. "ab01bc12-d457-4995-a27b-c405ecfe4870"
+TARGET_TEAMS_USER_ID = "<TARGET_TEAMS_USER_ID>"
 
 TEMPLATE_FILES_PATH = "template"
 
@@ -91,6 +96,11 @@ def callback_events_handler():
         call_connection_client = call_automation_client.get_call_connection(call_connection_id)
         target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
         if event.type == "Microsoft.Communication.CallConnected":
+            # (Optional) Add a Microsoft Teams user to the call.  Uncomment the below snippet to enable Teams Interop scenario.
+            # call_connection_client.add_participant(target_participant = CallInvite(
+            #     target = MicrosoftTeamsUserIdentifier(user_id=TARGET_TEAMS_USER_ID),
+            #     source_display_name = "Jack (Contoso Tech Support)"))
+            
             app.logger.info("Starting recognize")
             get_media_recognize_choice_options(
                 call_connection_client=call_connection_client,
