@@ -13,7 +13,6 @@ This is a sample application demonstrated during Microsoft Build 2023. It highli
 - An Calling-enabled telephone number. [Get a phone number](https://learn.microsoft.com/en-us/azure/communication-services/quickstarts/telephony/get-phone-number?tabs=windows&pivots=platform-azp).
 - Azure Dev Tunnels CLI. For details, see  [Enable dev tunnel](https://docs.tunnels.api.visualstudio.com/cli)
 - Create an Azure Cognitive Services resource. For details, see [Create an Azure Cognitive Services Resource](https://learn.microsoft.com/en-us/azure/cognitive-services/cognitive-services-apis-create-account)
-- An Azure OpenAI Resource and Deployed Model. See [instructions](https://learn.microsoft.com/en-us/azure/cognitive-services/openai/how-to/create-resource?pivots=web-portal).
 - Create and host a Azure Dev Tunnel. Instructions [here](https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/get-started)
 - [Python](https://www.python.org/downloads/) 3.7 or above.
 
@@ -47,14 +46,11 @@ Open `main.py` file to configure the following settings
 1. - `CALLBACK_URI_HOST`: your dev tunnel endpoint
 2. - `COGNITIVE_SERVICE_ENDPOINT`: The Cognitive Services endpoint
 3. - `ACS_CONNECTION_STRING`: Azure Communication Service resource's connection string.
-4. - `AZURE_OPENAI_SERVICE_KEY`: Open AI's Service Key
-5. - `AZURE_OPENAI_SERVICE_ENDPOINT`: Open AI's Service Endpoint
-6. - `AZURE_OPENAI_DEPLOYMENT_MODEL_NAME`: Open AI's Model name
-6. - `AGENT_PHONE_NUMBER`: Agent Phone Number to transfer call
+
 
 ## Run app locally
 
-1. Navigate to `callautomation-openai-sample` folder and run `main.py` in debug mode or use command `python ./main.py` to run it from PowerShell, Command Prompt or Unix Terminal
+1. Navigate to `callautomation-ga3-test-app` folder and run `main.py` in debug mode or use command `python ./main.py` to run it from PowerShell, Command Prompt or Unix Terminal
 2. Browser should pop up with the below page. If not navigate it to `http://localhost:8080/` or your dev tunnel url.
 3. Register an EventGrid Webhook for the IncomingCall Event that points to your DevTunnel URI. Instructions [here](https://learn.microsoft.com/en-us/azure/communication-services/concepts/call-automation/incoming-call-notification).
 

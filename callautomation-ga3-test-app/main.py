@@ -1,5 +1,6 @@
 
 from pyexpat import model
+import time
 import uuid
 from urllib.parse import urlencode, urljoin
 from azure.eventgrid import EventGridEvent, SystemEventNames
@@ -12,7 +13,13 @@ from azure.communication.callautomation import (
     PhoneNumberIdentifier,
     RecognizeInputType,
     TextSource,
-    CommunicationUserIdentifier
+    CommunicationUserIdentifier,
+    ServerCallLocator,
+    RecordingChannel,
+    RecordingContent,
+    RecordingFormat,
+    AzureBlobContainerRecordingStorage,
+    AzureCommunicationsRecordingStorage
     )
 from azure.core.messaging import CloudEvent
 
@@ -34,15 +41,17 @@ CALLBACK_URI_HOST = ""
 
 CALLBACK_EVENTS_URI = CALLBACK_URI_HOST + "/api/callbacks"
 
-
 TEMPLATE_FILES_PATH = "template"
+
+BRING_YOUR_STORAGE_URL=""
+
+IS_BYOS = False
+
+IS_PAUSE_ON_START = False
 
 HELLO_PROMPT = "Welcome to the Contoso Utilities. Thank you!"
 
 call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
-
-recording_id = None
-recording_chunks_location = []
 
 app = Flask(__name__,
             template_folder=TEMPLATE_FILES_PATH)
@@ -68,14 +77,38 @@ def handle_recognize(replyText,callerId,call_connection_id,context=""):
     operation_context=context)
     app.logger.info("handle_recognize : data=%s",recognize_result) 
 
-def handle_play(call_connection_id, text_to_play, context):     
+def handle_play(call_connection_id, text_to_play, context):
     play_source = TextSource(text=text_to_play, voice_name= "en-US-NancyNeural") 
     call_automation_client.get_call_connection(call_connection_id).play_media_to_all(play_source,
                                                                                      operation_context=context)
     
 def handle_hangup(call_connection_id):     
     call_automation_client.get_call_connection(call_connection_id).hang_up(is_for_everyone=True)
-
+    
+def start_recording(server_call_id):
+     global recording_storage
+     if IS_BYOS:
+         recording_storage=AzureBlobContainerRecordingStorage(BRING_YOUR_STORAGE_URL)
+     else:
+         recording_storage=AzureCommunicationsRecordingStorage()
+         
+     recording_result = call_automation_client.start_recording(
+                    call_locator=ServerCallLocator(server_call_id),
+                    recording_content_type = RecordingContent.Audio,
+                    recording_channel_type = RecordingChannel.Unmixed,
+                    recording_format_type = RecordingFormat.Wav,
+                    recording_storage= recording_storage,
+                    pause_on_start = IS_PAUSE_ON_START
+                    )
+     global recording_id
+     recording_id=recording_result.recording_id
+     app.logger.info("Recording started...")
+     app.logger.info("Recording Id --> %s", recording_id)
+    
+def get_recording_state(recordingId):
+    recording_state_result = call_automation_client.get_recording_properties(recording_id)
+    app.logger.info("Recording State --> %s", recording_state_result.recording_state)
+    return recording_state_result.recording_state
 
 @app.route("/api/incomingCall",  methods=['POST'])
 def incoming_call_handler():
@@ -113,12 +146,12 @@ def incoming_call_handler():
 @app.route("/api/callbacks/<contextId>", methods=["POST"])
 def handle_callback(contextId):    
     try:        
-        global caller_id , call_connection_id
-        app.logger.info("Request Json: %s", request.json)
+        global caller_id , call_connection_id, server_call_id
+        # app.logger.info("Request Json: %s", request.json)
         for event_dict in request.json:       
             event = CloudEvent.from_dict(event_dict)
             call_connection_id = event.data['callConnectionId']
-
+            
             app.logger.info("%s event received for call connection id: %s", event.type, call_connection_id)
             caller_id = request.args.get("callerId").strip()
             if "+" not in caller_id:
@@ -127,6 +160,13 @@ def handle_callback(contextId):
             app.logger.info("call connected : data=%s", event.data)
             if event.type == "Microsoft.Communication.CallConnected":
                   app.logger.info("Call connected")
+                  server_call_id = event.data["serverCallId"]
+                  app.logger.info("Server Call Id --> %s", server_call_id)
+                  app.logger.info("Is pause on start --> %s", IS_PAUSE_ON_START)
+                  app.logger.info("Bring Your Own Storage --> %s", IS_BYOS)
+                  if IS_BYOS:
+                      app.logger.info("Bring Your Own Storage URL --> %s", BRING_YOUR_STORAGE_URL)
+                  start_recording(server_call_id)
                   handle_play(call_connection_id,HELLO_PROMPT,"helloContext")
                  
             elif event.type == "Microsoft.Communication.RecognizeCompleted":
@@ -139,6 +179,26 @@ def handle_callback(contextId):
             elif event.type == "Microsoft.Communication.PlayCompleted":
                 context=event.data['operationContext']
                 app.logger.info(context)
+                
+                recording_state = get_recording_state(recording_id)
+                if recording_state == "active":
+                    call_automation_client.pause_recording(recording_id)
+                    time.sleep(5)
+                    get_recording_state(recording_id)
+                    app.logger.info("Recording is paused")
+                    time.sleep(5)
+                    call_automation_client.resume_recording(recording_id)
+                    time.sleep(5)
+                    get_recording_state(recording_id)
+                    app.logger.info("Recording is resumed")
+                else:
+                    time.sleep(5)
+                    call_automation_client.resume_recording(recording_id)
+                    time.sleep(5)
+                    get_recording_state(recording_id)
+                time.sleep(5)
+                call_automation_client.stop_recording(recording_id)
+                app.logger.info("Recording is stopped")
                 handle_hangup(call_connection_id)
             elif event.type == "Microsoft.Communication.CallTransferAccepted":
                 app.logger.info(f"Call transfer accepted event received for connection id: {call_connection_id}")   
@@ -154,6 +214,60 @@ def handle_callback(contextId):
         return Response(status=200) 
     except Exception as ex:
         app.logger.info("error in event handling")
+
+@app.route('/api/recordingFileStatus', methods=['POST'])
+def recording_file_status():
+    try:
+        for event_dict in request.json:
+            event = EventGridEvent.from_dict(event_dict)
+            if event.event_type ==  SystemEventNames.EventGridSubscriptionValidationEventName:
+                code = event.data['validationCode']
+                if code:
+                    data = {"validationResponse": code}
+                    app.logger.info("Successfully Subscribed EventGrid.ValidationEvent --> " + str(data))
+                    return Response(response=str(data), status=200)
+
+            if event.event_type == SystemEventNames.AcsRecordingFileStatusUpdatedEventName:
+                acs_recording_file_status_updated_event_data = event.data
+                acs_recording_chunk_info_properties = acs_recording_file_status_updated_event_data['recordingStorageInfo']['recordingChunks'][0]
+                app.logger.info("acsRecordingChunkInfoProperties response data --> " + str(acs_recording_chunk_info_properties))
+                global content_location, metadata_location, delete_location
+                content_location = acs_recording_chunk_info_properties['contentLocation']
+                metadata_location =  acs_recording_chunk_info_properties['metadataLocation']
+                delete_location = acs_recording_chunk_info_properties['deleteLocation']
+                app.logger.info("CONTENT LOCATION --> %s", content_location)
+                app.logger.info("METADATA LOCATION --> %s", metadata_location)
+                app.logger.info("DELETE LOCATION --> %s", delete_location)
+                return Response(response="Ok")  
+                                                  
+    except Exception as ex:
+         app.logger.error( "Failed to get recording file")
+         return Response(response='Failed to get recording file', status=400)
+
+@app.route('/download')
+def download_recording():
+        try:
+            app.logger.info("Content location : %s", content_location)
+            recording_data = call_automation_client.download_recording(content_location)
+            with open("Recording_File.wav", "wb") as binary_file:
+                binary_file.write(recording_data.read())
+            return redirect("/")
+        except Exception as ex:
+            app.logger.info("Failed to download recording --> " + str(ex))
+            return Response(text=str(ex), status=500)
+        
+@app.route('/downloadMetadata')
+def download_metadata():
+        try:
+            app.logger.info("Content location : %s", content_location)
+            recording_data = call_automation_client.download_recording(metadata_location)
+            with open("Recording_metadata.json", "wb") as binary_file:
+                binary_file.write(recording_data.read())
+            return redirect("/")
+        except Exception as ex:
+            app.logger.info("Failed to download meatadata --> " + str(ex))
+            return Response(text=str(ex), status=500)
+
 
 # GET endpoint to render the menus
 @app.route('/')
