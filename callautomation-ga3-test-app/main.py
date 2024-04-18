@@ -19,7 +19,9 @@ from azure.communication.callautomation import (
     RecordingContent,
     RecordingFormat,
     AzureBlobContainerRecordingStorage,
-    AzureCommunicationsRecordingStorage
+    AzureCommunicationsRecordingStorage,
+    RecognitionChoice,
+    DtmfTone
     )
 from azure.core.messaging import CloudEvent
 
@@ -34,7 +36,11 @@ COGNITIVE_SERVICE_ENDPOINT=""
 # Agent Phone Number
 TARGET_PHONE_NUMBER=""
 
+TARGET_PHONE_NUMBER_2=""
+
 ACS_PHONE_NUMBER=""
+
+ACS_PHONE_NUMBER_2=""
 
 # Callback events URI to handle callback events.
 CALLBACK_URI_HOST = ""
@@ -49,7 +55,19 @@ IS_BYOS = False
 
 IS_PAUSE_ON_START = False
 
+IS_REJECT_CALL = False
+
+IS_REDIRECT_CALL = False
+ 
+IS_TRANSFER_CALL = False
+
+IS_OUTBOUND_CALL = False
+
 HELLO_PROMPT = "Welcome to the Contoso Utilities. Thank you!"
+
+PSTN_USER_PROMPT = "Hello this is contoso recognition test please confirm or cancel to proceed further."
+
+DTMF_PROMPT = "Thank you for the update. Please type  one two three four on your keypad to close call."
 
 call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
 
@@ -57,7 +75,7 @@ app = Flask(__name__,
             template_folder=TEMPLATE_FILES_PATH)
 
 @app.route('/createCall')
-def outbound_call_handler():
+def create_call_handler():
     target_participant = CommunicationUserIdentifier(COMMUNICATION_USR_ID)
     # source_caller = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
     call_connection_properties = call_automation_client.create_call(target_participant, 
@@ -67,20 +85,71 @@ def outbound_call_handler():
     app.logger.info("Created call with connection id: %s", call_connection_properties.call_connection_id)
     return redirect("/")
 
-def handle_recognize(replyText,callerId,call_connection_id,context=""):
-    play_source = TextSource(text=replyText, voice_name="en-US-NancyNeural")    
-    recognize_result=call_automation_client.get_call_connection(call_connection_id).start_recognizing_media( 
-    input_type=RecognizeInputType.SPEECH,
-    target_participant=PhoneNumberIdentifier(callerId), 
-    end_silence_timeout=10, 
-    play_prompt=play_source,
-    operation_context=context)
-    app.logger.info("handle_recognize : data=%s",recognize_result) 
+@app.route('/createPstnCall')
+def create_pstn_call():
+     target_participant = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
+     source_caller = PhoneNumberIdentifier(ACS_PHONE_NUMBER_2)
+     call_connection_properties = call_automation_client.create_call(target_participant,
+                                                                     CALLBACK_EVENTS_URI,
+                                                                     cognitive_services_endpoint=COGNITIVE_SERVICE_ENDPOINT,
+                                                                     source_caller_id_number=source_caller)
+     app.logger.info("Created pstn call with connection id: %s", call_connection_properties.call_connection_id)
+     return redirect("/")
+
+@app.route('/outboundCall')
+def create_outbound_call():
+    target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
+    source_caller = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
+    call_connection_properties = call_automation_client.create_call(target_participant,
+                                                                     CALLBACK_EVENTS_URI,
+                                                                     cognitive_services_endpoint=COGNITIVE_SERVICE_ENDPOINT,
+                                                                     source_caller_id_number=source_caller)
+    app.logger.info("Created outbound call with connection id: %s", call_connection_properties.call_connection_id)
+    return redirect("/")
+    
+def handle_recognize(playText,callerId,call_connection_id,context="",isDtmf=False):
+    choices = [ 
+    RecognitionChoice( 
+        label="Confirm", 
+        phrases=[ "Confirm", "First", "One" ], 
+        tone=DtmfTone.ONE 
+    ), 
+    RecognitionChoice( 
+        label="Cancel", 
+        phrases=[ "Cancel", "Second", "Two" ], 
+        tone=DtmfTone.TWO 
+    )] 
+
+    if isDtmf:
+        play_source = TextSource(text=playText, voice_name="en-US-NancyNeural")    
+        recognize_result=call_automation_client.get_call_connection(call_connection_id).start_recognizing_media( 
+        input_type=RecognizeInputType.DTMF,
+        target_participant=PhoneNumberIdentifier(callerId), 
+        end_silence_timeout=10,
+        dtmf_max_tones_to_collect=4,
+        play_prompt=play_source,
+        operation_context=context)
+    else:
+        play_source = TextSource(text=playText, voice_name="en-US-NancyNeural")    
+        recognize_result=call_automation_client.get_call_connection(call_connection_id).start_recognizing_media( 
+        input_type=RecognizeInputType.CHOICES,
+        target_participant=PhoneNumberIdentifier(callerId),
+        choices=choices, 
+        end_silence_timeout=10, 
+        play_prompt=play_source,
+        operation_context=context)
 
 def handle_play(call_connection_id, text_to_play, context):
     play_source = TextSource(text=text_to_play, voice_name= "en-US-NancyNeural") 
     call_automation_client.get_call_connection(call_connection_id).play_media_to_all(play_source,
-                                                                                     operation_context=context)
+                                                                                     operation_context=context,
+                                                                                     loop=False)
+    # call_automation_client.get_call_connection(call_connection_id).play_media(play_source=play_source,
+    #                                                                           play_to=PhoneNumberIdentifier(TARGET_PHONE_NUMBER),
+    #                                                                           operation_context=context,
+    #                                                                           loop=True)
+    
+    #call_automation_client.get_call_connection(call_connection_id).cancel_all_media_operations()
     
 def handle_hangup(call_connection_id):     
     call_automation_client.get_call_connection(call_connection_id).hang_up(is_for_everyone=True)
@@ -110,6 +179,20 @@ def get_recording_state(recordingId):
     app.logger.info("Recording State --> %s", recording_state_result.recording_state)
     return recording_state_result.recording_state
 
+def start_continuous_dtmf(call_connection_id):
+    call_automation_client.get_call_connection(call_connection_id).start_continuous_dtmf_recognition(target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER))
+    app.logger.info("Continuous Dtmf recognition started. press 1 on dialpad.")
+
+def stop_continuous_dtmf(call_connection_id):
+    call_automation_client.get_call_connection(call_connection_id).stop_continuous_dtmf_recognition(target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER))
+    app.logger.info("Continuous Dtmf recognition stopped. wait for sending dtmf tones.")
+
+def start_send_dtmf_tones(call_connection_id):
+    tones = [DtmfTone.ONE,DtmfTone.TWO]
+    call_automation_client.get_call_connection(call_connection_id).send_dtmf_tones(tones=tones,
+                                           target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER))
+    app.logger.info("Send dtmf tone started.")
+
 @app.route("/api/incomingCall",  methods=['POST'])
 def incoming_call_handler():
     for event_dict in request.json:
@@ -135,28 +218,38 @@ def incoming_call_handler():
                 callback_uri = f"{CALLBACK_EVENTS_URI}/{guid}?{query_parameters}"
 
                 app.logger.info("callback url: %s",  callback_uri)
-
-                answer_call_result = call_automation_client.answer_call(incoming_call_context=incoming_call_context,
+                
+                if IS_REJECT_CALL:
+                    app.logger.info("Is Reject Call: %s",  IS_REJECT_CALL)
+                    call_automation_client.reject_call(incoming_call_context=incoming_call_context)
+                    app.logger.info(f"Call Rejected, recject call setting is {IS_REJECT_CALL}")
+                elif IS_REDIRECT_CALL:
+                    app.logger.info("Is Redirect Call: %s",  IS_REDIRECT_CALL)
+                    call_automation_client.redirect_call(incoming_call_context=incoming_call_context,
+                                                         target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER))
+                    app.logger.info("Call redirected. Call automation has no control.")
+                else:
+                    answer_call_result = call_automation_client.answer_call(incoming_call_context=incoming_call_context,
                                                                         cognitive_services_endpoint=COGNITIVE_SERVICE_ENDPOINT,
                                                                         callback_url=callback_uri)
-                app.logger.info("Answered call for connection id: %s",
+                    app.logger.info("Answered call for connection id: %s",
                                 answer_call_result.call_connection_id)
                 return Response(status=200)
-            
+# For outbound call.
+# @app.route('/api/callbacks', methods=['POST'])
+# def handle_callback():        
 @app.route("/api/callbacks/<contextId>", methods=["POST"])
 def handle_callback(contextId):    
     try:        
-        global caller_id , call_connection_id, server_call_id
+        global caller_id , call_connection_id, server_call_id,call_connection_client,cor_relation_id
         # app.logger.info("Request Json: %s", request.json)
         for event_dict in request.json:       
             event = CloudEvent.from_dict(event_dict)
             call_connection_id = event.data['callConnectionId']
-            
+            cor_relation_id = event.data['correlationId']
+            app.logger.info(f"***CALLCONNECTIONID*** ->  {call_connection_id}")
+            app.logger.info(f"***CORRELATIONID*** -> {cor_relation_id}")
             app.logger.info("%s event received for call connection id: %s", event.type, call_connection_id)
-            caller_id = request.args.get("callerId").strip()
-            if "+" not in caller_id:
-                caller_id="+".strip()+caller_id.strip()
-
             app.logger.info("call connected : data=%s", event.data)
             if event.type == "Microsoft.Communication.CallConnected":
                   app.logger.info("Call connected")
@@ -164,21 +257,82 @@ def handle_callback(contextId):
                   app.logger.info("Server Call Id --> %s", server_call_id)
                   app.logger.info("Is pause on start --> %s", IS_PAUSE_ON_START)
                   app.logger.info("Bring Your Own Storage --> %s", IS_BYOS)
+                  call_connection_client =call_automation_client.get_call_connection(call_connection_id=call_connection_id)
                   if IS_BYOS:
                       app.logger.info("Bring Your Own Storage URL --> %s", BRING_YOUR_STORAGE_URL)
-                  start_recording(server_call_id)
-                  handle_play(call_connection_id,HELLO_PROMPT,"helloContext")
+                 
+                  if IS_TRANSFER_CALL:
+                      app.logger.info("Is Transfer Call:--> %s", IS_TRANSFER_CALL)
+                      call_connection_client.transfer_call_to_participant(target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER),
+                                                                          transferee=PhoneNumberIdentifier(ACS_PHONE_NUMBER_2))
+                      app.logger.info("Transfer call initiated.")
+                  elif IS_OUTBOUND_CALL:
+                      app.logger.info("Is Outbound Call:--> %s", IS_OUTBOUND_CALL)
+                      app.logger.info("Outbound call connected.")
+                      #start_continuous_dtmf(call_connection_id=call_connection_id)
+                      #handle_play(call_connection_id,"this is loop test","outboundPlayContext")
+                      #handle_hangup(call_connection_id)
+                  else:
+                      start_recording(server_call_id)
+                      
+                      call_connection_client.add_participant(target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER),
+                                                             source_caller_id_number=PhoneNumberIdentifier(ACS_PHONE_NUMBER),
+                                                             operation_context="addPstnUserContext",
+                                                             invitation_timeout=10)
+                      app.logger.info("Adding PSTN participant")
                  
             elif event.type == "Microsoft.Communication.RecognizeCompleted":
                  app.logger.info("Recognition completed")
-
+                 app.logger.info("Recognize completed: data=%s", event.data) 
+                 if event.data['recognitionType'] == "dtmf": 
+                    tones = event.data['dtmfResult']['tones'] 
+                    app.logger.info("Recognition completed, tones=%s, context=%s", tones, event.data.get('operationContext'))
+                    call_connection_client.remove_participant(target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER))
+                 elif event.data['recognitionType'] == "choices": 
+                    labelDetected = event.data['choiceResult']['label']; 
+                    phraseDetected = event.data['choiceResult']['recognizedPhrase']; 
+                    app.logger.info("Recognition completed, labelDetected=%s, phraseDetected=%s, context=%s", labelDetected, phraseDetected, event.data.get('operationContext'));
+                    if  labelDetected == "Confirm":
+                        app.logger.info("Moving towords dtmf test.")
+                        handle_recognize(playText=DTMF_PROMPT,
+                                         callerId=TARGET_PHONE_NUMBER,
+                                         call_connection_id=call_connection_id,
+                                         context="recognizeDtmfContext",isDtmf=True)
+                    else:
+                        app.logger.info("Moving towords continuous dtmf & send dtmf tones test.")
+                        start_continuous_dtmf(call_connection_id=call_connection_id)
+                 elif event.data['recognitionType'] == "speech": 
+                    text = event.data['speechResult']['speech']; 
+                    app.logger.info("Recognition completed, text=%s, context=%s", text, event.data.get('operationContext'))
+                    handle_hangup(call_connection_id=call_connection_id)
+                 else: 
+                    app.logger.info("Recognition completed: data=%s", event.data); 
+                 
             elif event.type == "Microsoft.Communication.RecognizeFailed":
                 resultInformation = event.data['resultInformation']
                 reasonCode = resultInformation['subCode']
-                context=event.data['operationContext']   
+                context=event.data['operationContext']
+                handle_recognize(playText="test",
+                                         callerId=TARGET_PHONE_NUMBER,
+                                         call_connection_id=call_connection_id,
+                                         context="retryRecognizeContext",isDtmf=False)
+                app.logger.info("Cancelling all media operations.")
+                call_automation_client.get_call_connection(call_connection_id).cancel_all_media_operations()
+                app.logger.info("cancel add participant test initiated.")
+                response = call_connection_client.add_participant(target_participant=PhoneNumberIdentifier(ACS_PHONE_NUMBER_2),
+                                                         source_caller_id_number=PhoneNumberIdentifier(ACS_PHONE_NUMBER),
+                                                         invitation_timeout=10)
+                app.logger.info(f"Invitation Id:--> {response.invitation_id}")   
+                call_connection_client.cancel_add_participant_operation(response.invitation_id)
             elif event.type == "Microsoft.Communication.PlayCompleted":
                 context=event.data['operationContext']
                 app.logger.info(context)
+                if context == "outboundPlayContext":
+                    handle_hangup(call_connection_id=call_connection_id)
+                    return
+                if context == "continuousDtmfPlayContext":
+                    app.logger.info("test")
+                    return
                 
                 recording_state = get_recording_state(recording_id)
                 if recording_state == "active":
@@ -207,8 +361,71 @@ def handle_callback(contextId):
                 app.logger.info(f"Call transfer failed event received for connection id: {call_connection_id}")
                 resultInformation = event.data['resultInformation']
                 sub_code = resultInformation['subCode']
-                # check for message extraction and code
-                app.logger.info(f"Encountered error during call transfer, message=, code=, subCode={sub_code}")   
+                
+                app.logger.info(f"Encountered error during call transfer, message=, code=, subCode={sub_code}")
+            elif event.type == "Microsoft.Communication.AddParticipantSucceeded":
+                app.logger.info(f"Received AddParticipantSucceeded event for connection id: {call_connection_id}")
+                if(event.data['operationContext'] == "addPstnUserContext"):
+                    app.logger.info("PSTN user added")
+                    participants = call_connection_client.list_participants()
+                    app.logger.info("Participants: %s", participants)
+                    mute_result = call_connection_client.mute_participant(CommunicationUserIdentifier(COMMUNICATION_USR_ID))
+                    if mute_result:
+                        app.logger.info("Participant is muted. wating for confirming.....")
+                        response = call_connection_client.get_participant(CommunicationUserIdentifier(COMMUNICATION_USR_ID))
+                        if response:
+                            app.logger.info(f"Is participant muted: {response.is_muted}")
+                            app.logger.info("Mute participant test completed.")
+                    
+                    handle_recognize(playText=PSTN_USER_PROMPT,
+                                     callerId=TARGET_PHONE_NUMBER,
+                                     call_connection_id=call_connection_id,
+                                     context="recognizeContext",isDtmf=False)
+                    
+            elif event.type == "Microsoft.Communication.AddParticipantFailed":
+                app.logger.info(f"AddParticipantFailed event received for connection id: {call_connection_id}")
+                resultInformation = event.data['resultInformation']
+                sub_code = resultInformation['subCode']
+                handle_hangup(call_connection_id)
+            elif event.type == "Microsoft.Communication.CancelAddParticipantSucceeded":
+                app.logger.info(f"Received CancelAddParticipantSucceeded event for connection id: {call_connection_id}")
+                app.logger.info(f"Invitation Id:--> {event.data['invitationId']}")
+                app.logger.info("Cancel add participant test completed.")
+                handle_hangup(call_connection_id)
+            elif event.type == "Microsoft.Communication.CancelAddParticipantFailed":
+                app.logger.info(f"Received CancelAddParticipantFailed event for connection id: {call_connection_id}")
+                resultInformation = event.data['resultInformation']
+                sub_code = resultInformation['subCode']
+                handle_hangup(call_connection_id)
+            elif event.type == "Microsoft.Communication.ContinuousDtmfRecognitionToneReceived":
+                app.logger.info(f"Received ContinuousDtmfRecognitionToneReceived event for connection id: {call_connection_id}")
+                app.logger.info(f"Tone received:-->: {event.data['tone']}")
+                app.logger.info(f"Sequence Id:--> {event.data['sequenceId']}")
+                # handle_play(call_connection_id,HELLO_PROMPT,"continuousDtmfPlayContext")
+                stop_continuous_dtmf(call_connection_id=call_connection_id)
+            elif event.type == "Microsoft.Communication.ContinuousDtmfRecognitionToneFailed":
+                app.logger.info(f"Received ContinuousDtmfRecognitionToneFailed event for connection id: {call_connection_id}")
+                resultInformation = event.data['resultInformation']
+                sub_code = resultInformation['subCode']
+                handle_hangup(call_connection_id)
+            elif event.type == "Microsoft.Communication.ContinuousDtmfRecognitionStopped":
+                app.logger.info(f"Received ContinuousDtmfRecognitionStopped event for connection id: {call_connection_id}")
+                start_send_dtmf_tones(call_connection_id=call_connection_id)
+            elif event.type == "Microsoft.Communication.SendDtmfTonesCompleted":
+                app.logger.info(f"Received SendDtmfTonesCompleted event for connection id: {call_connection_id}")
+                call_connection_client.remove_participant(target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER))
+                app.logger.info(f"Send Dtmf tone completed. {TARGET_PHONE_NUMBER} will be removed from call.")                       
+            elif event.type == "Microsoft.Communication.SendDtmfTonesFailed":
+                app.logger.info(f"Received SendDtmfTonesFailed event for connection id: {call_connection_id}")
+                resultInformation = event.data['resultInformation']
+                sub_code = resultInformation['subCode']
+            elif event.type == "Microsoft.Communication.RemoveParticipantSucceeded":
+                app.logger.info(f"Received RemoveParticipantSucceeded event for connection id: {call_connection_id}")
+                handle_play(call_connection_id,HELLO_PROMPT,"helloContext")
+            elif event.type == "Microsoft.Communication.RemoveParticipantFailed":
+                app.logger.info(f"Received RemoveParticipantFailed event for connection id: {call_connection_id}")
+                resultInformation = event.data['resultInformation']
+                sub_code = resultInformation['subCode']    
             elif event.type == "Microsoft.Communication.CallDisconnected":             
                 app.logger.info(f"Received CallDisconnected event for connection id: {call_connection_id}")
         return Response(status=200) 
@@ -259,7 +476,7 @@ def download_recording():
 @app.route('/downloadMetadata')
 def download_metadata():
         try:
-            app.logger.info("Content location : %s", content_location)
+            app.logger.info("Metadata location : %s", metadata_location)
             recording_data = call_automation_client.download_recording(metadata_location)
             with open("Recording_metadata.json", "wb") as binary_file:
                 binary_file.write(recording_data.read())
