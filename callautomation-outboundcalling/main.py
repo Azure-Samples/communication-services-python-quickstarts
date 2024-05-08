@@ -1,4 +1,4 @@
-from azure.eventgrid import EventGridEvent, SystemEventNames
+
 from flask import Flask, Response, request, json, send_file, render_template, redirect
 from logging import INFO
 from azure.communication.callautomation import (
@@ -10,22 +10,25 @@ from azure.communication.callautomation import (
     CallInvite,
     RecognitionChoice,
     DtmfTone,
-    TextSource)
+    TextSource,
+    MediaStreamingOptions,
+    MediaStreamingTransportType,
+    MediaStreamingContentType,
+    MediaStreamingAudioChannelType)
 from azure.core.messaging import CloudEvent
-
 # Your ACS resource connection string
-ACS_CONNECTION_STRING = "<ACS_CONNECTION_STRING>"
+ACS_CONNECTION_STRING = ""
 
 # Your ACS resource phone number will act as source number to start outbound call
-ACS_PHONE_NUMBER = "<ACS_PHONE_NUMBER>"
+ACS_PHONE_NUMBER = ""
 
 # Target phone number you want to receive the call.
-TARGET_PHONE_NUMBER = "<TARGET_PHONE_NUMBER>"
+TARGET_PHONE_NUMBER = ""
 
 # Callback events URI to handle callback events.
-CALLBACK_URI_HOST = "<CALLBACK_URI_HOST_WITH_PROTOCOL>"
+CALLBACK_URI_HOST = ""
 CALLBACK_EVENTS_URI = CALLBACK_URI_HOST + "/api/callbacks"
-COGNITIVE_SERVICES_ENDPOINT = "<COGNITIVE_SERVICES_ENDPOINT>"
+COGNITIVE_SERVICES_ENDPOINT = ""
 
 #(OPTIONAL) Your target Microsoft Teams user Id ex. "ab01bc12-d457-4995-a27b-c405ecfe4870"
 TARGET_TEAMS_USER_ID = "<TARGET_TEAMS_USER_ID>"
@@ -77,11 +80,26 @@ def handle_play(call_connection_client: CallConnectionClient, text_to_play: str)
 def outbound_call_handler():
     target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
     source_caller = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
+    media_streaming_options = MediaStreamingOptions(
+        transport_url="wss://dc39-152-58-30-149.ngrok-free.app",
+        transport_type=MediaStreamingTransportType.WEBSOCKET,
+        content_type=MediaStreamingContentType.AUDIO,
+        audio_channel_type=MediaStreamingAudioChannelType.MIXED,
+        start_media_streaming=False
+        )
+    
+    app.logger.info(media_streaming_options.transport_url)
+    app.logger.info(media_streaming_options.transport_type.value)
+    
     call_connection_properties = call_automation_client.create_call(target_participant, 
                                                                     CALLBACK_EVENTS_URI,
                                                                     cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT,
-                                                                    source_caller_id_number=source_caller)
+                                                                    source_caller_id_number=source_caller,
+                                                                    media_streaming_options=media_streaming_options)
+    
     app.logger.info("Created call with connection id: %s", call_connection_properties.call_connection_id)
+    app.logger.info("***Media streaming subscription***: %s", call_connection_properties.media_streaming_subscription)
+    
     return redirect("/")
 
 
@@ -101,6 +119,13 @@ def callback_events_handler():
             #     target = MicrosoftTeamsUserIdentifier(user_id=TARGET_TEAMS_USER_ID),
             #     source_display_name = "Jack (Contoso Tech Support)"))
             
+            #call_connection_client.start_media_streaming()
+            
+            call_connection_client.start_media_streaming(
+                operation_callback_url="https://3c39-152-58-30-149.ngrok-free.app",
+                operation_context="startMediaStreamingContext"
+            )
+            
             app.logger.info("Starting recognize")
             get_media_recognize_choice_options(
                 call_connection_client=call_connection_client,
@@ -110,6 +135,12 @@ def callback_events_handler():
             
         # Perform different actions based on DTMF tone received from RecognizeCompleted event
         elif event.type == "Microsoft.Communication.RecognizeCompleted":
+            call_connection_client.stop_media_streaming()
+            
+            # call_connection_client.stop_media_streaming(
+            #     operation_callback_url="https://3c39-152-58-30-149.ngrok-free.app"
+            # )
+
             app.logger.info("Recognize completed: data=%s", event.data) 
             if event.data['recognitionType'] == "choices": 
                  label_detected = event.data['choiceResult']['label']; 
