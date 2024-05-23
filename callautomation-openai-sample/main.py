@@ -21,28 +21,28 @@ from openai.api_resources import (
 )
 
 # Your ACS resource connection string
-ACS_CONNECTION_STRING = "<ACS_CONNECTION_STRING>"
+ACS_CONNECTION_STRING = "endpoint=https://dacsrecordingtest.unitedstates.communication.azure.com/;accesskey=P03pgjuvw8Yo9nlRkdgjrm/TmT0yIkYt3fXowddBQ0QbOYZ6GbDaAir6om8N8sHOt7ifhJqT20aOsy4EDulO+A=="
 
 # Cognitive service endpoint
-COGNITIVE_SERVICE_ENDPOINT="<COGNITIVE_SERVICE_ENDPOINT>"
+COGNITIVE_SERVICE_ENDPOINT="https://cognitive-service-waferwire.cognitiveservices.azure.com/"
 
 # Cognitive service endpoint
-AZURE_OPENAI_SERVICE_KEY = "<AZURE_OPENAI_SERVICE_KEY>"
+AZURE_OPENAI_SERVICE_KEY = "6d67cd33c89849019687cf69dfc80149"
 
 # Open AI service endpoint
-AZURE_OPENAI_SERVICE_ENDPOINT="<AZURE_OPENAI_SERVICE_ENDPOINT>"
+AZURE_OPENAI_SERVICE_ENDPOINT="https://waferwireopenai.openai.azure.com/"
 
 # Azure Open AI Deployment Model Name
-AZURE_OPENAI_DEPLOYMENT_MODEL_NAME="<AZURE_OPENAI_DEPLOYMENT_MODEL_NAME>"
+AZURE_OPENAI_DEPLOYMENT_MODEL_NAME="call-automation-deployment"
 
 # Azure Open AI Deployment Model
 AZURE_OPENAI_DEPLOYMENT_MODEL="gpt-3.5-turbo"
 
 # Agent Phone Number
-AGENT_PHONE_NUMBER="<AGENT_PHONE_NUMBER>"
+AGENT_PHONE_NUMBER="+918688023395"
 
 # Callback events URI to handle callback events.
-CALLBACK_URI_HOST = "<CALLBACK_URI_HOST_WITH_PROTOCOL>"
+CALLBACK_URI_HOST = "https://2cp8hpr0.inc1.devtunnels.ms:8080"
 CALLBACK_EVENTS_URI = CALLBACK_URI_HOST + "/api/callbacks"
 
 ANSWER_PROMPT_SYSTEM_TEMPLATE = """ 
@@ -83,7 +83,7 @@ openai.api_version = '2023-05-15' # this may change in the future
 
 app = Flask(__name__)
 
-def get_chat_completions_async(system_prompt,user_prompt): 
+async def get_chat_completions_async(system_prompt,user_prompt): 
     openai.api_key = AZURE_OPENAI_SERVICE_KEY
     openai.api_base = AZURE_OPENAI_SERVICE_ENDPOINT # your endpoint should look like the following https://YOUR_RESOURCE_NAME.openai.azure.com/
     openai.api_type = 'azure'
@@ -97,7 +97,7 @@ def get_chat_completions_async(system_prompt,user_prompt):
   
     global response_content
     try:
-        response = ChatCompletion.create(model=AZURE_OPENAI_DEPLOYMENT_MODEL,deployment_id=AZURE_OPENAI_DEPLOYMENT_MODEL_NAME, messages=chat_request,max_tokens = 1000)
+        response = await ChatCompletion.create(model=AZURE_OPENAI_DEPLOYMENT_MODEL,deployment_id=AZURE_OPENAI_DEPLOYMENT_MODEL_NAME, messages=chat_request,max_tokens = 1000)
     except ex:
         app.logger.info("error in openai api call : %s",ex)
        
@@ -108,12 +108,12 @@ def get_chat_completions_async(system_prompt,user_prompt):
          response_content=""    
     return response_content  
 
-def get_chat_gpt_response(speech_input):
-   return get_chat_completions_async(ANSWER_PROMPT_SYSTEM_TEMPLATE,speech_input)
+async def get_chat_gpt_response(speech_input):
+   return await get_chat_completions_async(ANSWER_PROMPT_SYSTEM_TEMPLATE,speech_input)
 
 def handle_recognize(replyText,callerId,call_connection_id,context=""):
     play_source = TextSource(text=replyText, voice_name="en-US-NancyNeural")    
-    recognize_result=call_automation_client.get_call_connection(call_connection_id).start_recognizing_media( 
+    recognize_result= call_automation_client.get_call_connection(call_connection_id).start_recognizing_media( 
     input_type=RecognizeInputType.SPEECH,
     target_participant=PhoneNumberIdentifier(callerId), 
     end_silence_timeout=10, 
@@ -132,12 +132,12 @@ def handle_hangup(call_connection_id):
 def detect_escalate_to_agent_intent(speech_text, logger):
     return has_intent_async(user_query=speech_text, intent_description="talk to agent", logger=logger)
 
-def has_intent_async(user_query, intent_description, logger):
+async def has_intent_async(user_query, intent_description, logger):
     is_match=False
     system_prompt = "You are a helpful assistant"
     combined_prompt = f"In 1 word: does {user_query} have a similar meaning as {intent_description}?"
     #combined_prompt = base_user_prompt.format(user_query, intent_description)
-    response = get_chat_completions_async(system_prompt, combined_prompt)
+    response = await get_chat_completions_async(system_prompt, combined_prompt)
     if "yes" in response.lower():
         is_match =True        
     logger.info(f"OpenAI results: is_match={is_match}, customer_query='{user_query}', intent_description='{intent_description}'")
@@ -183,7 +183,7 @@ def incoming_call_handler():
                 return Response(status=200)
             
 @app.route("/api/callbacks/<contextId>", methods=["POST"])
-def handle_callback(contextId):    
+async def handle_callback(contextId):    
     try:        
         global caller_id , call_connection_id
         app.logger.info("Request Json: %s", request.json)
@@ -198,7 +198,7 @@ def handle_callback(contextId):
 
             app.logger.info("call connected : data=%s", event.data)
             if event.type == "Microsoft.Communication.CallConnected":
-                 handle_recognize(HELLO_PROMPT,
+                handle_recognize(HELLO_PROMPT,
                                   caller_id,call_connection_id,
                                   context="GetFreeFormText") 
                  
@@ -211,7 +211,7 @@ def handle_callback(contextId):
                         if detect_escalate_to_agent_intent(speech_text=speech_text,logger=app.logger):
                             handle_play(call_connection_id=call_connection_id,text_to_play=END_CALL_PHRASE_TO_CONNECT_AGENT,context=CONNECT_AGENT_CONTEXT)    
                         else: 
-                            chat_gpt_response= get_chat_gpt_response(speech_text)
+                            chat_gpt_response= await get_chat_gpt_response(speech_text)
                             app.logger.info(f"Chat GPT response:{chat_gpt_response}") 
                             regex = re.compile(CHAT_RESPONSE_EXTRACT_PATTERN)
                             match = regex.search(chat_gpt_response)
@@ -255,7 +255,7 @@ def handle_callback(contextId):
                     else:
                         app.logger.info(f"Initializing the Call transfer...")
                         transfer_destination=PhoneNumberIdentifier(AGENT_PHONE_NUMBER)                       
-                        call_connection_client =call_automation_client.get_call_connection(call_connection_id=call_connection_id)
+                        call_connection_client = call_automation_client.get_call_connection(call_connection_id=call_connection_id)
                         call_connection_client.transfer_call_to_participant(target_participant=transfer_destination)
                         app.logger.info(f"Transfer call initiated: {context}")
 	
