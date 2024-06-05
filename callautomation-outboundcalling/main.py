@@ -1,8 +1,10 @@
 from azure.eventgrid import EventGridEvent, SystemEventNames
 from flask import Flask, Response, request, json, send_file, render_template, redirect
 from logging import INFO
+import time
 from azure.communication.callautomation import (
     CallAutomationClient,
+    CommunicationUserIdentifier,
     CallConnectionClient,
     PhoneNumberIdentifier,
     RecognizeInputType,
@@ -10,22 +12,25 @@ from azure.communication.callautomation import (
     CallInvite,
     RecognitionChoice,
     DtmfTone,
-    TextSource)
+    TextSource,
+    RoomCallLocator,
+    GroupCallLocator,
+    ServerCallLocator)
 from azure.core.messaging import CloudEvent
 
 # Your ACS resource connection string
-ACS_CONNECTION_STRING = "<ACS_CONNECTION_STRING>"
+ACS_CONNECTION_STRING = ""
 
 # Your ACS resource phone number will act as source number to start outbound call
-ACS_PHONE_NUMBER = "<ACS_PHONE_NUMBER>"
+ACS_PHONE_NUMBER = ""
 
 # Target phone number you want to receive the call.
-TARGET_PHONE_NUMBER = "<TARGET_PHONE_NUMBER>"
+TARGET_PHONE_NUMBER = ""
 
 # Callback events URI to handle callback events.
-CALLBACK_URI_HOST = "<CALLBACK_URI_HOST_WITH_PROTOCOL>"
+CALLBACK_URI_HOST = ""
 CALLBACK_EVENTS_URI = CALLBACK_URI_HOST + "/api/callbacks"
-COGNITIVE_SERVICES_ENDPOINT = "<COGNITIVE_SERVICES_ENDPOINT>"
+COGNITIVE_SERVICES_ENDPOINT = ""
 
 #(OPTIONAL) Your target Microsoft Teams user Id ex. "ab01bc12-d457-4995-a27b-c405ecfe4870"
 TARGET_TEAMS_USER_ID = "<TARGET_TEAMS_USER_ID>"
@@ -43,7 +48,7 @@ INVALID_AUDIO = "I’m sorry, I didn’t understand your response, please try ag
 CONFIRM_CHOICE_LABEL = "Confirm"
 CANCEL_CHOICE_LABEL = "Cancel"
 RETRY_CONTEXT = "retry"
-
+is_connect_api_called = False
 call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
 
 app = Flask(__name__,
@@ -72,6 +77,27 @@ def handle_play(call_connection_client: CallConnectionClient, text_to_play: str)
         play_source = TextSource(text=text_to_play, voice_name=SPEECH_TO_TEXT_VOICE) 
         call_connection_client.play_media_to_all(play_source)
 
+def connect_call():
+    global is_connect_api_called
+    is_connect_api_called = True
+    # call_automation_client.connect_call(
+    #     room_id="9943043419816556",
+    #     callback_url=CALLBACK_EVENTS_URI,
+    #     cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT,
+    #     operation_context="connectCallContext")
+    
+    call_automation_client.connect_call(
+        group_call_id="85f7a918-901b-4fcb-9fd9-121d44a003a1",
+        callback_url=CALLBACK_EVENTS_URI,
+        cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT,
+        operation_context="connectCallContext")
+    
+    # call_automation_client.connect_call(
+    #     server_call_id="aHR0cHM6Ly9hcGkuZmxpZ2h0cHJveHkuc2t5cGUuY29tL2FwaS92Mi9jcC9jb252LW1hc28tMDItcHJvZC1ha3MuY29udi5za3lwZS5jb20vY29udi8ydkd2aGdKMEZVZXRoaFNLUkp3bVpRP2k9MTAtMTI4LTg4LTE1MyZlPTYzODUzMTI2OTk2NTA5ODI3Ng",
+    #     callback_url=CALLBACK_EVENTS_URI,
+    #     cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT,
+    #     operation_context="connectCallContext")
+    
 # GET endpoint to place phone call
 @app.route('/outboundCall')
 def outbound_call_handler():
@@ -88,6 +114,7 @@ def outbound_call_handler():
 # POST endpoint to handle callback events
 @app.route('/api/callbacks', methods=['POST'])
 def callback_events_handler():
+    global is_connect_api_called
     for event_dict in request.json:
         # Parsing callback events
         event = CloudEvent.from_dict(event_dict)
@@ -101,13 +128,73 @@ def callback_events_handler():
             #     target = MicrosoftTeamsUserIdentifier(user_id=TARGET_TEAMS_USER_ID),
             #     source_display_name = "Jack (Contoso Tech Support)"))
             
-            app.logger.info("Starting recognize")
-            get_media_recognize_choice_options(
+            # app.logger.info("Starting recognize")
+            # get_media_recognize_choice_options(
+            #     call_connection_client=call_connection_client,
+            #     text_to_play=MAIN_MENU, 
+            #     target_participant=target_participant,
+            #     choices=get_choices(),context="")
+            
+            if is_connect_api_called == False:
+                app.logger.info("Connect Api Initiated....")
+                connect_call()
+            if event.data.get('operationContext') =="connectCallContext":
+                app.logger.info("Connect Api connected...")
+                app.logger.info("#####CORRELATION ID:--> %s", event.data["correlationId"])
+                app.logger.info("#####CALL CONNECTION ID:--> %s", event.data["callConnectionId"])
+                
+                call_connection_client.add_participant(target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER),
+                                                             source_caller_id_number=PhoneNumberIdentifier(ACS_PHONE_NUMBER),
+                                                             operation_context="addPstnUserContext",
+                                                             invitation_timeout=10)
+                
+                # call_connection_client.add_participant(
+                #     target_participant=CommunicationUserIdentifier("8:acs:19ae37ff-1a44-4e19-aade-198eedddbdf2_00000020-8828-0f62-0d8b-084822000147"),
+                #      operation_context="addVoipUserContext",
+                #      invitation_timeout=10)
+                
+                participants = call_connection_client.list_participants()
+                app.logger.info("*****Listing participants in call*****")
+                for page in participants.by_page():
+                    for participant in page:
+                        app.logger.info("Participant: %s", participant.identifier.raw_id)
+        elif event.type == "Microsoft.Communication.ConnectFailed": 
+                resultInformation = event.data['resultInformation']
+                app.logger.info("Encountered error during connect, message=%s, code=%s, subCode=%s", 
+                                resultInformation['message'], 
+                                resultInformation['code'],
+                                resultInformation['subCode'])          
+        elif event.type == "Microsoft.Communication.AddParticipantSucceeded":
+                app.logger.info(f"Received AddParticipantSucceeded event for connection id: {event.data["callConnectionId"]}")
+                participants = call_connection_client.list_participants()
+                app.logger.info("&&&&&&&&&&Listing participants in call&&&&&&&&...")
+                for page in participants.by_page():
+                    for participant in page:
+                        app.logger.info("Participant: %s", participant.identifier.raw_id)
+                        
+                # mute_result = call_connection_client.mute_participant(CommunicationUserIdentifier("8:acs:19ae37ff-1a44-4e19-aade-198eedddbdf2_00000020-8841-537b-e3c7-593a0d0014e2"))
+                # if mute_result:
+                #     app.logger.info("Participant is muted. wating for confirming.....")
+                #     time.sleep(5)
+                #     response = call_connection_client.get_participant(CommunicationUserIdentifier("8:acs:19ae37ff-1a44-4e19-aade-198eedddbdf2_00000020-8841-537b-e3c7-593a0d0014e2"))
+                #     if response:
+                #         app.logger.info(f"Is participant muted: {response.is_muted}")
+                #         app.logger.info("Mute participant test completed.") 
+
+                # call_connection_client.remove_participant(target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER))
+                
+                # call_connection_client.remove_participant(target_participant=CommunicationUserIdentifier("8:acs:19ae37ff-1a44-4e19-aade-198eedddbdf2_00000020-8828-0f62-0d8b-084822000147"))
+                # call_connection_client.hang_up(is_for_everyone=False)
+                # handle_play(call_connection_client=call_connection_client, text_to_play=CONFIRMED_TEXT)
+                
+                app.logger.info("Starting recognize")
+                get_media_recognize_choice_options(
                 call_connection_client=call_connection_client,
                 text_to_play=MAIN_MENU, 
                 target_participant=target_participant,
                 choices=get_choices(),context="")
-            
+
+                
         # Perform different actions based on DTMF tone received from RecognizeCompleted event
         elif event.type == "Microsoft.Communication.RecognizeCompleted":
             app.logger.info("Recognize completed: data=%s", event.data) 
@@ -156,4 +243,4 @@ def index_handler():
 
 if __name__ == '__main__':
     app.logger.setLevel(INFO)
-    app.run(port=8080)
+    app.run(port=5001)
