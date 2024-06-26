@@ -97,18 +97,18 @@ def outbound_call_handler():
     #     start_media_streaming=False
     #     )
     
-    transcription_options = TranscriptionOptions(
-        transport_url="wss://e063-2409-40c2-4004-eced-9487-4dfb-b0e4-10fb.ngrok-free.app",
-        transport_type=TranscriptionTransportType.WEBSOCKET,
-        locale="en-US",
-        start_transcription=False
-        )
+    # transcription_options = TranscriptionOptions(
+    #     transport_url="wss://e063-2409-40c2-4004-eced-9487-4dfb-b0e4-10fb.ngrok-free.app",
+    #     transport_type=TranscriptionTransportType.WEBSOCKET,
+    #     locale="en-US",
+    #     start_transcription=False
+    #     )
     call_connection_properties = call_automation_client.create_call(target_participant, 
                                                                     CALLBACK_EVENTS_URI,
                                                                     cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT,
                                                                     source_caller_id_number=source_caller,
                                                                     # media_streaming=media_streaming_options
-                                                                    transcription=transcription_options
+                                                                    # transcription=transcription_options
                                                                     )
     app.logger.info("Created call with connection id: %s", call_connection_properties.call_connection_id)
     return redirect("/")
@@ -135,10 +135,10 @@ def callback_events_handler():
             # call_connection_client.start_media_streaming(operation_callback_url=CALLBACK_EVENTS_URI, operation_context="startMediaStreamingContext")
             
             # call_connection_client.start_transcription()
-            call_connection_client.start_transcription(locale="en-AU",operation_context="startTranscrptionContext")
+            # call_connection_client.start_transcription(locale="en-AU",operation_context="startTranscrptionContext")
             # call_connection_client.start_transcription(operation_context="startTranscrptionContext")
-            time.sleep(5)
-            call_connection_client.update_transcription(locale="en-fjlsjf")
+            # time.sleep(5)
+            # call_connection_client.update_transcription(locale="en-fjlsjf")
             app.logger.info("Starting recognize")
             get_media_recognize_choice_options(
                 call_connection_client=call_connection_client,
@@ -197,6 +197,16 @@ def callback_events_handler():
                                 resultInformation['message'], 
                                 resultInformation['code'],
                                 resultInformation['subCode'])
+        elif event.type == "Microsoft.Communication.HoldFailed":
+            app.logger.info("Hold Failed.")
+            resultInformation = event.data['resultInformation']
+            app.logger.info("Encountered error during Hold, message=%s, code=%s, subCode=%s", 
+                                resultInformation['message'], 
+                                resultInformation['code'],
+                                resultInformation['subCode'])
+        elif event.type == "Microsoft.Communication.PlayStarted":
+            app.logger.info("PlayStarted event received.")
+            app.logger.info("*******************************")
         # Perform different actions based on DTMF tone received from RecognizeCompleted event
         elif event.type == "Microsoft.Communication.RecognizeCompleted":
             app.logger.info("Recognize completed: data=%s", event.data) 
@@ -209,7 +219,7 @@ def callback_events_handler():
                 #  call_connection_client.stop_media_streaming(operation_callback_url=CALLBACK_EVENTS_URI)
                 
                 #  call_connection_client.stop_transcription()
-                 call_connection_client.stop_transcription(operation_context="stopTranscriptionContext")
+                #  call_connection_client.stop_transcription(operation_context="stopTranscriptionContext")
                  
                  if label_detected == CONFIRM_CHOICE_LABEL:
                     text_to_play = CONFIRMED_TEXT
@@ -220,10 +230,42 @@ def callback_events_handler():
                 #  call_connection_client.start_media_streaming(operation_callback_url=CALLBACK_EVENTS_URI, operation_context="startMediaStreamingContext")
                 
                 #  call_connection_client.start_transcription()
-                 call_connection_client.start_transcription(locale="en-US",operation_context="startTranscrptionContext")
-                 time.sleep(5)
-                 call_connection_client.update_transcription(locale="en-AU")
-                 handle_play(call_connection_client=call_connection_client, text_to_play=text_to_play,context="textSourceContext")
+                #  call_connection_client.start_transcription(locale="en-US",operation_context="startTranscrptionContext")
+                #  time.sleep(5)
+                #  call_connection_client.update_transcription(locale="en-AU")
+                
+                #  call_connection_client.hold(target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER))
+                #  play_source = TextSource(text="You are on hold, Please wait.", voice_name=SPEECH_TO_TEXT_VOICE)
+                #  play_source = FileSource(MAIN_MENU_PROMPT_URI)
+                #  call_connection_client.hold(
+                #      target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER),
+                #      play_source=play_source,
+                #      operation_context="holdUserContext",
+                #      operation_callback_url=CALLBACK_EVENTS_URI
+                #      )
+                #  app.logger.info("Participant on hold..")
+                #  app.logger.info("Waiting...")
+                #  time.sleep(10)
+                #  call_connection_client.unhold(target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER))
+                #  call_connection_client.unhold(
+                #      target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER),
+                #      operation_context="holdUserContext")
+                #  app.logger.info("Participant on unhold..")
+                
+                #  handle_play(call_connection_client=call_connection_client, text_to_play=text_to_play,context="textSourceContext")
+                #  play_source = TextSource(text="This is interrupt call media test.", voice_name=SPEECH_TO_TEXT_VOICE)
+                 play_source = FileSource(MAIN_MENU_PROMPT_URI)
+                #  call_connection_client.play_media_to_all(
+                #      play_source,
+                #      interrupt_call_media_operation=False,
+                #      operation_context="interruptContext",
+                #      operation_callback_url=CALLBACK_EVENTS_URI,
+                #      loop=False)
+                
+                 play_to = [PhoneNumberIdentifier(TARGET_PHONE_NUMBER)]
+                 call_connection_client._play_media(
+                     play_source,
+                     play_to=play_to)
                 
         elif event.type == "Microsoft.Communication.RecognizeFailed":
             failedContext = event.data['operationContext']
@@ -248,35 +290,35 @@ def callback_events_handler():
 
         elif event.type in ["Microsoft.Communication.PlayCompleted"]:
             #app.logger.info("Terminating call")
-            app.logger.info(event.data['operationContext'])
+            # app.logger.info(event.data['operationContext'])
            
             # call_connection_client.stop_media_streaming()
             # call_connection_client.stop_media_streaming(operation_callback_url=CALLBACK_EVENTS_URI)
             
             # call_connection_client.stop_transcription()
-            call_connection_client.stop_transcription(operation_context="stopTranscriptionContext")
+            # call_connection_client.stop_transcription(operation_context="stopTranscriptionContext")
             
-            if(event.data['operationContext'] == "textSourceContext"):
-                # call_connection_client.start_media_streaming()
-                # call_connection_client.start_media_streaming(operation_callback_url=CALLBACK_EVENTS_URI, operation_context="startMediaStreamingContext")
+            # if(event.data['operationContext'] == "textSourceContext"):
+            #     # call_connection_client.start_media_streaming()
+            #     # call_connection_client.start_media_streaming(operation_callback_url=CALLBACK_EVENTS_URI, operation_context="startMediaStreamingContext")
                 
-                # call_connection_client.start_transcription()
-                call_connection_client.start_transcription(locale="en-AU",operation_context="startTranscrptionContext")
-                time.sleep(5)
-                call_connection_client.update_transcription(locale="en-AU")
-                call_connection_client.play_media_to_all([FileSource(MAIN_MENU_PROMPT_URI)],operation_context="fileSourceContext")
-            elif (event.data['operationContext'] == "fileSourceContext"):
-                # call_connection_client.start_media_streaming()
-                # call_connection_client.start_media_streaming(operation_callback_url=CALLBACK_EVENTS_URI, operation_context="startMediaStreamingContext")
+            #     # call_connection_client.start_transcription()
+            #     call_connection_client.start_transcription(locale="en-AU",operation_context="startTranscrptionContext")
+            #     time.sleep(5)
+            #     call_connection_client.update_transcription(locale="en-AU")
+            #     call_connection_client.play_media_to_all([FileSource(MAIN_MENU_PROMPT_URI)],operation_context="fileSourceContext")
+            # elif (event.data['operationContext'] == "fileSourceContext"):
+            #     # call_connection_client.start_media_streaming()
+            #     # call_connection_client.start_media_streaming(operation_callback_url=CALLBACK_EVENTS_URI, operation_context="startMediaStreamingContext")
                 
-                # call_connection_client.start_transcription()
-                call_connection_client.start_transcription(locale="en-US",operation_context="startTranscrptionContext")
-                time.sleep(5)
-                call_connection_client.update_transcription(locale="en-AU")
-                handle_play(call_connection_client=call_connection_client, text_to_play="good bye",context="goodbyContext")
-            else:
-                call_connection_client.hang_up(is_for_everyone=True)
-            # call_connection_client.hang_up(is_for_everyone=True)
+            #     # call_connection_client.start_transcription()
+            #     call_connection_client.start_transcription(locale="en-US",operation_context="startTranscrptionContext")
+            #     time.sleep(5)
+            #     call_connection_client.update_transcription(locale="en-AU")
+            #     handle_play(call_connection_client=call_connection_client, text_to_play="good bye",context="goodbyContext")
+            # else:
+            #     call_connection_client.hang_up(is_for_everyone=True)
+            call_connection_client.hang_up(is_for_everyone=True)
         return Response(status=200)
 
 # GET endpoint to render the menus
