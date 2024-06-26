@@ -270,14 +270,19 @@ def handle_callback(contextId):
                   app.logger.info("Is pause on start --> %s", IS_PAUSE_ON_START)
                   app.logger.info("Bring Your Own Storage --> %s", IS_BYOS)
                   call_connection_client =call_automation_client.get_call_connection(call_connection_id=call_connection_id)
+                  call_connection_properties = call_connection_client.get_call_properties()
+                  app.logger.info("ANSWERED FOR --> %s", call_connection_properties.answered_for.raw_id)
                   if IS_BYOS:
                       app.logger.info("Bring Your Own Storage URL --> %s", BRING_YOUR_STORAGE_URL)
                  
                   if IS_TRANSFER_CALL:
                       app.logger.info("Is Transfer Call:--> %s", IS_TRANSFER_CALL)
-                      call_connection_client.transfer_call_to_participant(target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER),
-                                                                          transferee=PhoneNumberIdentifier(ACS_PHONE_NUMBER_2))
+                      call_connection_client.transfer_call_to_participant(
+                          target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER),
+                          transferee=PhoneNumberIdentifier(ACS_PHONE_NUMBER_2),
+                          source_caller_id_number=PhoneNumberIdentifier(ACS_PHONE_NUMBER))
                       app.logger.info("Transfer call initiated.")
+                      return 
                   elif IS_OUTBOUND_CALL:
                       app.logger.info("Is Outbound Call:--> %s", IS_OUTBOUND_CALL)
                       app.logger.info("Outbound call connected.")
@@ -301,7 +306,7 @@ def handle_callback(contextId):
                     #   app.logger.info("Transfer call initiated.")
                       # Transfer call test end.
                       
-                      start_continuous_dtmf(call_connection_id=call_connection_id)
+                    #   start_continuous_dtmf(call_connection_id=call_connection_id)
                       
                       #handle_play(call_connection_id,"this is loop test","outboundPlayContext")
                       
