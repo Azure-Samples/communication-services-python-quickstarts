@@ -67,20 +67,53 @@ def get_choices():
             ]
     return choices
 
-def get_media_recognize_choice_options(call_connection_client: CallConnectionClient, text_to_play: str, target_participant:str, choices: any, context: str):
+def get_media_recognize_options(call_connection_client: CallConnectionClient, text_to_play: str, target_participant:str, choices: any, context: str):
      play_source =  TextSource (text= text_to_play, voice_name= SPEECH_TO_TEXT_VOICE)
+     file_source = FileSource(MAIN_MENU_PROMPT_URI)
+     play_prompts = [play_source,file_source]
+    #  play_prompts = []
      call_connection_client.start_recognizing_media(
                 input_type=RecognizeInputType.CHOICES,
                 target_participant=target_participant,
                 choices=choices,
-                play_prompt=play_source,
+                # play_prompt=play_source,
+                play_prompt=play_prompts,
                 interrupt_prompt=False,
                 initial_silence_timeout=10,
-                operation_context=context
+                operation_context="choicesContext"
             )
+    
+    #  call_connection_client.start_recognizing_media(
+    #             input_type=RecognizeInputType.DTMF,
+    #             target_participant=target_participant,
+    #             # play_prompt=play_source,
+    #             play_prompt=play_prompts,
+    #             dtmf_max_tones_to_collect=1,
+    #             interrupt_prompt=False,
+    #             initial_silence_timeout=10,
+    #             operation_context="dtmfContext"
+    #         )
+     
+    #  call_connection_client.start_recognizing_media( 
+    #             input_type=RecognizeInputType.SPEECH, 
+    #             target_participant=target_participant, 
+    #             end_silence_timeout=10, 
+    #             play_prompt=play_prompts, 
+    #             operation_context="OpenQuestionSpeech")
+     
+    #  call_connection_client.start_recognizing_media( 
+    #             dtmf_max_tones_to_collect=1, 
+    #             input_type=RecognizeInputType.SPEECH_OR_DTMF, 
+    #             target_participant=target_participant, 
+    #             end_silence_timeout=10, 
+    #             play_prompt=play_prompts, 
+    #             initial_silence_timeout=30, 
+    #             interrupt_prompt=True, 
+    #             operation_context="OpenQuestionSpeechOrDtmf")
      
 def handle_play(call_connection_client: CallConnectionClient, text_to_play: str,context:str):
         play_source = TextSource(text=text_to_play, voice_name=SPEECH_TO_TEXT_VOICE) 
+        # play_source = FileSource(MAIN_MENU_PROMPT_URI)
         call_connection_client.play_media_to_all(play_source,operation_context=context)
 
 # GET endpoint to place phone call
@@ -139,12 +172,23 @@ def callback_events_handler():
             # call_connection_client.start_transcription(operation_context="startTranscrptionContext")
             # time.sleep(5)
             # call_connection_client.update_transcription(locale="en-fjlsjf")
-            app.logger.info("Starting recognize")
-            get_media_recognize_choice_options(
-                call_connection_client=call_connection_client,
-                text_to_play=MAIN_MENU, 
-                target_participant=target_participant,
-                choices=get_choices(),context="")
+            # app.logger.info("Starting recognize")
+            # get_media_recognize_options(
+            #     call_connection_client=call_connection_client,
+            #     text_to_play=MAIN_MENU, 
+            #     target_participant=target_participant,
+            #     choices=get_choices(),context="")
+            
+            play_source = TextSource(text="Hi, This is multiple play source call media test.", voice_name=SPEECH_TO_TEXT_VOICE)
+            file_source = FileSource(MAIN_MENU_PROMPT_URI)
+            play_sources = [play_source, file_source]
+            call_connection_client.play_media_to_all(
+                     play_source=play_sources,
+                     interrupt_call_media_operation=False,
+                     operation_context="multiplePlayContext",
+                     operation_callback_url=CALLBACK_EVENTS_URI,
+                     loop=False)
+            
         elif event.type == "Microsoft.Communication.MediaStreamingStarted":
             app.logger.info("Media Streaming Started.")
             app.logger.info("MediaStreamingStarted: data=%s", event.data) 
@@ -252,9 +296,10 @@ def callback_events_handler():
                 #      operation_context="holdUserContext")
                 #  app.logger.info("Participant on unhold..")
                 
-                #  handle_play(call_connection_client=call_connection_client, text_to_play=text_to_play,context="textSourceContext")
+                 handle_play(call_connection_client=call_connection_client, text_to_play=text_to_play,context="textSourceContext")
+                 
                 #  play_source = TextSource(text="This is interrupt call media test.", voice_name=SPEECH_TO_TEXT_VOICE)
-                 play_source = FileSource(MAIN_MENU_PROMPT_URI)
+                #  play_source = FileSource(MAIN_MENU_PROMPT_URI)
                 #  call_connection_client.play_media_to_all(
                 #      play_source,
                 #      interrupt_call_media_operation=False,
@@ -262,33 +307,49 @@ def callback_events_handler():
                 #      operation_callback_url=CALLBACK_EVENTS_URI,
                 #      loop=False)
                 
-                 play_to = [PhoneNumberIdentifier(TARGET_PHONE_NUMBER)]
-                 call_connection_client._play_media(
-                     play_source,
-                     play_to=play_to)
+                #  play_to = [PhoneNumberIdentifier(TARGET_PHONE_NUMBER)]
+                #  call_connection_client._play_media(
+                #      play_source,
+                #      play_to=play_to)
+            elif event.data['recognitionType'] == "dtmf":
+                tones = event.data['dtmfResult']['tones'] 
+                app.logger.info("Recognition completed, tones=%s, context=%s", tones, event.data.get('operationContext'))
+                call_connection_client.hang_up(is_for_everyone=True)
+            elif event.data['recognitionType'] == "speech": 
+                text = event.data['speechResult']['speech']; 
+                app.logger.info("Recognition completed, text=%s, context=%s", text, event.data.get('operationContext'))
+                call_connection_client.hang_up(is_for_everyone=True)
                 
         elif event.type == "Microsoft.Communication.RecognizeFailed":
-            failedContext = event.data['operationContext']
-            if(failedContext and failedContext == RETRY_CONTEXT):
-                handle_play(call_connection_client=call_connection_client, text_to_play=NO_RESPONSE)
-            else:
-                resultInformation = event.data['resultInformation']
-                app.logger.info("Encountered error during recognize, message=%s, code=%s, subCode=%s", 
+            # failedContext = event.data['operationContext']
+            app.logger.info("Recognize Failed: data=%s", event.data) 
+            # if(failedContext and failedContext == RETRY_CONTEXT):
+            #     handle_play(call_connection_client=call_connection_client, text_to_play=NO_RESPONSE)
+            # else:
+            #     resultInformation = event.data['resultInformation']
+            #     app.logger.info("Encountered error during recognize, message=%s, code=%s, subCode=%s", 
+            #                     resultInformation['message'], 
+            #                     resultInformation['code'],
+            #                     resultInformation['subCode'])
+            #     if(resultInformation['subCode'] in[8510, 8510]):
+            #         textToPlay =CUSTOMER_QUERY_TIMEOUT
+            #     else :
+            #         textToPlay =INVALID_AUDIO
+            
+            resultInformation = event.data['resultInformation']
+            app.logger.info("Encountered error during recognize, message=%s, code=%s, subCode=%s", 
                                 resultInformation['message'], 
                                 resultInformation['code'],
                                 resultInformation['subCode'])
-                if(resultInformation['subCode'] in[8510, 8510]):
-                    textToPlay =CUSTOMER_QUERY_TIMEOUT
-                else :
-                    textToPlay =INVALID_AUDIO
-                
-                get_media_recognize_choice_options(
-                    call_connection_client=call_connection_client,
-                    text_to_play=textToPlay, 
-                    target_participant=target_participant,
-                    choices=get_choices(),context=RETRY_CONTEXT)
+                # get_media_recognize_options(
+                #     call_connection_client=call_connection_client,
+                #     text_to_play=textToPlay, 
+                #     target_participant=target_participant,
+                #     choices=get_choices(),context=RETRY_CONTEXT)
+            call_connection_client.hang_up(is_for_everyone=True)
 
         elif event.type in ["Microsoft.Communication.PlayCompleted"]:
+            app.logger.info("Play completed: data=%s", event.data) 
             #app.logger.info("Terminating call")
             # app.logger.info(event.data['operationContext'])
            
@@ -318,6 +379,14 @@ def callback_events_handler():
             #     handle_play(call_connection_client=call_connection_client, text_to_play="good bye",context="goodbyContext")
             # else:
             #     call_connection_client.hang_up(is_for_everyone=True)
+            call_connection_client.hang_up(is_for_everyone=True)
+        elif event.type in ["Microsoft.Communication.PlayFailed"]:
+            app.logger.info("Play Failed: data=%s", event.data) 
+            resultInformation = event.data['resultInformation']
+            app.logger.info("Encountered error during play, message=%s, code=%s, subCode=%s", 
+                                resultInformation['message'], 
+                                resultInformation['code'],
+                                resultInformation['subCode'])
             call_connection_client.hang_up(is_for_everyone=True)
         return Response(status=200)
 
