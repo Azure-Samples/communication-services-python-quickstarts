@@ -175,9 +175,9 @@ def start_recording(server_call_id):
          
      recording_result = call_automation_client.start_recording(
                     call_locator=ServerCallLocator(server_call_id),
-                    recording_content_type = RecordingContent.Audio,
-                    recording_channel_type = RecordingChannel.Unmixed,
-                    recording_format_type = RecordingFormat.Wav,
+                    recording_content_type = RecordingContent.AUDIO,
+                    recording_channel_type = RecordingChannel.UNMIXED,
+                    recording_format_type = RecordingFormat.WAV,
                     recording_storage= recording_storage,
                     pause_on_start = IS_PAUSE_ON_START
                     )
@@ -270,8 +270,9 @@ def handle_callback(contextId):
                   app.logger.info("Is pause on start --> %s", IS_PAUSE_ON_START)
                   app.logger.info("Bring Your Own Storage --> %s", IS_BYOS)
                   call_connection_client =call_automation_client.get_call_connection(call_connection_id=call_connection_id)
-                  call_connection_properties = call_connection_client.get_call_properties()
-                  app.logger.info("ANSWERED FOR --> %s", call_connection_properties.answered_for.raw_id)
+                  
+                #   call_connection_properties = call_connection_client.get_call_properties()
+                #   app.logger.info("ANSWERED FOR --> %s", call_connection_properties.answered_for.raw_id)
                   if IS_BYOS:
                       app.logger.info("Bring Your Own Storage URL --> %s", BRING_YOUR_STORAGE_URL)
                  
@@ -389,6 +390,13 @@ def handle_callback(contextId):
                     call_automation_client.resume_recording(recording_id)
                     time.sleep(5)
                     get_recording_state(recording_id)
+                    call_automation_client.pause_recording(recording_id)
+                    time.sleep(5)
+                    get_recording_state(recording_id)
+                    time.sleep(5)
+                    call_automation_client.resume_recording(recording_id)
+                    time.sleep(5)
+                    get_recording_state(recording_id)
                 time.sleep(5)
                 call_automation_client.stop_recording(recording_id)
                 app.logger.info("Recording is stopped")
@@ -420,10 +428,12 @@ def handle_callback(contextId):
                             app.logger.info(f"Is participant muted: {response.is_muted}")
                             app.logger.info("Mute participant test completed.")
                     
-                    handle_recognize(playText=PSTN_USER_PROMPT,
-                                     callerId=TARGET_PHONE_NUMBER,
-                                     call_connection_id=call_connection_id,
-                                     context="recognizeContext",isDtmf=False)
+                    # handle_recognize(playText=PSTN_USER_PROMPT,
+                    #                  callerId=TARGET_PHONE_NUMBER,
+                    #                  call_connection_id=call_connection_id,
+                    #                  context="recognizeContext",isDtmf=False)
+                    
+                    handle_play(call_connection_id,HELLO_PROMPT,"helloContext")
                     
             elif event.type == "Microsoft.Communication.AddParticipantFailed":
                 app.logger.info(f"AddParticipantFailed event received for connection id: {call_connection_id}")
@@ -471,7 +481,9 @@ def handle_callback(contextId):
             elif event.type == "Microsoft.Communication.RemoveParticipantFailed":
                 app.logger.info(f"Received RemoveParticipantFailed event for connection id: {call_connection_id}")
                 resultInformation = event.data['resultInformation']
-                sub_code = resultInformation['subCode']    
+                sub_code = resultInformation['subCode']
+            elif event.type == "Microsoft.Communication.RecordingStateChanged":             
+                app.logger.info(f"Received RecordingStateChanged event for connection id: {call_connection_id}")   
             elif event.type == "Microsoft.Communication.CallDisconnected":             
                 app.logger.info(f"Received CallDisconnected event for connection id: {call_connection_id}")
         return Response(status=200) 
