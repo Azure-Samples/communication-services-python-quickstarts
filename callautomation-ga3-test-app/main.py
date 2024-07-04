@@ -21,7 +21,8 @@ from azure.communication.callautomation import (
     AzureBlobContainerRecordingStorage,
     AzureCommunicationsRecordingStorage,
     RecognitionChoice,
-    DtmfTone
+    DtmfTone,
+    FileSource
     )
 from azure.core.messaging import CloudEvent
 
@@ -50,6 +51,8 @@ CALLBACK_URI_HOST = ""
 CALLBACK_EVENTS_URI = CALLBACK_URI_HOST + "/api/callbacks"
 
 TEMPLATE_FILES_PATH = "template"
+AUDIO_FILES_PATH = "/audio"
+MAIN_MENU_PROMPT_URI = CALLBACK_URI_HOST + AUDIO_FILES_PATH + "/MainMenu.wav"
 
 BRING_YOUR_STORAGE_URL=""
 
@@ -74,6 +77,8 @@ DTMF_PROMPT = "Thank you for the update. Please type  one two three four on your
 call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
 
 app = Flask(__name__,
+            static_folder=AUDIO_FILES_PATH.strip("/"),
+            static_url_path=AUDIO_FILES_PATH,
             template_folder=TEMPLATE_FILES_PATH)
 
 @app.route('/createCall')
@@ -112,9 +117,12 @@ def create_outbound_call():
 def create_group_call():
     target_participant = CommunicationUserIdentifier(COMMUNICATION_USR_ID)
     target_participant_2 = CommunicationUserIdentifier(COMMUNICATION_USR_ID_2)
-    call_connection_properties = call_automation_client.create_group_call([target_participant,target_participant_2],
+    pstn_participant1 = PhoneNumberIdentifier(ACS_PHONE_NUMBER_2)
+    pstn_participant2 = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
+    call_connection_properties = call_automation_client.create_group_call([target_participant,target_participant_2,pstn_participant1,pstn_participant2],
                                                                      callback_url=CALLBACK_EVENTS_URI,
                                                                      cognitive_services_endpoint=COGNITIVE_SERVICE_ENDPOINT,
+                                                                     source_caller_id_number=pstn_participant2
                                                                      )
     app.logger.info("Created group call with connection id: %s", call_connection_properties.call_connection_id)
     return redirect("/")
@@ -152,7 +160,8 @@ def handle_recognize(playText,callerId,call_connection_id,context="",isDtmf=Fals
         operation_context=context)
         #SPEECH_OR_DTMF,SPEECH,CHOICES
 def handle_play(call_connection_id, text_to_play, context):
-    play_source = TextSource(text=text_to_play, voice_name= "en-US-NancyNeural") 
+    # play_source = TextSource(text=text_to_play, voice_name= "en-US-NancyNeural")
+    play_source = FileSource(MAIN_MENU_PROMPT_URI)
     call_automation_client.get_call_connection(call_connection_id).play_media_to_all(play_source,
                                                                                      operation_context=context,
                                                                                      loop=False)
@@ -251,7 +260,7 @@ def incoming_call_handler():
 # @app.route('/api/callbacks', methods=['POST'])
 # def handle_callback():        
 @app.route("/api/callbacks/<contextId>", methods=["POST"])
-def handle_callback(contextId):    
+def handle_callback(contextId):
     try:        
         global caller_id , call_connection_id, server_call_id,call_connection_client,cor_relation_id
         # app.logger.info("Request Json: %s", request.json)
@@ -309,9 +318,10 @@ def handle_callback(contextId):
                       
                     #   start_continuous_dtmf(call_connection_id=call_connection_id)
                       
-                      #handle_play(call_connection_id,"this is loop test","outboundPlayContext")
+                    #   handle_play(call_connection_id,"this is loop test","outboundPlayContext")
                       
-                      #handle_hangup(call_connection_id)
+                    #   handle_hangup(call_connection_id)
+                      call_automation_client.get_call_connection(call_connection_id).hang_up(is_for_everyone=False)
                   else:
                       start_recording(server_call_id)
                       
@@ -410,6 +420,7 @@ def handle_callback(contextId):
                 sub_code = resultInformation['subCode']
                 
                 app.logger.info(f"Encountered error during call transfer, message=, code=, subCode={sub_code}")
+                
             elif event.type == "Microsoft.Communication.AddParticipantSucceeded":
                 app.logger.info(f"Received AddParticipantSucceeded event for connection id: {call_connection_id}")
                 if(event.data['operationContext'] == "addPstnUserContext"):
@@ -428,12 +439,12 @@ def handle_callback(contextId):
                             app.logger.info(f"Is participant muted: {response.is_muted}")
                             app.logger.info("Mute participant test completed.")
                     
-                    # handle_recognize(playText=PSTN_USER_PROMPT,
-                    #                  callerId=TARGET_PHONE_NUMBER,
-                    #                  call_connection_id=call_connection_id,
-                    #                  context="recognizeContext",isDtmf=False)
+                    handle_recognize(playText=PSTN_USER_PROMPT,
+                                     callerId=TARGET_PHONE_NUMBER,
+                                     call_connection_id=call_connection_id,
+                                     context="recognizeContext",isDtmf=False)
                     
-                    handle_play(call_connection_id,HELLO_PROMPT,"helloContext")
+                    # handle_play(call_connection_id,HELLO_PROMPT,"helloContext")
                     
             elif event.type == "Microsoft.Communication.AddParticipantFailed":
                 app.logger.info(f"AddParticipantFailed event received for connection id: {call_connection_id}")
