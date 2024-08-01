@@ -16,23 +16,24 @@ from azure.communication.callautomation import (
     MediaStreamingContentType,
     MediaStreamingAudioChannelType,
     FileSource,
+    SsmlSource,
     TranscriptionOptions,
     TranscriptionTransportType)
 from azure.core.messaging import CloudEvent
 import time
 # Your ACS resource connection string
-ACS_CONNECTION_STRING = ""
+ACS_CONNECTION_STRING = "endpoint=https://dacsrecordingtest.unitedstates.communication.azure.com/;accesskey=P03pgjuvw8Yo9nlRkdgjrm/TmT0yIkYt3fXowddBQ0QbOYZ6GbDaAir6om8N8sHOt7ifhJqT20aOsy4EDulO+A=="
 
 # Your ACS resource phone number will act as source number to start outbound call
-ACS_PHONE_NUMBER = ""
+ACS_PHONE_NUMBER = "+18332638155"
 
 # Target phone number you want to receive the call.
-TARGET_PHONE_NUMBER = ""
+TARGET_PHONE_NUMBER = "+918688023395"
 
 # Callback events URI to handle callback events.
-CALLBACK_URI_HOST = ""
+CALLBACK_URI_HOST = "https://7hvxmj7n.inc1.devtunnels.ms:8080"
 CALLBACK_EVENTS_URI = CALLBACK_URI_HOST + "/api/callbacks"
-COGNITIVE_SERVICES_ENDPOINT = ""
+COGNITIVE_SERVICES_ENDPOINT = "https://cognitive-service-waferwire.cognitiveservices.azure.com/"
 
 #(OPTIONAL) Your target Microsoft Teams user Id ex. "ab01bc12-d457-4995-a27b-c405ecfe4870"
 TARGET_TEAMS_USER_ID = "<TARGET_TEAMS_USER_ID>"
@@ -52,6 +53,7 @@ INVALID_AUDIO = "I’m sorry, I didn’t understand your response, please try ag
 CONFIRM_CHOICE_LABEL = "Confirm"
 CANCEL_CHOICE_LABEL = "Cancel"
 RETRY_CONTEXT = "retry"
+DTMF_TEXT = "Press 1, 2, 3, 4 on your key board!"
 
 call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
 
@@ -69,15 +71,17 @@ def get_choices():
 
 def get_media_recognize_options(call_connection_client: CallConnectionClient, text_to_play: str, target_participant:str, choices: any, context: str):
      play_source =  TextSource (text= text_to_play, voice_name= SPEECH_TO_TEXT_VOICE)
-     file_source = FileSource(MAIN_MENU_PROMPT_URI)
-     play_prompts = [play_source,file_source]
-    #  play_prompts = []
+     file_source = FileSource("https://www2.cs.uic.edu/~i101/SoundFiles/StarWars3.wav")
+     file_source_invalid = FileSource("https://dummy/dummy.wav")
+     ssml_source = SsmlSource(ssml_text='<speak version=\"1.0\" xmlns=\"http://www.w3.org/2001/10/synthesis\" xml:lang=\"en-US\"><voice name=\"en-US-JennyNeural\">SSML Prompt</voice></speak>')
+    #  play_prompts = [ssml_source, play_source, file_source, ssml_source, play_source, file_source,ssml_source, play_source, file_source,ssml_source]
+     play_prompts = []
      call_connection_client.start_recognizing_media(
                 input_type=RecognizeInputType.CHOICES,
                 target_participant=target_participant,
                 choices=choices,
-                # play_prompt=play_source,
-                play_prompt=play_prompts,
+                play_prompt=play_source,
+                # play_prompt=play_prompts,
                 interrupt_prompt=False,
                 initial_silence_timeout=10,
                 operation_context="choicesContext"
@@ -113,29 +117,48 @@ def get_media_recognize_options(call_connection_client: CallConnectionClient, te
      
 def handle_play(call_connection_client: CallConnectionClient, text_to_play: str,context:str):
         play_source = TextSource(text=text_to_play, voice_name=SPEECH_TO_TEXT_VOICE) 
-        # play_source = FileSource(MAIN_MENU_PROMPT_URI)
-        call_connection_client.play_media_to_all(play_source,operation_context=context)
-
+        # play_source = FileSource("https://www2.cs.uic.edu/~i101/SoundFiles/StarWars3.wav")
+        # play_source = TextSource(text="Hi, This is multiple play source call media test.", voice_name=SPEECH_TO_TEXT_VOICE)
+        file_source = FileSource("https://www2.cs.uic.edu/~i101/SoundFiles/StarWars3.wav")
+        file_source_invalid = FileSource("https://dummy/dummy.wav")
+        ssml_source = SsmlSource(ssml_text='<speak version=\"1.0\" xmlns=\"http://www.w3.org/2001/10/synthesis\" xml:lang=\"en-US\"><voice name=\"en-US-JennyNeural\">SSML Prompt</voice></speak>')
+        # play_sources = [ssml_source, play_source, file_source, ssml_source, play_source, file_source, ssml_source, play_source, file_source,ssml_source]
+        play_sources = [file_source, file_source_invalid]
+        call_connection_client.play_media_to_all(
+                     play_source=play_sources,
+                     interrupt_call_media_operation=False,
+                     operation_context="playContext",
+                     operation_callback_url=CALLBACK_EVENTS_URI,
+                     loop=False
+                     )
+            
+        # call_connection_client.play_media_to_all(play_source,operation_context=context)
+        
+        # Interrupt Play
+        # play_source = TextSource(text="This is interrupt call media test.", voice_name=SPEECH_TO_TEXT_VOICE)
+        # # play_source = FileSource("https://www2.cs.uic.edu/~i101/SoundFiles/StarWars3.wav")
+        # call_connection_client.play_media_to_all(
+        #                 play_source,
+        #                 interrupt_call_media_operation=False,
+        #                 operation_context="interruptContext",
+        #                 operation_callback_url=CALLBACK_EVENTS_URI,
+        #                 loop=False)
+                
+        # play_to = [PhoneNumberIdentifier(TARGET_PHONE_NUMBER)]
+        # call_connection_client._play_media(
+        #              play_source=play_sources,
+        #              play_to=play_to
+        #             #  interrupt_call_media_operation=False,
+        #             #  operation_callback_url=CALLBACK_EVENTS_URI,
+        #             #  loop=False,
+        #             #  operation_context="playContext"
+        #             )
 # GET endpoint to place phone call
 @app.route('/outboundCall')
 def outbound_call_handler():
     target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
     source_caller = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
     
-    # media_streaming_options = MediaStreamingOptions(
-    #     transport_url="wss://e063-2409-40c2-4004-eced-9487-4dfb-b0e4-10fb.ngrok-free.app",
-    #     transport_type=MediaStreamingTransportType.WEBSOCKET,
-    #     content_type=MediaStreamingContentType.AUDIO,
-    #     audio_channel_type=MediaStreamingAudioChannelType.UNMIXED,
-    #     start_media_streaming=False
-    #     )
-    
-    # transcription_options = TranscriptionOptions(
-    #     transport_url="wss://e063-2409-40c2-4004-eced-9487-4dfb-b0e4-10fb.ngrok-free.app",
-    #     transport_type=TranscriptionTransportType.WEBSOCKET,
-    #     locale="en-US",
-    #     start_transcription=False
-    #     )
     call_connection_properties = call_automation_client.create_call(target_participant, 
                                                                     CALLBACK_EVENTS_URI,
                                                                     cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT,
@@ -154,7 +177,9 @@ def callback_events_handler():
         # Parsing callback events
         event = CloudEvent.from_dict(event_dict)
         call_connection_id = event.data['callConnectionId']
+        correlation_id = event.data['correlationId']
         app.logger.info("%s event received for call connection id: %s", event.type, call_connection_id)
+        app.logger.info("%s CORRELATION ID ======>: %s", event.type, correlation_id)
         call_connection_client = call_automation_client.get_call_connection(call_connection_id)
         target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
         if event.type == "Microsoft.Communication.CallConnected":
@@ -163,84 +188,12 @@ def callback_events_handler():
             #     target = MicrosoftTeamsUserIdentifier(user_id=TARGET_TEAMS_USER_ID),
             #     source_display_name = "Jack (Contoso Tech Support)"))
             app.logger.info("Call Connected.=%s", event.data)
-            
-            #call_connection_client.start_media_streaming()
-            # call_connection_client.start_media_streaming(operation_callback_url=CALLBACK_EVENTS_URI, operation_context="startMediaStreamingContext")
-            
-            # call_connection_client.start_transcription()
-            # call_connection_client.start_transcription(locale="en-AU",operation_context="startTranscrptionContext")
-            # call_connection_client.start_transcription(operation_context="startTranscrptionContext")
-            # time.sleep(5)
-            # call_connection_client.update_transcription(locale="en-fjlsjf")
-            # app.logger.info("Starting recognize")
-            # get_media_recognize_options(
-            #     call_connection_client=call_connection_client,
-            #     text_to_play=MAIN_MENU, 
-            #     target_participant=target_participant,
-            #     choices=get_choices(),context="")
-            
-            play_source = TextSource(text="Hi, This is multiple play source call media test.", voice_name=SPEECH_TO_TEXT_VOICE)
-            file_source = FileSource(MAIN_MENU_PROMPT_URI)
-            play_sources = [play_source, file_source]
-            call_connection_client.play_media_to_all(
-                     play_source=play_sources,
-                     interrupt_call_media_operation=False,
-                     operation_context="multiplePlayContext",
-                     operation_callback_url=CALLBACK_EVENTS_URI,
-                     loop=False)
-            
-        elif event.type == "Microsoft.Communication.MediaStreamingStarted":
-            app.logger.info("Media Streaming Started.")
-            app.logger.info("MediaStreamingStarted: data=%s", event.data) 
-            mediaStreamingUpdate = event.data['mediaStreamingUpdate']
-            # app.logger.info(event.data['operationContext'])
-            app.logger.info(mediaStreamingUpdate["contentType"])
-            app.logger.info(mediaStreamingUpdate["mediaStreamingStatus"])
-            app.logger.info(mediaStreamingUpdate["mediaStreamingStatusDetails"])
-            
-        elif event.type == "Microsoft.Communication.MediaStreamingStopped":
-            app.logger.info("Media Streaming Stopped.")
-            app.logger.info("MediaStreamingStoppeddata=%s", event.data)
-            mediaStreamingUpdate = event.data['mediaStreamingUpdate']
-            app.logger.info(mediaStreamingUpdate["contentType"])
-            app.logger.info(mediaStreamingUpdate["mediaStreamingStatus"])
-            app.logger.info(mediaStreamingUpdate["mediaStreamingStatusDetails"])
-            
-        elif event.type == "Microsoft.Communication.MediaStreamingFailed":
-            app.logger.info("Media Streaming Failed.")
-            resultInformation = event.data['resultInformation']
-            app.logger.info("Encountered error during MediaStreaming, message=%s, code=%s, subCode=%s", 
-                                resultInformation['message'], 
-                                resultInformation['code'],
-                                resultInformation['subCode'])
-        elif event.type == "Microsoft.Communication.TranscriptionStarted":
-            app.logger.info("Transcription Started.")
-            app.logger.info("TranscriptionStarted: data=%s", event.data) 
-            transcriptionUpdate = event.data['transcriptionUpdate']
-            # app.logger.info(event.data['operationContext'])
-            app.logger.info(transcriptionUpdate["transcriptionStatus"])
-            app.logger.info(transcriptionUpdate["transcriptionStatusDetails"])
-        elif event.type == "Microsoft.Communication.TranscriptionStopped":
-            app.logger.info("Transcription Stopped.")
-            app.logger.info("TranscriptionStopped: data=%s", event.data) 
-            transcriptionUpdate = event.data['transcriptionUpdate']
-            # app.logger.info(event.data['operationContext'])
-            app.logger.info(transcriptionUpdate["transcriptionStatus"])
-            app.logger.info(transcriptionUpdate["transcriptionStatusDetails"])
-        elif event.type == "Microsoft.Communication.TranscriptionUpdated":
-            app.logger.info("Transcription Updated.")
-            app.logger.info("TranscriptionUpdated: data=%s", event.data) 
-            transcriptionUpdate = event.data['transcriptionUpdate']
-            # app.logger.info(event.data['operationContext'])
-            app.logger.info(transcriptionUpdate["transcriptionStatus"])
-            app.logger.info(transcriptionUpdate["transcriptionStatusDetails"])
-        elif event.type == "Microsoft.Communication.TranscriptionFailed":
-            app.logger.info("Transcription Failed.")
-            resultInformation = event.data['resultInformation']
-            app.logger.info("Encountered error during Transcription, message=%s, code=%s, subCode=%s", 
-                                resultInformation['message'], 
-                                resultInformation['code'],
-                                resultInformation['subCode'])
+            app.logger.info("Starting recognize")
+            get_media_recognize_options(
+                call_connection_client=call_connection_client,
+                text_to_play=MAIN_MENU, 
+                target_participant=target_participant,
+                choices=get_choices(),context="")
         elif event.type == "Microsoft.Communication.HoldFailed":
             app.logger.info("Hold Failed.")
             resultInformation = event.data['resultInformation']
@@ -259,67 +212,34 @@ def callback_events_handler():
                  phraseDetected = event.data['choiceResult']['recognizedPhrase']; 
                  app.logger.info("Recognition completed, labelDetected=%s, phraseDetected=%s, context=%s", label_detected, phraseDetected, event.data.get('operationContext'))
                  
-                 #call_connection_client.stop_media_streaming()
-                #  call_connection_client.stop_media_streaming(operation_callback_url=CALLBACK_EVENTS_URI)
-                
-                #  call_connection_client.stop_transcription()
-                #  call_connection_client.stop_transcription(operation_context="stopTranscriptionContext")
-                 
-                 if label_detected == CONFIRM_CHOICE_LABEL:
-                    text_to_play = CONFIRMED_TEXT
-                 else:
-                    text_to_play = CANCEL_TEXT
-                #  time.sleep(5)
-                 #call_connection_client.start_media_streaming()
-                #  call_connection_client.start_media_streaming(operation_callback_url=CALLBACK_EVENTS_URI, operation_context="startMediaStreamingContext")
-                
-                #  call_connection_client.start_transcription()
-                #  call_connection_client.start_transcription(locale="en-US",operation_context="startTranscrptionContext")
-                #  time.sleep(5)
-                #  call_connection_client.update_transcription(locale="en-AU")
-                
-                #  call_connection_client.hold(target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER))
-                #  play_source = TextSource(text="You are on hold, Please wait.", voice_name=SPEECH_TO_TEXT_VOICE)
-                #  play_source = FileSource(MAIN_MENU_PROMPT_URI)
+                 call_connection_client.hold(target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER))
+                 play_source = TextSource(text="You are on hold, Please wait.", voice_name=SPEECH_TO_TEXT_VOICE)
+                #  play_source = FileSource("https://www2.cs.uic.edu/~i101/SoundFiles/StarWars3.wav")
                 #  call_connection_client.hold(
                 #      target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER),
-                #      play_source=play_source,
+                #     #  play_source=play_source,
                 #      operation_context="holdUserContext",
                 #      operation_callback_url=CALLBACK_EVENTS_URI
                 #      )
-                #  app.logger.info("Participant on hold..")
-                #  app.logger.info("Waiting...")
-                #  time.sleep(10)
-                #  call_connection_client.unhold(target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER))
+                 app.logger.info("Participant on hold..")
+                 app.logger.info("Waiting...")
+                 time.sleep(10)
+                 call_connection_client.unhold(target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER))
                 #  call_connection_client.unhold(
                 #      target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER),
                 #      operation_context="holdUserContext")
-                #  app.logger.info("Participant on unhold..")
-                
-                 handle_play(call_connection_client=call_connection_client, text_to_play=text_to_play,context="textSourceContext")
-                 
-                #  play_source = TextSource(text="This is interrupt call media test.", voice_name=SPEECH_TO_TEXT_VOICE)
-                #  play_source = FileSource(MAIN_MENU_PROMPT_URI)
-                #  call_connection_client.play_media_to_all(
-                #      play_source,
-                #      interrupt_call_media_operation=False,
-                #      operation_context="interruptContext",
-                #      operation_callback_url=CALLBACK_EVENTS_URI,
-                #      loop=False)
-                
-                #  play_to = [PhoneNumberIdentifier(TARGET_PHONE_NUMBER)]
-                #  call_connection_client._play_media(
-                #      play_source,
-                #      play_to=play_to)
+                 app.logger.info("Participant on unhold..")
             elif event.data['recognitionType'] == "dtmf":
                 tones = event.data['dtmfResult']['tones'] 
                 app.logger.info("Recognition completed, tones=%s, context=%s", tones, event.data.get('operationContext'))
-                call_connection_client.hang_up(is_for_everyone=True)
+                # call_connection_client.hang_up(is_for_everyone=True)
             elif event.data['recognitionType'] == "speech": 
                 text = event.data['speechResult']['speech']; 
                 app.logger.info("Recognition completed, text=%s, context=%s", text, event.data.get('operationContext'))
-                call_connection_client.hang_up(is_for_everyone=True)
-                
+                # call_connection_client.hang_up(is_for_everyone=True)
+            # handle_play(call_connection_client=call_connection_client, text_to_play="Recognized successfully",context="textSourceContext")
+            call_connection_client.hang_up(is_for_everyone=True)
+            
         elif event.type == "Microsoft.Communication.RecognizeFailed":
             # failedContext = event.data['operationContext']
             app.logger.info("Recognize Failed: data=%s", event.data) 
@@ -346,39 +266,12 @@ def callback_events_handler():
                 #     text_to_play=textToPlay, 
                 #     target_participant=target_participant,
                 #     choices=get_choices(),context=RETRY_CONTEXT)
-            call_connection_client.hang_up(is_for_everyone=True)
+            # call_connection_client.hang_up(is_for_everyone=True)
+            handle_play(call_connection_client=call_connection_client, text_to_play="Recognized Failed",context="textSourceContext")
 
         elif event.type in ["Microsoft.Communication.PlayCompleted"]:
             app.logger.info("Play completed: data=%s", event.data) 
-            #app.logger.info("Terminating call")
-            # app.logger.info(event.data['operationContext'])
-           
-            # call_connection_client.stop_media_streaming()
-            # call_connection_client.stop_media_streaming(operation_callback_url=CALLBACK_EVENTS_URI)
-            
-            # call_connection_client.stop_transcription()
-            # call_connection_client.stop_transcription(operation_context="stopTranscriptionContext")
-            
-            # if(event.data['operationContext'] == "textSourceContext"):
-            #     # call_connection_client.start_media_streaming()
-            #     # call_connection_client.start_media_streaming(operation_callback_url=CALLBACK_EVENTS_URI, operation_context="startMediaStreamingContext")
-                
-            #     # call_connection_client.start_transcription()
-            #     call_connection_client.start_transcription(locale="en-AU",operation_context="startTranscrptionContext")
-            #     time.sleep(5)
-            #     call_connection_client.update_transcription(locale="en-AU")
-            #     call_connection_client.play_media_to_all([FileSource(MAIN_MENU_PROMPT_URI)],operation_context="fileSourceContext")
-            # elif (event.data['operationContext'] == "fileSourceContext"):
-            #     # call_connection_client.start_media_streaming()
-            #     # call_connection_client.start_media_streaming(operation_callback_url=CALLBACK_EVENTS_URI, operation_context="startMediaStreamingContext")
-                
-            #     # call_connection_client.start_transcription()
-            #     call_connection_client.start_transcription(locale="en-US",operation_context="startTranscrptionContext")
-            #     time.sleep(5)
-            #     call_connection_client.update_transcription(locale="en-AU")
-            #     handle_play(call_connection_client=call_connection_client, text_to_play="good bye",context="goodbyContext")
-            # else:
-            #     call_connection_client.hang_up(is_for_everyone=True)
+            app.logger.info("Terminating call")
             call_connection_client.hang_up(is_for_everyone=True)
         elif event.type in ["Microsoft.Communication.PlayFailed"]:
             app.logger.info("Play Failed: data=%s", event.data) 
@@ -398,4 +291,4 @@ def index_handler():
 
 if __name__ == '__main__':
     app.logger.setLevel(INFO)
-    app.run(port=5001)
+    app.run(port=8080)
