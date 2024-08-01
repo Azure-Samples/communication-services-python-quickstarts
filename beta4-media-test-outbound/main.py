@@ -22,18 +22,18 @@ from azure.communication.callautomation import (
 from azure.core.messaging import CloudEvent
 import time
 # Your ACS resource connection string
-ACS_CONNECTION_STRING = "endpoint=https://dacsrecordingtest.unitedstates.communication.azure.com/;accesskey=P03pgjuvw8Yo9nlRkdgjrm/TmT0yIkYt3fXowddBQ0QbOYZ6GbDaAir6om8N8sHOt7ifhJqT20aOsy4EDulO+A=="
+ACS_CONNECTION_STRING = ""
 
 # Your ACS resource phone number will act as source number to start outbound call
-ACS_PHONE_NUMBER = "+18332638155"
+ACS_PHONE_NUMBER = ""
 
 # Target phone number you want to receive the call.
-TARGET_PHONE_NUMBER = "+918688023395"
+TARGET_PHONE_NUMBER = ""
 
 # Callback events URI to handle callback events.
-CALLBACK_URI_HOST = "https://7hvxmj7n.inc1.devtunnels.ms:8080"
+CALLBACK_URI_HOST = ""
 CALLBACK_EVENTS_URI = CALLBACK_URI_HOST + "/api/callbacks"
-COGNITIVE_SERVICES_ENDPOINT = "https://cognitive-service-waferwire.cognitiveservices.azure.com/"
+COGNITIVE_SERVICES_ENDPOINT = ""
 
 #(OPTIONAL) Your target Microsoft Teams user Id ex. "ab01bc12-d457-4995-a27b-c405ecfe4870"
 TARGET_TEAMS_USER_ID = "<TARGET_TEAMS_USER_ID>"
