@@ -13,16 +13,18 @@ from azure.communication.callautomation import (
     PhoneNumberIdentifier,
     RecognizeInputType,
     TextSource,
-    TranscriptionConfiguration,
+    # TranscriptionConfiguration,
     TranscriptionTransportType,
-    ServerCallLocator
+    ServerCallLocator,
+    TranscriptionOptions
     )
 from azure.core.messaging import CloudEvent
-import openai
+import time
+# import openai
 
-from openai.api_resources import (
-    ChatCompletion
-)
+# from openai.api_resources import (
+#     ChatCompletion
+# )
 
 # Your ACS resource connection string
 ACS_CONNECTION_STRING = "<ACS_CONNECTION_STRING>"
@@ -127,14 +129,14 @@ def incoming_call_handler():
 
             app.logger.info("callback url: %s",  callback_uri)
 
-            transcription_configuration=TranscriptionConfiguration(
+            transcription_configuration=TranscriptionOptions(
                         transport_url=TRANSPORT_URL,
                         transport_type=TranscriptionTransportType.WEBSOCKET,
                         locale=LOCALE,
                         start_transcription=False
                         )
             answer_call_result = call_automation_client.answer_call(incoming_call_context=incoming_call_context,
-                                                                    transcription_configuration=transcription_configuration,
+                                                                    transcription=transcription_configuration,
                                                                     cognitive_services_endpoint=COGNITIVE_SERVICE_ENDPOINT,
                                                                     callback_url=callback_uri)
             app.logger.info("Answered call for connection id: %s",
@@ -164,10 +166,15 @@ def handle_callback(contextId):
                 global recording_id
                 recording_id=recording_result.recording_id
 
+                global call_properties
+                call_properties = call_automation_client.get_call_connection(call_connection_id).get_call_properties()
+                app.logger.info("Transcription subscription--->=%s", call_properties.transcription_subscription)
+
                 # Start the transcription 
                 initiate_transcription(call_connection_id)
+                time.sleep(3)
                 pause_or_stop_transcription_and_recording(call_connection_id=call_connection_id, stop_recording=False, recording_id=recording_id)
-
+                time.sleep(3)
                 handle_recognize(HELP_IVR_PROMPT,
                                   caller_id,call_connection_id,
                                   context="hellocontext") 
@@ -216,6 +223,30 @@ def handle_callback(contextId):
                 resultInformation = event.data['resultInformation']
                 app.logger.info("Received Add Participants Failed message=%s, subcode=%s",resultInformation['message'],resultInformation['subCode'])
                 handle_play(call_connection_id=call_connection_id,text_to_play=ADD_PARTICIPANT_FAILURE_PROMPT, context=ADD_PARTICIPANT_FAILURE_CONTEXT)
+                
+            elif event.type == "Microsoft.Communication.TranscriptionStarted":
+                app.logger.info("Received TranscriptionStarted event.")
+                transcriptionUpdate = event.data['transcriptionUpdate']
+                app.logger.info(event.data['operationContext'])
+                app.logger.info(transcriptionUpdate["transcriptionStatus"])
+                app.logger.info(transcriptionUpdate["transcriptionStatusDetails"])
+            elif event.type == "Microsoft.Communication.TranscriptionStopped":
+                app.logger.info("Received TranscriptionStopped event.")
+                transcriptionUpdate = event.data['transcriptionUpdate']
+                app.logger.info(transcriptionUpdate["transcriptionStatus"])
+                app.logger.info(transcriptionUpdate["transcriptionStatusDetails"])
+            elif event.type == "Microsoft.Communication.TranscriptionUpdated":
+                app.logger.info("Received TranscriptionUpdated event.")
+                transcriptionUpdate = event.data['transcriptionUpdate']
+                app.logger.info(transcriptionUpdate["transcriptionStatus"])
+                app.logger.info(transcriptionUpdate["transcriptionStatusDetails"])
+            elif event.type == "Microsoft.Communication.TranscriptionFailed":
+                app.logger.info("Received TranscriptionFailed event.")
+                resultInformation = event.data['resultInformation']
+                app.logger.info("Encountered error during Transcription, message=%s, code=%s, subCode=%s", 
+                                    resultInformation['message'], 
+                                    resultInformation['code'],
+                                    resultInformation['subCode'])
         return Response(status=200) 
     except Exception as ex:
         app.logger.info("error in event handling")
