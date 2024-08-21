@@ -1,0 +1,4 @@
+Flask>=2.3.2
+azure-eventgrid==4.11.0
+azure-communication-callautomation==1.3.0b1
+websockets==12.0
