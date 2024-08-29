@@ -185,13 +185,12 @@ def incoming_call_handler():
 @app.route("/api/callbacks/<contextId>", methods=["POST"])
 def handle_callback(contextId):    
     try:        
-        global caller_id , call_connection_id
+        global caller_id
         app.logger.info("Request Json: %s", request.json)
         for event_dict in request.json:       
             event = CloudEvent.from_dict(event_dict)
-            call_connection_id = event.data['callConnectionId']
-
-            app.logger.info("%s event received for call connection id: %s", event.type, call_connection_id)
+            
+            app.logger.info("%s event received for call connection id: %s", event.type, event.data['callConnectionId'])
             caller_id = request.args.get("callerId").strip()
             if "+" not in caller_id:
                 caller_id="+".strip()+caller_id.strip()
@@ -199,7 +198,7 @@ def handle_callback(contextId):
             app.logger.info("call connected : data=%s", event.data)
             if event.type == "Microsoft.Communication.CallConnected":
                  handle_recognize(HELLO_PROMPT,
-                                  caller_id,call_connection_id,
+                                  caller_id,event.data['callConnectionId'],
                                   context="GetFreeFormText") 
                  
             elif event.type == "Microsoft.Communication.RecognizeCompleted":
@@ -209,7 +208,7 @@ def handle_callback(contextId):
                                      speech_text); 
                      if speech_text is not None and len(speech_text) > 0: 
                         if detect_escalate_to_agent_intent(speech_text=speech_text,logger=app.logger):
-                            handle_play(call_connection_id=call_connection_id,text_to_play=END_CALL_PHRASE_TO_CONNECT_AGENT,context=CONNECT_AGENT_CONTEXT)    
+                            handle_play(call_connection_id=event.data['callConnectionId'],text_to_play=END_CALL_PHRASE_TO_CONNECT_AGENT,context=CONNECT_AGENT_CONTEXT)    
                         else: 
                             chat_gpt_response= get_chat_gpt_response(speech_text)
                             app.logger.info(f"Chat GPT response:{chat_gpt_response}") 
@@ -225,13 +224,13 @@ def handle_callback(contextId):
                                 app.logger.info(f"Score={score}")
                                 if -1 < score < 5:
                                     app.logger.info(f"Score is less than 5")
-                                    handle_play(call_connection_id=call_connection_id,text_to_play=CONNECT_AGENT_PROMPT,context=CONNECT_AGENT_CONTEXT)
+                                    handle_play(call_connection_id=event.data['callConnectionId'],text_to_play=CONNECT_AGENT_PROMPT,context=CONNECT_AGENT_CONTEXT)
                                 else:
                                     app.logger.info(f"Score is more than 5")
-                                    handle_recognize(answer,caller_id,call_connection_id,context="OpenAISample")
+                                    handle_recognize(answer,caller_id,event.data['callConnectionId'],context="OpenAISample")
                             else: 
                                 app.logger.info("No match found")
-                                handle_recognize(chat_gpt_response,caller_id,call_connection_id,context="OpenAISample")
+                                handle_recognize(chat_gpt_response,caller_id,event.data['callConnectionId'],context="OpenAISample")
 
             elif event.type == "Microsoft.Communication.RecognizeFailed":
                 resultInformation = event.data['resultInformation']
@@ -239,36 +238,36 @@ def handle_callback(contextId):
                 context=event.data['operationContext']
                 global max_retry
                 if reasonCode == 8510 and 0 < max_retry:
-                    handle_recognize(TIMEOUT_SILENCE_PROMPT,caller_id,call_connection_id) 
+                    handle_recognize(TIMEOUT_SILENCE_PROMPT,caller_id,event.data['callConnectionId']) 
                     max_retry -= 1
                 else:
-                    handle_play(call_connection_id,GOODBYE_PROMPT, GOODBYE_CONTEXT)    
+                    handle_play(event.data['callConnectionId'],GOODBYE_PROMPT, GOODBYE_CONTEXT)    
                  
             elif event.type == "Microsoft.Communication.PlayCompleted":
                 context=event.data['operationContext']    
                 if context.lower() == TRANSFER_FAILED_CONTEXT.lower() or context.lower() == GOODBYE_CONTEXT.lower() :
-                    handle_hangup(call_connection_id)
+                    handle_hangup(event.data['callConnectionId'])
                 elif context.lower() ==  CONNECT_AGENT_CONTEXT.lower():
                     if not AGENT_PHONE_NUMBER or AGENT_PHONE_NUMBER.isspace():
                         app.logger.info(f"Agent phone number is empty")
-                        handle_play(call_connection_id=call_connection_id,text_to_play=AGENT_PHONE_NUMBER_EMPTY_PROMPT)  
+                        handle_play(call_connection_id=event.data['callConnectionId'],text_to_play=AGENT_PHONE_NUMBER_EMPTY_PROMPT)  
                     else:
                         app.logger.info(f"Initializing the Call transfer...")
                         transfer_destination=PhoneNumberIdentifier(AGENT_PHONE_NUMBER)                       
-                        call_connection_client =call_automation_client.get_call_connection(call_connection_id=call_connection_id)
+                        call_connection_client =call_automation_client.get_call_connection(call_connection_id=event.data['callConnectionId'])
                         call_connection_client.transfer_call_to_participant(target_participant=transfer_destination)
                         app.logger.info(f"Transfer call initiated: {context}")
 	
             elif event.type == "Microsoft.Communication.CallTransferAccepted":
-                app.logger.info(f"Call transfer accepted event received for connection id: {call_connection_id}")   
+                app.logger.info(f"Call transfer accepted event received for connection id: {event.data['callConnectionId']}")   
              
             elif event.type == "Microsoft.Communication.CallTransferFailed":
-                app.logger.info(f"Call transfer failed event received for connection id: {call_connection_id}")
+                app.logger.info(f"Call transfer failed event received for connection id: {event.data['callConnectionId']}")
                 resultInformation = event.data['resultInformation']
                 sub_code = resultInformation['subCode']
                 # check for message extraction and code
                 app.logger.info(f"Encountered error during call transfer, message=, code=, subCode={sub_code}")                
-                handle_play(call_connection_id=call_connection_id,text_to_play=CALLTRANSFER_FAILURE_PROMPT, context=TRANSFER_FAILED_CONTEXT)
+                handle_play(call_connection_id=event.data['callConnectionId'],text_to_play=CALLTRANSFER_FAILURE_PROMPT, context=TRANSFER_FAILED_CONTEXT)
         return Response(status=200) 
     except Exception as ex:
         app.logger.info("error in event handling")
