@@ -202,7 +202,6 @@ async def handle_callback(contextId):
         app.logger.info("Request Json: %s", await request.json)
         for event_dict in await request.json:       
             event = CloudEvent.from_dict(event_dict)
-            
             app.logger.info("%s event received for call connection id: %s", event.type, event.data['callConnectionId'])
             caller_id = request.args.get("callerId").strip()
             if "+" not in caller_id:
