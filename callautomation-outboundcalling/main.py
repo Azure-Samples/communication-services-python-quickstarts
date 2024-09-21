@@ -58,19 +58,23 @@ def get_choices():
 
 def get_media_recognize_choice_options(call_connection_client: CallConnectionClient, text_to_play: str, target_participant:str, choices: any, context: str):
      play_source =  TextSource (text= text_to_play, voice_name= SPEECH_TO_TEXT_VOICE)
+     play_sources =  [TextSource (text= "Recognize Prompt Test one", voice_name= SPEECH_TO_TEXT_VOICE),TextSource (text= "Recognize Prompt Test two", voice_name= SPEECH_TO_TEXT_VOICE),TextSource (text= text_to_play, voice_name= SPEECH_TO_TEXT_VOICE) ]
      call_connection_client.start_recognizing_media(
                 input_type=RecognizeInputType.CHOICES,
                 target_participant=target_participant,
                 choices=choices,
                 play_prompt=play_source,
+                # play_prompts=play_sources,
                 interrupt_prompt=False,
                 initial_silence_timeout=10,
                 operation_context=context
             )
      
 def handle_play(call_connection_client: CallConnectionClient, text_to_play: str):
-        play_source = TextSource(text=text_to_play, voice_name=SPEECH_TO_TEXT_VOICE) 
-        call_connection_client.play_media_to_all(play_source)
+        play_source = TextSource(text=text_to_play, voice_name=SPEECH_TO_TEXT_VOICE)
+        play_source2 = TextSource(text="Interupt Play Source", voice_name=SPEECH_TO_TEXT_VOICE)
+        call_connection_client.play_media_to_all(play_source=play_source)
+        call_connection_client.play_media_to_all(play_source=play_source2, interrupt_call_media_operation=True )
 
 # GET endpoint to place phone call
 @app.route('/outboundCall')
@@ -82,6 +86,7 @@ def outbound_call_handler():
                                                                     cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT,
                                                                     source_caller_id_number=source_caller)
     app.logger.info("Created call with connection id: %s", call_connection_properties.call_connection_id)
+    app.logger.info("answered by: %s", call_connection_properties.answered_by)
     return redirect("/")
 
 
@@ -92,7 +97,10 @@ def callback_events_handler():
         # Parsing callback events
         event = CloudEvent.from_dict(event_dict)
         call_connection_id = event.data['callConnectionId']
+        correlation_id = event.data['correlationId']
         app.logger.info("%s event received for call connection id: %s", event.type, call_connection_id)
+        app.logger.info("%s event received for call CORRELATION id: %s", event.type, correlation_id)
+        
         call_connection_client = call_automation_client.get_call_connection(call_connection_id)
         target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
         if event.type == "Microsoft.Communication.CallConnected":
@@ -141,10 +149,11 @@ def callback_events_handler():
                     text_to_play=textToPlay, 
                     target_participant=target_participant,
                     choices=get_choices(),context=RETRY_CONTEXT)
-
+        elif event.type == "Microsoft.Communication.PlayStarted":
+            app.logger.info("Received Play Started event")
         elif event.type in ["Microsoft.Communication.PlayCompleted", "Microsoft.Communication.PlayFailed"]:
             app.logger.info("Terminating call")
-            call_connection_client.hang_up(is_for_everyone=True)
+            # call_connection_client.hang_up(is_for_everyone=True)
 
         return Response(status=200)
 
