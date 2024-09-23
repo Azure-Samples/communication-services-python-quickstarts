@@ -6,29 +6,23 @@ from azure.communication.callautomation._shared.models import identifier_from_ra
 async def send_data(websocket, buffer):
 
     print (f"Data buffer---> {type(buffer)}")
-    # buffer_serialized = json.loads(buffer)
     if websocket.open:
         data = {
             "Kind": "AudioData",
             "ServerAudioData": {
-                    "Data": str(buffer)
+                    "Data":  buffer
             },
-            "Mark":None,
+            "Mark": None,
             "StopAudio": None
 
         }
 
-        print (f"Data ---> {data}")
-
         # print (f"Data str ---> {str(data)}")
 
-        #serialized_data = json.dumps(data)
-        #print (f"Server Streaming Data ---> {serialized_data}")
-
-        #print(isinstance(buffer_array, bytes))
-        
+        serialized_data = json.dumps(data)
+        print (f"Server Streaming Data ---> {serialized_data}")
         #Send the chunk over the WebSocket
-        await websocket.send(bytes(str(data), 'utf-8'))
+        await websocket.send(serialized_data)
 
 async def handle_client(websocket, path):
     print("Client connected")
@@ -40,7 +34,7 @@ async def handle_client(websocket, path):
             if kind == 'AudioData':
                 byte_data = json_object['audioData']['data']
                 print(f"AudioData Data: {byte_data}")
-                await send_data(websocket, bytes(byte_data, 'utf-8'))
+                await send_data(websocket, byte_data)
             
     except websockets.exceptions.ConnectionClosedOK:
         print(f"Client disconnected")
