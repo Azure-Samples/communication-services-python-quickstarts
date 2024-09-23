@@ -17,10 +17,11 @@ async def send_data(websocket, buffer):
 
         }
 
-        # print (f"Data str ---> {str(data)}")
-
+        # Serialize the server streaming data
         serialized_data = json.dumps(data)
+
         print (f"Server Streaming Data ---> {serialized_data}")
+        
         #Send the chunk over the WebSocket
         await websocket.send(serialized_data)
 
