@@ -11,7 +11,7 @@ async def send_data(websocket, buffer):
         data = {
             "Kind": "AudioData",
             "ServerAudioData": {
-                    "Data": str(buffer)
+                    "Data": buffer
             },
             "Mark":None,
             "StopAudio": None
