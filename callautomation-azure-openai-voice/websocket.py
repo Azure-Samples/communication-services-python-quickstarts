@@ -3,7 +3,7 @@ import websockets
 import json
 from azureOpenAIService import start_conversation, send_audio_to_external_ai
 
-async def handle_realtime_messages(websocket, path):
+async def handle_realtime_messages(websocket):
     print('Client connected')
     await start_conversation()
     try:

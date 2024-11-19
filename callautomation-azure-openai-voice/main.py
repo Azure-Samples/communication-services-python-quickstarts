@@ -74,7 +74,7 @@ INTERRUPT_PROMPT = "Play is interrupted."
 SSML_INTERRUPT_TEXT = "<speak version=\"1.0\" xmlns=\"http://www.w3.org/2001/10/synthesis\" xml:lang=\"en-US\"><voice name=\"en-US-JennyNeural\">Play is interrupted. Played through SSML. Thank you!</voice></speak>"
 
 call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
-call_connection_id = ""
+# call_connection_id = ""
 app = Flask(__name__,
             template_folder=TEMPLATE_FILES_PATH)
 
@@ -316,33 +316,34 @@ def incoming_call_handler():
                 
                 answer_call_result = call_automation_client.answer_call(incoming_call_context=incoming_call_context,
                                                                         cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT,
-                                                                        callback_url=callback_uri)
+                                                                        callback_url=callback_uri, media_streaming=media_streaming_options)
                 app.logger.info("Answered call for connection id: %s",
                                 answer_call_result.call_connection_id)
             return Response(status=200)
 
 # POST endpoint to handle callback events
-@app.route('/api/callbacks', methods=['POST'])
-def callback_events_handler():
+@app.route("/api/callbacks/<contextId>", methods=["POST"])
+def callback_events_handler(contextId):
     for event_dict in request.json:
         # Parsing callback events
+        global call_connection_id
         event = CloudEvent.from_dict(event_dict)
         call_connection_id = event.data['callConnectionId']
         app.logger.info("%s event received for call connection id: %s", event.type, call_connection_id)
         call_connection_client = call_automation_client.get_call_connection(call_connection_id)
         target_participant = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
         if event.type == "Microsoft.Communication.CallConnected":
-                call_connection_id = event.data["callConnectionId"]
+                # call_connection_id = event.data["callConnectionId"]
                 app.logger.info(f"Received CallConnected event for connection id: {call_connection_id}")
                 app.logger.info("CORRELATION ID:--> %s", event.data["correlationId"])
                 app.logger.info("CALL CONNECTION ID:--> %s", event.data["callConnectionId"])
                 
-                properties = get_call_properties()
-                app.logger.info("Media streaming subscripton id:--> %s",properties.media_streaming_subscription.id)
-                app.logger.info("Media streaming subscripton state:--> %s",properties.media_streaming_subscription.state)
+                # properties = get_call_properties()
+                # app.logger.info("Media streaming subscripton id:--> %s",properties.media_streaming_subscription.id)
+                # app.logger.info("Media streaming subscripton state:--> %s",properties.media_streaming_subscription.state)
                 
-                app.logger.info("Transcription subscripton id:--> %s",properties.transcription_subscription.id)
-                app.logger.info("Transcription subscripton state:--> %s",properties.transcription_subscription.state)           
+                # app.logger.info("Transcription subscripton id:--> %s",properties.transcription_subscription.id)
+                # app.logger.info("Transcription subscripton state:--> %s",properties.transcription_subscription.state)           
         elif event.type == "Microsoft.Communication.RecognizeCompleted":
                 call_connection_id = event.data["callConnectionId"]
                 app.logger.info(f"Received RecognizeCompleted event for connection id: {call_connection_id}")

@@ -10,28 +10,29 @@ If everyone is safe then ask the user for information about the elevators locati
 Also get the users name and number so that a technician who goes onsite can contact this person. Confirm with the user all the information 
 they've shared that it's all correct and then let them know that you've created a ticket and that a technician should be onsite within the next 24 to 48 hours.
 """
-
-realtime_streaming = None
+AZURE_OPENAI_SERVICE_ENDPOINT = "<AZURE_OPENAI_SERVICE_ENDPOINT>"
+AZURE_OPENAI_SERVICE_KEY = "<AZURE_OPENAI_SERVICE_KEY>"
+AZURE_OPENAI_DEPLOYMENT_MODEL_NAME = "<AZURE_OPENAI_DEPLOYMENT_MODEL_NAME>"
 
 async def send_audio_to_external_ai(data: str):
+    realtime_streaming = RTLowLevelClient
     try:
         audio = data
         await realtime_streaming.send({
             "type": "input_audio_buffer.append",
             "audio": audio,
-        })
+        },"")
     except Exception as e:
         print(e)
 
 async def start_conversation():
-    openai_service_endpoint = os.getenv("AZURE_OPENAI_SERVICE_ENDPOINT")
-    openai_key = os.getenv("AZURE_OPENAI_SERVICE_KEY")
-    openai_deployment_model = os.getenv("AZURE_OPENAI_DEPLOYMENT_MODEL_NAME")
+    openai_service_endpoint = AZURE_OPENAI_SERVICE_ENDPOINT
+    openai_key = AZURE_OPENAI_SERVICE_KEY
+    openai_deployment_model = AZURE_OPENAI_DEPLOYMENT_MODEL_NAME
 
     await start_realtime(openai_service_endpoint, openai_key, openai_deployment_model)
 
 async def start_realtime(endpoint: str, api_key: str, deployment_or_model: str):
-    global realtime_streaming
     try:
         realtime_streaming = RTLowLevelClient(endpoint, {"key": api_key}, {"deployment": deployment_or_model})
         print("sending session config")
