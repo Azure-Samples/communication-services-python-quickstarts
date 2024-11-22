@@ -1,19 +1,18 @@
 import asyncio
 import websockets
 import json
-from azureOpenAIService import start_conversation, send_audio_to_external_ai
+from azureOpenAIService import init_websocket, start_conversation
+from mediaStreamingHandler import process_websocket_message_async
 
 async def handle_realtime_messages(websocket):
     print('Client connected')
-    await start_conversation()
+    await init_websocket(websocket)
+    # await start_conversation()
     try:
         async for message in websocket:
             json_object = json.loads(message)
-            kind = json_object.get('kind')
-            if kind == "AudioData":
-                audio_data = json_object['audioData']['data']
-                await send_audio_to_external_ai(audio_data)
-    except websockets.exceptions.ConnectionClosed as e:
+            await process_websocket_message_async(json_object)
+    except websockets.exceptions.ConnectionClosed:
         print('Client disconnected')
 
 async def main():
