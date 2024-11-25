@@ -7,7 +7,7 @@ from mediaStreamingHandler import process_websocket_message_async
 async def handle_realtime_messages(websocket):
     print('Client connected')
     await init_websocket(websocket)
-    # await start_conversation()
+    await start_conversation()
     try:
         async for message in websocket:
             json_object = json.loads(message)

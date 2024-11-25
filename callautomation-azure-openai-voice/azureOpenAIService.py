@@ -32,7 +32,8 @@ AZURE_OPENAI_DEPLOYMENT_MODEL_NAME = "<AZURE_OPENAI_DEPLOYMENT_MODEL_NAME>"
 
 # Global variable to store the WebSocket connection
 ws = None
-
+async def start_conversation():
+    await send_audio_to_external_ai("")
 async def send_audio_to_external_ai(data: str):
     async with RTLowLevelClient(
         AZURE_OPENAI_SERVICE_ENDPOINT, key_credential=AzureKeyCredential(AZURE_OPENAI_SERVICE_KEY), azure_deployment=AZURE_OPENAI_DEPLOYMENT_MODEL_NAME
@@ -45,32 +46,32 @@ async def send_audio_to_external_ai(data: str):
                 )
             )
         )
+        if(data!=""):
+         await asyncio.gather(send_audio(client, data), receive_messages(client))
 
-        await asyncio.gather(send_audio(client, data), receive_messages(client))
-
-async def send_audio(client: RTLowLevelClient, audio_file_path: str):
+async def send_audio(client: RTLowLevelClient, data: str):
     sample_rate = 24000
     duration_ms = 100
     samples_per_chunk = sample_rate * (duration_ms / 1000)
     bytes_per_sample = 2
     bytes_per_chunk = int(samples_per_chunk * bytes_per_sample)
 
-    extra_params = (
-        {
-            "samplerate": sample_rate,
-            "channels": 1,
-            "subtype": "PCM_16",
-        }
-        if audio_file_path.endswith(".raw")
-        else {}
-    )
+    # extra_params = (
+    #     {
+    #         "samplerate": sample_rate,
+    #         "channels": 1,
+    #         "subtype": "PCM_16",
+    #     }
+    #     if data.endswith(".raw")
+    #     else {}
+    # )
 
-    audio_data, original_sample_rate = sf.read(audio_file_path, dtype="int16", **extra_params)
+    # audio_data, original_sample_rate = sf.read(audio_file_path, dtype="int16", **extra_params)
 
-    if original_sample_rate != sample_rate:
-        audio_data = resample_audio(audio_data, original_sample_rate, sample_rate)
+    # if original_sample_rate != sample_rate:
+    #     audio_data = resample_audio(audio_data, original_sample_rate, sample_rate)
 
-    audio_bytes = audio_data.tobytes()
+    audio_bytes = data.encode('utf-8')
 
     for i in range(0, len(audio_bytes), bytes_per_chunk):
         chunk = audio_bytes[i : i + bytes_per_chunk]
@@ -284,46 +285,3 @@ def create_config_message() -> SessionUpdateMessage:
 async def init_websocket(socket):
     global ws
     ws = socket
-
-async def receive_audio_for_outbound(data):
-    try:
-        audio_data = AudioData
-        audio_data.data=data
-        audio_data.is_silent=False
-        audio_data.participant =None
-
-        out_streaming_data = OutStreamingData 
-        out_streaming_data.kind="AudioData"
-        out_streaming_data.audio_data=audio_data
-        out_streaming_data.stop_audio=None
-
-        json_data = json.dumps(out_streaming_data)
-
-        if ws and ws.open:
-            await ws.send(json_data)
-        else:
-            print("Socket connection is not open.")
-    except Exception as e:
-        print(e)
-
-async def handle_realtime_messages():
-    async for message in realtime_streaming.messages():
-        console_log = str(message["type"])
-
-        if message["type"] == "session.created":
-            print(f"session started with id:-->{message['session']['id']}")
-        elif message["type"] == "response.audio_transcript.delta":
-            pass
-        elif message["type"] == "response.audio.delta":
-            await receive_audio_for_outbound(message.delta)
-        elif message["type"] == "input_audio_buffer.speech_started":
-            pass
-        elif message["type"] == "conversation.item.input_audio_transcription.completed":
-            pass
-        elif message["type"] == "response.done":
-            pass
-        else:
-            console_log = json.dumps(message, indent=2)
-
-        if console_log:
-            print(console_log)

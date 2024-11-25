@@ -38,7 +38,7 @@ PARTICIPANT_PHONE_NUMBER = ""
 PARTICIPANT_COMMUNICATION_USER=""
 
 # Callback events URI to handle callback events.
-CALLBACK_URI_HOST = "https://z4skw1z4.inc1.devtunnels.ms:8080"
+CALLBACK_URI_HOST = "https://m2shmfdv-8080.inc1.devtunnels.ms"
 CALLBACK_EVENTS_URI = CALLBACK_URI_HOST + "/api/callbacks"
 COGNITIVE_SERVICES_ENDPOINT = ""
 
@@ -63,7 +63,7 @@ TEMPLATE_FILES_PATH = "template"
 AUDIO_FILES_PATH = "/audio"
 MAIN_MENU_PROMPT_URI = CALLBACK_URI_HOST + AUDIO_FILES_PATH + "/MainMenu.wav"
 
-TRANSPORT_URL="wss://z4skw1z4-5001.inc1.devtunnels.ms/ws"
+TRANSPORT_URL="wss://m2shmfdv-5001.inc1.devtunnels.ms/ws"
 RECOGNITION_PROMPT = "Hello this is contoso recognition test please confirm or cancel to proceed further."
 PLAY_PROMPT = "Welcome to the Contoso Utilities. Thank you!"
 SSML_PLAY_TEXT = "<speak version=\"1.0\" xmlns=\"http://www.w3.org/2001/10/synthesis\" xml:lang=\"en-US\"><voice name=\"en-US-JennyNeural\">Welcome to the Contoso Utilities. Played through SSML. Thank you!</voice></speak>"
