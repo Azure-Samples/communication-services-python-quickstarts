@@ -1,15 +1,9 @@
 import asyncio
-import base64
-import os
-import sys
-import numpy as np
-import soundfile as sf
-import json
 from pydantic_core import Url
 from  rtclient import (
-    RTLowLevelClient, 
-    SessionUpdateMessage, 
+    RTLowLevelClient,
     RTClient, 
+    SessionUpdateMessage,
     ServerVAD, 
     SessionUpdateParams, 
     InputAudioBufferAppendMessage, 
@@ -30,60 +24,42 @@ AZURE_OPENAI_SERVICE_ENDPOINT = "<AZURE_OPENAI_SERVICE_ENDPOINT>"
 AZURE_OPENAI_SERVICE_KEY = "<AZURE_OPENAI_SERVICE_KEY>"
 AZURE_OPENAI_DEPLOYMENT_MODEL_NAME = "<AZURE_OPENAI_DEPLOYMENT_MODEL_NAME>"
 
-# Global variable to store the WebSocket connection
-ws = None
 async def start_conversation():
-    await send_audio_to_external_ai("")
-async def send_audio_to_external_ai(data: str):
-    async with RTLowLevelClient(
-        AZURE_OPENAI_SERVICE_ENDPOINT, key_credential=AzureKeyCredential(AZURE_OPENAI_SERVICE_KEY), azure_deployment=AZURE_OPENAI_DEPLOYMENT_MODEL_NAME
-    ) as client:
-        await client.send(
+    global client
+    client = RTLowLevelClient(url=AZURE_OPENAI_SERVICE_ENDPOINT, key_credential=AzureKeyCredential(AZURE_OPENAI_SERVICE_KEY), azure_deployment=AZURE_OPENAI_DEPLOYMENT_MODEL_NAME)
+    await client.send(
             SessionUpdateMessage(
                 session=SessionUpdateParams(
-                    turn_detection=ServerVAD(type="server_vad"),
+                    instructions=answer_prompt_system_template,
+                    turn_detection=ServerVAD(type="server_vad", threshold=0.5, prefix_padding_ms=300, silence_duration_ms=200),
+                    voice= 'shimmer',
+                    input_audio_format='pcm16',
+                    output_audio_format='pcm16',
                     input_audio_transcription=InputAudioTranscription(model="whisper-1"),
                 )
             )
         )
-        if(data!=""):
-         await asyncio.gather(send_audio(client, data), receive_messages(client))
+    
+    # #With RTClient
+    # client = RTClient(AZURE_OPENAI_SERVICE_ENDPOINT, key_credential=AzureKeyCredential(AZURE_OPENAI_SERVICE_KEY), azure_deployment=AZURE_OPENAI_DEPLOYMENT_MODEL_NAME)
+    # await client.configure(
+    #                 instructions=answer_prompt_system_template,
+    #                 turn_detection=ServerVAD(threshold=0.5, prefix_padding_ms=300, silence_duration_ms=200),
+    #                 voice= 'shimmer',
+    #                 input_audio_format='pcm16',
+    #                 output_audio_format='pcm16',
+    #                 input_audio_transcription=InputAudioTranscription(model="whisper-1"),
+    #             )
+    await asyncio.gather(receive_messages())
 
-async def send_audio(client: RTLowLevelClient, data: str):
-    sample_rate = 24000
-    duration_ms = 100
-    samples_per_chunk = sample_rate * (duration_ms / 1000)
-    bytes_per_sample = 2
-    bytes_per_chunk = int(samples_per_chunk * bytes_per_sample)
+async def send_audio_to_external_ai(audioData: str):
+    await client.send(InputAudioBufferAppendMessage(type="input_audio_buffer.append", audio=audioData))
 
-    # extra_params = (
-    #     {
-    #         "samplerate": sample_rate,
-    #         "channels": 1,
-    #         "subtype": "PCM_16",
-    #     }
-    #     if data.endswith(".raw")
-    #     else {}
-    # )
+    # #With RTClient
+    # audio_bytes= bytes(audioData, 'utf-8')
+    # await client.send_audio(audio_bytes)
 
-    # audio_data, original_sample_rate = sf.read(audio_file_path, dtype="int16", **extra_params)
-
-    # if original_sample_rate != sample_rate:
-    #     audio_data = resample_audio(audio_data, original_sample_rate, sample_rate)
-
-    audio_bytes = data.encode('utf-8')
-
-    for i in range(0, len(audio_bytes), bytes_per_chunk):
-        chunk = audio_bytes[i : i + bytes_per_chunk]
-        base64_audio = base64.b64encode(chunk).decode("utf-8")
-        await client.send(InputAudioBufferAppendMessage(audio=base64_audio))
-
-def resample_audio(audio_data, original_sample_rate, target_sample_rate):
-    number_of_samples = round(len(audio_data) * float(target_sample_rate) / original_sample_rate)
-    resampled_audio = resample(audio_data, number_of_samples)
-    return resampled_audio.astype(np.int16)
-
-async def receive_messages(client: RTLowLevelClient):
+async def receive_messages():
     while not client.closed:
         message = await client.recv()
         if message is None:
@@ -245,42 +221,6 @@ async def receive_messages(client: RTLowLevelClient):
                 print(f"  Rate Limits: {message.rate_limits}")
             case _:
                 print("Unknown Message")
-
-# async def start_conversation():
-#     openai_service_endpoint = AZURE_OPENAI_SERVICE_ENDPOINT
-#     openai_key = AZURE_OPENAI_SERVICE_KEY
-#     openai_deployment_model = AZURE_OPENAI_DEPLOYMENT_MODEL_NAME
-
-#     await start_realtime(openai_service_endpoint, openai_key, openai_deployment_model)
-    
-# async def start_realtime(endpoint: str, api_key: str, deployment_or_model: str):
-#     try:
-#         # asyncio.run(with_openai(file_path, out_dir))
-#         realtime_streaming = RTClient(url=endpoint, key_credential=AzureKeyCredential(api_key), model= deployment_or_model)
-#         print("sending session config")
-#         realtime_streaming.session = create_config_message()
-#         print("sent")
-#         await handle_realtime_messages()
-#     except Exception as error:
-#         print(f"Error during startRealtime: {error}")
-
-def create_config_message() -> SessionUpdateMessage:
-    config_message = {
-        "type": "session.update",
-        "session": {
-            "instructions": answer_prompt_system_template,
-            "voice": "alloy",
-            "input_audio_format": "pcm16",
-            "output_audio_format": "pcm16",
-            "turn_detection": {
-                "type": "server_vad",
-            },
-            "input_audio_transcription": {
-                "model": "whisper-1"
-            }
-        }
-    }
-    return config_message
 
 async def init_websocket(socket):
     global ws
