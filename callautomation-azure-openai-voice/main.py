@@ -1,4 +1,4 @@
-from flask import Flask, Response, request, json
+from flask import Flask, Response, request, json,redirect
 from azure.eventgrid import EventGridEvent, SystemEventNames
 from urllib.parse import urlencode, urljoin
 from logging import INFO
@@ -9,7 +9,6 @@ from azure.communication.callautomation import (
     MediaStreamingTransportType,
     MediaStreamingContentType,
     MediaStreamingAudioChannelType,
-    PhoneNumberIdentifier
     )
 import uuid
 from azure.core.messaging import CloudEvent
@@ -19,13 +18,11 @@ load_dotenv()
 
 # Your ACS resource connection string
 ACS_CONNECTION_STRING = ""
-COGNITIVE_SERVICES_ENDPOINT = ""
 # Transport url
-TRANSPORT_URL = "wss://m2shmfdv-5001.inc1.devtunnels.ms/ws"
-ACS_PHONE_NUMBER=""
-TARGET_PHONE_NUMBER=""
+TRANSPORT_URL = ""
+
 # Callback events URI to handle callback events.
-CALLBACK_URI_HOST = "https://m2shmfdv-8080.inc1.devtunnels.ms"
+CALLBACK_URI_HOST = ""
 CALLBACK_EVENTS_URI = CALLBACK_URI_HOST + "/api/callbacks"
 
 acs_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
@@ -67,14 +64,13 @@ def incoming_call_handler():
                 
                 answer_call_result = acs_client.answer_call(incoming_call_context=incoming_call_context,
                                                             operation_context="incomingCall",
-                                                            cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT,
                                                             callback_url=callback_uri, media_streaming=media_streaming_options)
                 app.logger.info("Answered call for connection id: %s",
                                 answer_call_result.call_connection_id)
             return Response(status=200)
 
-@app.route('/api/callbacks', methods=['POST'])
-def callbacks():
+@app.route('/api/callbacks/<contextId>', methods=['POST'])
+def callbacks(contextId):
      for event in request.json:
         # Parsing callback events
         global call_connection_id
@@ -89,17 +85,14 @@ def callbacks():
             app.logger.info("CORRELATION ID:--> %s", event_data["correlationId"])
             app.logger.info("CALL CONNECTION ID:--> %s", event_data["callConnectionId"])
         elif event['type'] == "Microsoft.Communication.MediaStreamingStarted":
-            app.logger.info(f"Operation context:--> {event_data['operationContext']}")
             app.logger.info(f"Media streaming content type:--> {event_data['mediaStreamingUpdate']['contentType']}")
             app.logger.info(f"Media streaming status:--> {event_data['mediaStreamingUpdate']['mediaStreamingStatus']}")
             app.logger.info(f"Media streaming status details:--> {event_data['mediaStreamingUpdate']['mediaStreamingStatusDetails']}")
         elif event['type'] == "Microsoft.Communication.MediaStreamingStopped":
-            app.logger.info(f"Operation context:--> {event_data['operationContext']}")
             app.logger.info(f"Media streaming content type:--> {event_data['mediaStreamingUpdate']['contentType']}")
             app.logger.info(f"Media streaming status:--> {event_data['mediaStreamingUpdate']['mediaStreamingStatus']}")
             app.logger.info(f"Media streaming status details:--> {event_data['mediaStreamingUpdate']['mediaStreamingStatusDetails']}")
         elif event['type'] == "Microsoft.Communication.MediaStreamingFailed":
-            app.logger.info(f"Operation context:--> {event_data['operationContext']}")
             app.logger.info(f"Code:->{event_data['resultInformation']['code']}, Subcode:-> {event_data['resultInformation']['subCode']}")
             app.logger.info(f"Message:->{event_data['resultInformation']['message']}")
         elif event['type'] == "Microsoft.Communication.CallDisconnected":
@@ -113,3 +106,6 @@ def home():
 if __name__ == '__main__':
     app.logger.setLevel(INFO)
     app.run(port=8080)
+    
+
+

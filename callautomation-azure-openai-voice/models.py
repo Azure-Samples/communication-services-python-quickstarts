@@ -2,14 +2,13 @@ from dataclasses import dataclass
 import json
 from typing import Optional
 from azure.communication.callautomation import (CommunicationIdentifier )
-@dataclass
 
+@dataclass
 class AudioData:
-    def __init__(self, data: str, timestamp: str=None, is_silent: bool=None, participant: Optional[CommunicationIdentifier] = None):
-        self.data = data
-        self.timestamp = timestamp
-        self.is_silent = is_silent
-        self.participant = participant
+    data: str
+    timestamp: Optional[str] = None
+    is_silent: Optional[bool] = None
+    participant: Optional[CommunicationIdentifier] = None
 
 @dataclass
 class StopAudio:
@@ -17,7 +16,6 @@ class StopAudio:
 
 @dataclass
 class OutStreamingData:
-    def __init__(self, kind: str, audio_data: AudioData, stop_audio: StopAudio =None):
-        self.kind = kind
-        self.audio_data = audio_data
-        self.stop_audio = stop_audio
+    kind: str
+    audio_data: Optional[AudioData]
+    stop_audio: Optional[StopAudio] = None
