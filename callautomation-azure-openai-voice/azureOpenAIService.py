@@ -11,7 +11,6 @@ from  rtclient import (
     )
 from azure.core.credentials import AzureKeyCredential
 from models import AudioData, OutStreamingData
-from scipy.signal import resample
 
 answer_prompt_system_template = """
 You're an AI assistant for an elevator company called Contoso Elevators. Customers will contact you as the first point of contact when having issues with their elevators. 
@@ -26,31 +25,31 @@ AZURE_OPENAI_DEPLOYMENT_MODEL_NAME = "<AZURE_OPENAI_DEPLOYMENT_MODEL_NAME>"
 
 async def start_conversation():
     global client
-    client = RTLowLevelClient(url=AZURE_OPENAI_SERVICE_ENDPOINT, key_credential=AzureKeyCredential(AZURE_OPENAI_SERVICE_KEY), azure_deployment=AZURE_OPENAI_DEPLOYMENT_MODEL_NAME)
-    await client.send(
-            SessionUpdateMessage(
-                session=SessionUpdateParams(
-                    instructions=answer_prompt_system_template,
-                    turn_detection=ServerVAD(type="server_vad", threshold=0.5, prefix_padding_ms=300, silence_duration_ms=200),
-                    voice= 'shimmer',
-                    input_audio_format='pcm16',
-                    output_audio_format='pcm16',
-                    input_audio_transcription=InputAudioTranscription(model="whisper-1"),
-                )
-            )
-        )
-    
-    # #With RTClient
-    # client = RTClient(AZURE_OPENAI_SERVICE_ENDPOINT, key_credential=AzureKeyCredential(AZURE_OPENAI_SERVICE_KEY), azure_deployment=AZURE_OPENAI_DEPLOYMENT_MODEL_NAME)
-    # await client.configure(
+    # client = RTLowLevelClient(url=AZURE_OPENAI_SERVICE_ENDPOINT, key_credential=AzureKeyCredential(AZURE_OPENAI_SERVICE_KEY), azure_deployment=AZURE_OPENAI_DEPLOYMENT_MODEL_NAME)
+    # await client.send(
+    #         SessionUpdateMessage(
+    #             session=SessionUpdateParams(
     #                 instructions=answer_prompt_system_template,
-    #                 turn_detection=ServerVAD(threshold=0.5, prefix_padding_ms=300, silence_duration_ms=200),
+    #                 turn_detection=ServerVAD(type="server_vad", threshold=0.5, prefix_padding_ms=300, silence_duration_ms=200),
     #                 voice= 'shimmer',
     #                 input_audio_format='pcm16',
     #                 output_audio_format='pcm16',
     #                 input_audio_transcription=InputAudioTranscription(model="whisper-1"),
     #             )
-    await asyncio.gather(receive_messages())
+    #         )
+    #     )
+    
+    # #With RTClient
+    client = RTClient(AZURE_OPENAI_SERVICE_ENDPOINT, key_credential=AzureKeyCredential(AZURE_OPENAI_SERVICE_KEY), azure_deployment=AZURE_OPENAI_DEPLOYMENT_MODEL_NAME)
+    await client.configure(
+                     instructions=answer_prompt_system_template,
+                     turn_detection=ServerVAD(threshold=0.5, prefix_padding_ms=300, silence_duration_ms=200),
+                     voice= 'shimmer',
+                     input_audio_format='pcm16',
+                     output_audio_format='pcm16',
+                     input_audio_transcription=InputAudioTranscription(model="whisper-1"),
+                 )
+    await asyncio.gather(receive_messages(client))
 
 async def send_audio_to_external_ai(audioData: str):
     await client.send(InputAudioBufferAppendMessage(type="input_audio_buffer.append", audio=audioData))
@@ -59,7 +58,7 @@ async def send_audio_to_external_ai(audioData: str):
     # audio_bytes= bytes(audioData, 'utf-8')
     # await client.send_audio(audio_bytes)
 
-async def receive_messages():
+async def receive_messages(client: RTClient):
     while not client.closed:
         message = await client.recv()
         if message is None:
