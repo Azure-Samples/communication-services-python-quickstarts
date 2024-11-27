@@ -10,13 +10,15 @@ async def handle_realtime_messages(websocket):
     try:
         async for message in websocket:
             await process_websocket_message_async(message)
-    except websockets.exceptions.ConnectionClosed:
+    except websockets.exceptions.ConnectionClosedOK:
         print('Client disconnected')
 
 async def main():
     async with websockets.serve(handle_realtime_messages, "localhost", 5001):
         print("WebSocket server running on port 5001")
         await asyncio.Future()  # run forever
-
+    # asyncio.get_event_loop().run_until_complete(websockets.serve(handle_realtime_messages, "localhost", 5001))
+    # print("WebSocket server running on port 5001")
+    # asyncio.get_event_loop().run_forever()
 if __name__ == "__main__":
     asyncio.run(main())

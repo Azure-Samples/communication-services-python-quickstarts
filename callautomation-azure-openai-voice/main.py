@@ -8,22 +8,24 @@ from azure.communication.callautomation import (
     AudioFormat,
     MediaStreamingTransportType,
     MediaStreamingContentType,
-    MediaStreamingAudioChannelType
+    MediaStreamingAudioChannelType,
+    PhoneNumberIdentifier
     )
 import uuid
-
+from azure.core.messaging import CloudEvent
 # Load environment variables
 from dotenv import load_dotenv
 load_dotenv()
 
 # Your ACS resource connection string
 ACS_CONNECTION_STRING = ""
-
+COGNITIVE_SERVICES_ENDPOINT = ""
 # Transport url
-TRANSPORT_URL = ""
-
+TRANSPORT_URL = "wss://m2shmfdv-5001.inc1.devtunnels.ms/ws"
+ACS_PHONE_NUMBER=""
+TARGET_PHONE_NUMBER=""
 # Callback events URI to handle callback events.
-CALLBACK_URI_HOST = ""
+CALLBACK_URI_HOST = "https://m2shmfdv-8080.inc1.devtunnels.ms"
 CALLBACK_EVENTS_URI = CALLBACK_URI_HOST + "/api/callbacks"
 
 acs_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
@@ -33,69 +35,76 @@ app = Flask(__name__)
 def incoming_call_handler():
     app.logger.info("incoming event data")
     for event_dict in request.json:
-        event = EventGridEvent.from_dict(event_dict)
-        app.logger.info("incoming event data --> %s", event.data)
-        if event.event_type == SystemEventNames.EventGridSubscriptionValidationEventName:
-            app.logger.info("Validating subscription")
-            validation_code = event.data['validationCode']
-            validation_response = {'validationResponse': validation_code}
-            return Response(response=json.dumps(validation_response), status=200)
-        elif event.event_type =="Microsoft.Communication.IncomingCall":
-            app.logger.info("Incoming call received: data=%s", event.data)  
-            if event.data['from']['kind'] =="phoneNumber":
-                caller_id =  event.data['from']["phoneNumber"]["value"]
-            else :
-                caller_id =  event.data['from']['rawId'] 
-
-            incoming_call_context=event.data['incomingCallContext']
-            guid =uuid.uuid4()
-            query_parameters = urlencode({"callerId": caller_id})
-            callback_uri = f"{CALLBACK_EVENTS_URI}/{guid}?{query_parameters}"
-
-            app.logger.info("callback url: %s",  callback_uri)
-
-            media_streaming_options=MediaStreamingOptions(
+            event = EventGridEvent.from_dict(event_dict)
+            app.logger.info("incoming event data --> %s", event.data)
+            if event.event_type == SystemEventNames.EventGridSubscriptionValidationEventName:
+                app.logger.info("Validating subscription")
+                validation_code = event.data['validationCode']
+                validation_response = {'validationResponse': validation_code}
+                return Response(response=json.dumps(validation_response), status=200)
+            elif event.event_type =="Microsoft.Communication.IncomingCall":
+                app.logger.info("Incoming call received: data=%s", 
+                                event.data)  
+                if event.data['from']['kind'] =="phoneNumber":
+                    caller_id =  event.data['from']["phoneNumber"]["value"]
+                else :
+                    caller_id =  event.data['from']['rawId'] 
+                app.logger.info("incoming call handler caller id: %s",
+                                caller_id)
+                incoming_call_context=event.data['incomingCallContext']
+                guid =uuid.uuid4()
+                query_parameters = urlencode({"callerId": caller_id})
+                callback_uri = f"{CALLBACK_EVENTS_URI}/{guid}?{query_parameters}"
+                app.logger.info("callback url: %s",  callback_uri)
+                media_streaming_options = MediaStreamingOptions(
                         transport_url=TRANSPORT_URL,
                         transport_type=MediaStreamingTransportType.WEBSOCKET,
                         content_type=MediaStreamingContentType.AUDIO,
                         audio_channel_type=MediaStreamingAudioChannelType.MIXED,
                         start_media_streaming=True,
                         enable_bidirectional=True,
-                        audio_format=AudioFormat
-                        )
-            answer_call_result = acs_client.answer_call(incoming_call_context=incoming_call_context,
-                                                                    media_streaming=media_streaming_options,
-                                                                    callback_url=callback_uri)
-            app.logger.info("Answered call for connection id: %s",
-                            answer_call_result.call_connection_id)
+                        audio_format=AudioFormat.PCM24_K_MONO)
+                
+                answer_call_result = acs_client.answer_call(incoming_call_context=incoming_call_context,
+                                                            operation_context="incomingCall",
+                                                            cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT,
+                                                            callback_url=callback_uri, media_streaming=media_streaming_options)
+                app.logger.info("Answered call for connection id: %s",
+                                answer_call_result.call_connection_id)
             return Response(status=200)
 
-@app.route('/api/callbacks/<context_id>', methods=['POST'])
-def callbacks(context_id):
-    event = request.json
-    event_data = event['data']
-    call_connection_id = event_data['callConnectionId']
-    app.logger.info(f"Received Event:-> {event['type']}, Correlation Id:-> {event_data['correlationId']}, CallConnectionId:-> {call_connection_id}")
-    if event['type'] == "Microsoft.Communication.CallConnected":
-        call_connection_properties = acs_client.get_call_connection(call_connection_id).get_call_connection_properties()
-        media_streaming_subscription = call_connection_properties.media_streaming_subscription
-        app.logger.info("MediaStreamingSubscription:-->", media_streaming_subscription)
-    elif event['type'] == "Microsoft.Communication.MediaStreamingStarted":
-        app.logger.info(f"Operation context:--> {event_data['operationContext']}")
-        app.logger.info(f"Media streaming content type:--> {event_data['mediaStreamingUpdate']['contentType']}")
-        app.logger.info(f"Media streaming status:--> {event_data['mediaStreamingUpdate']['mediaStreamingStatus']}")
-        app.logger.info(f"Media streaming status details:--> {event_data['mediaStreamingUpdate']['mediaStreamingStatusDetails']}")
-    elif event['type'] == "Microsoft.Communication.MediaStreamingStopped":
-        app.logger.info(f"Operation context:--> {event_data['operationContext']}")
-        app.logger.info(f"Media streaming content type:--> {event_data['mediaStreamingUpdate']['contentType']}")
-        app.logger.info(f"Media streaming status:--> {event_data['mediaStreamingUpdate']['mediaStreamingStatus']}")
-        app.logger.info(f"Media streaming status details:--> {event_data['mediaStreamingUpdate']['mediaStreamingStatusDetails']}")
-    elif event['type'] == "Microsoft.Communication.MediaStreamingFailed":
-        app.logger.info(f"Operation context:--> {event_data['operationContext']}")
-        app.logger.info(f"Code:->{event_data['resultInformation']['code']}, Subcode:-> {event_data['resultInformation']['subCode']}")
-        app.logger.info(f"Message:->{event_data['resultInformation']['message']}")
-    elif event['type'] == "Microsoft.Communication.CallDisconnected":
-        pass
+@app.route('/api/callbacks', methods=['POST'])
+def callbacks():
+     for event in request.json:
+        # Parsing callback events
+        global call_connection_id
+        event_data = event['data']
+        call_connection_id = event_data["callConnectionId"]
+        app.logger.info(f"Received Event:-> {event['type']}, Correlation Id:-> {event_data['correlationId']}, CallConnectionId:-> {call_connection_id}")
+        if event['type'] == "Microsoft.Communication.CallConnected":
+            call_connection_properties = acs_client.get_call_connection(call_connection_id).get_call_properties()
+            media_streaming_subscription = call_connection_properties.media_streaming_subscription
+            app.logger.info(f"MediaStreamingSubscription:--> {media_streaming_subscription}")
+            app.logger.info(f"Received CallConnected event for connection id: {call_connection_id}")
+            app.logger.info("CORRELATION ID:--> %s", event_data["correlationId"])
+            app.logger.info("CALL CONNECTION ID:--> %s", event_data["callConnectionId"])
+        elif event['type'] == "Microsoft.Communication.MediaStreamingStarted":
+            app.logger.info(f"Operation context:--> {event_data['operationContext']}")
+            app.logger.info(f"Media streaming content type:--> {event_data['mediaStreamingUpdate']['contentType']}")
+            app.logger.info(f"Media streaming status:--> {event_data['mediaStreamingUpdate']['mediaStreamingStatus']}")
+            app.logger.info(f"Media streaming status details:--> {event_data['mediaStreamingUpdate']['mediaStreamingStatusDetails']}")
+        elif event['type'] == "Microsoft.Communication.MediaStreamingStopped":
+            app.logger.info(f"Operation context:--> {event_data['operationContext']}")
+            app.logger.info(f"Media streaming content type:--> {event_data['mediaStreamingUpdate']['contentType']}")
+            app.logger.info(f"Media streaming status:--> {event_data['mediaStreamingUpdate']['mediaStreamingStatus']}")
+            app.logger.info(f"Media streaming status details:--> {event_data['mediaStreamingUpdate']['mediaStreamingStatusDetails']}")
+        elif event['type'] == "Microsoft.Communication.MediaStreamingFailed":
+            app.logger.info(f"Operation context:--> {event_data['operationContext']}")
+            app.logger.info(f"Code:->{event_data['resultInformation']['code']}, Subcode:-> {event_data['resultInformation']['subCode']}")
+            app.logger.info(f"Message:->{event_data['resultInformation']['message']}")
+        elif event['type'] == "Microsoft.Communication.CallDisconnected":
+            pass
+     return Response(status=200)
 
 @app.route('/')
 def home():

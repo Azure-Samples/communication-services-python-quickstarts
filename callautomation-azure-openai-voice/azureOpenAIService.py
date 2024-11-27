@@ -1,4 +1,5 @@
 import asyncio
+import json
 from pydantic_core import Url
 from  rtclient import (
     RTLowLevelClient,
@@ -7,58 +8,56 @@ from  rtclient import (
     ServerVAD, 
     SessionUpdateParams, 
     InputAudioBufferAppendMessage, 
-    InputAudioTranscription
+    InputAudioTranscription,
     )
 from azure.core.credentials import AzureKeyCredential
+import websockets
 from models import AudioData, OutStreamingData
 
-answer_prompt_system_template = """
-You're an AI assistant for an elevator company called Contoso Elevators. Customers will contact you as the first point of contact when having issues with their elevators. 
-Your priority is to ensure the person contacting you or anyone else in or around the elevator is safe, if not then they should contact their local authorities.
-If everyone is safe then ask the user for information about the elevators location, such as city, building and elevator number.
-Also get the users name and number so that a technician who goes onsite can contact this person. Confirm with the user all the information 
-they've shared that it's all correct and then let them know that you've created a ticket and that a technician should be onsite within the next 24 to 48 hours.
-"""
+answer_prompt_system_template = "You are an AI assistant that helps people find information."
 AZURE_OPENAI_SERVICE_ENDPOINT = "<AZURE_OPENAI_SERVICE_ENDPOINT>"
 AZURE_OPENAI_SERVICE_KEY = "<AZURE_OPENAI_SERVICE_KEY>"
 AZURE_OPENAI_DEPLOYMENT_MODEL_NAME = "<AZURE_OPENAI_DEPLOYMENT_MODEL_NAME>"
 
 async def start_conversation():
     global client
-    # client = RTLowLevelClient(url=AZURE_OPENAI_SERVICE_ENDPOINT, key_credential=AzureKeyCredential(AZURE_OPENAI_SERVICE_KEY), azure_deployment=AZURE_OPENAI_DEPLOYMENT_MODEL_NAME)
-    # await client.send(
-    #         SessionUpdateMessage(
-    #             session=SessionUpdateParams(
-    #                 instructions=answer_prompt_system_template,
-    #                 turn_detection=ServerVAD(type="server_vad", threshold=0.5, prefix_padding_ms=300, silence_duration_ms=200),
-    #                 voice= 'shimmer',
-    #                 input_audio_format='pcm16',
-    #                 output_audio_format='pcm16',
-    #                 input_audio_transcription=InputAudioTranscription(model="whisper-1"),
-    #             )
-    #         )
-    #     )
-    
+    client = RTLowLevelClient(url=AZURE_OPENAI_SERVICE_ENDPOINT, key_credential=AzureKeyCredential(AZURE_OPENAI_SERVICE_KEY), azure_deployment=AZURE_OPENAI_DEPLOYMENT_MODEL_NAME)
+    await client.connect()
+    await client.send(
+            SessionUpdateMessage(
+                session=SessionUpdateParams(
+                    instructions=answer_prompt_system_template,
+                    turn_detection=ServerVAD(type="server_vad"),
+                    voice= 'shimmer',
+                    input_audio_format='pcm16',
+                    output_audio_format='pcm16',
+                    input_audio_transcription=InputAudioTranscription(model="whisper-1")
+                )
+            )
+        )
+        # await asyncio.gather(receive_messages(client))
+    asyncio.create_task(receive_messages(client))
     # #With RTClient
-    client = RTClient(AZURE_OPENAI_SERVICE_ENDPOINT, key_credential=AzureKeyCredential(AZURE_OPENAI_SERVICE_KEY), azure_deployment=AZURE_OPENAI_DEPLOYMENT_MODEL_NAME)
-    await client.configure(
-                     instructions=answer_prompt_system_template,
-                     turn_detection=ServerVAD(threshold=0.5, prefix_padding_ms=300, silence_duration_ms=200),
-                     voice= 'shimmer',
-                     input_audio_format='pcm16',
-                     output_audio_format='pcm16',
-                     input_audio_transcription=InputAudioTranscription(model="whisper-1"),
-                 )
-    await asyncio.gather(receive_messages(client))
+    # client = RTClient(AZURE_OPENAI_SERVICE_ENDPOINT, key_credential=AzureKeyCredential(AZURE_OPENAI_SERVICE_KEY), azure_deployment=AZURE_OPENAI_DEPLOYMENT_MODEL_NAME)
+    # await client.configure(
+    #                  instructions=answer_prompt_system_template,
+    #                  turn_detection=ServerVAD(threshold=0.5, prefix_padding_ms=300, silence_duration_ms=200),
+    #                  voice= 'shimmer',
+    #                  input_audio_format='pcm16',
+    #                  output_audio_format='pcm16',
+    #                  input_audio_transcription=InputAudioTranscription(model="whisper-1"),
+    #              )
+    
 
 async def send_audio_to_external_ai(audioData: str):
-    await client.send(InputAudioBufferAppendMessage(type="input_audio_buffer.append", audio=audioData))
-
+    # lowRTCient = RTLowLevelClient(url=AZURE_OPENAI_SERVICE_ENDPOINT, key_credential=AzureKeyCredential(AZURE_OPENAI_SERVICE_KEY), azure_deployment=AZURE_OPENAI_DEPLOYMENT_MODEL_NAME)
+    await client.send(message=InputAudioBufferAppendMessage(type="input_audio_buffer.append", audio=audioData, _is_azure=True))
+    # await client.send(message=InputAudioBufferAppendMessage())
     # #With RTClient
     # audio_bytes= bytes(audioData, 'utf-8')
     # await client.send_audio(audio_bytes)
 
-async def receive_messages(client: RTClient):
+async def receive_messages(client: RTLowLevelClient):
     while not client.closed:
         message = await client.recv()
         if message is None:
@@ -143,8 +142,8 @@ async def receive_messages(client: RTClient):
                                     print(f"      Content Type: {content.type}")
                                     if content.type == "input_text":
                                         print(f"      Text: {content.text}")
-                                    elif content.type == "input_audio":
-                                        print(f"      Audio Data Length: {len(content.audio)}")
+                                    # elif content.type == "input_audio":
+                                    #     print(f"      Audio Data Length: {len(content.audio)}")
                             case "assistant":
                                 for content_index, content in enumerate(item.content):
                                     print(f"    [{content_index}]:")
@@ -180,29 +179,26 @@ async def receive_messages(client: RTClient):
                 print("Response Content Part Done Message")
                 print(f"  Response Id: {message.response_id}")
                 print(f"  ItemPart Id: {message.item_id}")
-            case "response.text.delta":
-                print("Response Text Delta Message")
-                print(f"  Response Id: {message.response_id}")
-                print(f"  Text: {message.delta}")
+            # case "response.text.delta":
+            #     print("Response Text Delta Message")
+            #     print(f"  Response Id: {message.response_id}")
+            #     print(f"  Text: {message.delta}")
             case "response.text.done":
                 print("Response Text Done Message")
                 print(f"  Response Id: {message.response_id}")
                 print(f"  Text: {message.text}")
-            case "response.audio_transcript.delta":
-                print("Response Audio Transcript Delta Message")
-                print(f"  Response Id: {message.response_id}")
-                print(f"  Item Id: {message.item_id}")
-                print(f"  Transcript: {message.delta}")
+            # case "response.audio_transcript.delta":
+            #     print("Response Audio Transcript Delta Message")
+            #     print(f"  Response Id: {message.response_id}")
+            #     print(f"  Item Id: {message.item_id}")
+            #     print(f"  Transcript: {message.delta}")
             case "response.audio_transcript.done":
                 print("Response Audio Transcript Done Message")
                 print(f"  Response Id: {message.response_id}")
                 print(f"  Item Id: {message.item_id}")
                 print(f"  Transcript: {message.transcript}")
             case "response.audio.delta":
-                print("Response Audio Delta Message")
-                print(f"  Response Id: {message.response_id}")
-                print(f"  Item Id: {message.item_id}")
-                print(f"  Audio Data Length: {len(message.delta)}")
+                await receive_audio_for_outbound(message.delta)
             case "response.audio.done":
                 print("Response Audio Done Message")
                 print(f"  Response Id: {message.response_id}")
@@ -224,3 +220,17 @@ async def receive_messages(client: RTClient):
 async def init_websocket(socket):
     global ws
     ws = socket
+
+async def receive_audio_for_outbound(data: str):
+    try:
+        audio_data = AudioData(data=data)
+        outStreamingData = OutStreamingData(kind="Audio", audio_data=audio_data)
+        json_string = json.dumps(outStreamingData)
+        print(json_string)
+        # async with websockets.connect('ws://your-websocket-url') as ws:
+        # if ws.open:
+        #         await ws.send(json_data)
+        # else:
+        #         print("Socket connection is not open.")
+    except Exception as e:
+        print(e)

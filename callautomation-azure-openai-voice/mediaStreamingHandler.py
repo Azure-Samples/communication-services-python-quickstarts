@@ -6,9 +6,10 @@ from azureOpenAIService import send_audio_to_external_ai
 
 async def process_websocket_message_async(stream_data):
     try:
-        kind = stream_data["kind"]
+        data = json.loads(stream_data)
+        kind = data['kind']
         if kind == "AudioData":
-            audio_data = stream_data["audioData"]["data"]
+            audio_data = data["audioData"]["data"]
             await send_audio_to_external_ai(audio_data)
     except Exception as e:
         print(f'Error processing WebSocket message: {e}')
