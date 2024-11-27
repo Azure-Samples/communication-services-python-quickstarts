@@ -4,13 +4,13 @@
 
 # Call Automation - Quick Start Sample
 
-This is a sample application demonstrated during Microsoft Build 2024. It highlights an integration of Azure Communication Services with Azure OpenAI Service to enable intelligent conversational agents.
+This is a sample application demonstrated during Microsoft Ignite 2024. It highlights an integration of Azure Communication Services with Azure OpenAI Service to enable intelligent conversational agents.
 
 ## Prerequisites
 
 - An Azure account with an active subscription. [Create an account for free](https://azure.microsoft.com/free/?WT.mc_id=A261C142F). 
 - A deployed Communication Services resource. [Create a Communication Services resource](https://docs.microsoft.com/azure/communication-services/quickstarts/create-communication-resource).
-- A [phone number](https://learn.microsoft.com/en-us/azure/communication-services/quickstarts/telephony/get-phone-number) in your Azure Communication Services resource that can make outbound calls. NB: phone numbers are not available in free subscriptions.
+- A [phone number](https://learn.microsoft.com/en-us/azure/communication-services/quickstarts/telephony/get-phone-number) in your Azure Communication Services resource that can get inbound calls. NB: phone numbers are not available in free subscriptions.
 - [Python](https://www.python.org/downloads/) 3.7 or above.
 - An Azure OpenAI Resource and Deployed Model. See [instructions](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/create-resource?pivots=web-portal).
 
@@ -63,8 +63,6 @@ Open `azureOpenAIService.py` file to configure the following settings
 1. `AZURE_OPENAI_SERVICE_ENDPOINT`: Azure Open AI service endpoint
 2. `AZURE_OPENAI_SERVICE_KEY`: Azure Open AI service key
 3. `AZURE_OPENAI_DEPLOYMENT_MODEL_NAME`: Azure Open AI deployment name
-
-## Run app locally
 
 ## Run app locally
 
