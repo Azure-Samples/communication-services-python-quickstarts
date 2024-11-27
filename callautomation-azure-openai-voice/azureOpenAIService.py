@@ -86,22 +86,20 @@ async def init_websocket(socket):
     if active_websocket.open:
         print(active_websocket.open)
 
-async def receive_audio_for_outbound(data: str):
+async def receive_audio_for_outbound(data):
     try:
-        audio_data = AudioData(
-            data=data,
-            timestamp=None,
-            is_silent=False,
-            participant=None
-        )
-        
-        out_streaming_data = OutStreamingData(
-            kind="AudioData",
-            audio_data=audio_data,
-            stop_audio=None 
-        )
-        json_data = json.dumps(asdict(out_streaming_data), indent=4)
-        await send_message(json_data)
+        data = {
+            "Kind": "AudioData",
+            "AudioData": {
+                    "Data":  data
+            },
+            "StopAudio": None
+
+        }
+
+        # Serialize the server streaming data
+        serialized_data = json.dumps(data)
+        await send_message(serialized_data)
         
     except Exception as e:
         print(e)

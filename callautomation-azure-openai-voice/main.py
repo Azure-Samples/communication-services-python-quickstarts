@@ -52,7 +52,10 @@ def incoming_call_handler():
                 guid =uuid.uuid4()
                 query_parameters = urlencode({"callerId": caller_id})
                 callback_uri = f"{CALLBACK_EVENTS_URI}/{guid}?{query_parameters}"
+
                 app.logger.info("callback url: %s",  callback_uri)
+                app.logger.info("websocket url: %s",  TRANSPORT_URL)
+
                 media_streaming_options = MediaStreamingOptions(
                         transport_url=TRANSPORT_URL,
                         transport_type=MediaStreamingTransportType.WEBSOCKET,
@@ -64,7 +67,8 @@ def incoming_call_handler():
                 
                 answer_call_result = acs_client.answer_call(incoming_call_context=incoming_call_context,
                                                             operation_context="incomingCall",
-                                                            callback_url=callback_uri, media_streaming=media_streaming_options)
+                                                            callback_url=callback_uri, 
+                                                            media_streaming=media_streaming_options)
                 app.logger.info("Answered call for connection id: %s",
                                 answer_call_result.call_connection_id)
             return Response(status=200)
