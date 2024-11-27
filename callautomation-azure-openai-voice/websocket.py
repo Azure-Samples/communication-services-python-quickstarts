@@ -18,9 +18,3 @@ async def main():
          await asyncio.Future()  # run forever
 if __name__ == "__main__":
     asyncio.run(main())
-""" start_server = websockets.serve(handle_realtime_messages, "localhost", 5001)
-
-print('WebSocket server running on port 5001')
-
-asyncio.get_event_loop().run_until_complete(start_server)
-asyncio.get_event_loop().run_forever() """

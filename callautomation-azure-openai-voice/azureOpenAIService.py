@@ -12,12 +12,11 @@ from  rtclient import (
     )
 from azure.core.credentials import AzureKeyCredential
 import websockets
-from models import AudioData, OutStreamingData, StopAudio
 active_websocket:websockets = None
 answer_prompt_system_template = "You are an AI assistant that helps people find information."
-AZURE_OPENAI_SERVICE_ENDPOINT = ""
-AZURE_OPENAI_SERVICE_KEY = ""
-AZURE_OPENAI_DEPLOYMENT_MODEL_NAME = ""
+AZURE_OPENAI_SERVICE_ENDPOINT = "<AZURE_OPENAI_SERVICE_ENDPOINT>"
+AZURE_OPENAI_SERVICE_KEY = "<AZURE_OPENAI_SERVICE_KEY>"
+AZURE_OPENAI_DEPLOYMENT_MODEL_NAME = "<AZURE_OPENAI_DEPLOYMENT_MODEL_NAME>"
 
 async def start_conversation():
     global client
@@ -105,14 +104,13 @@ async def receive_audio_for_outbound(data):
         print(e)
 
 async def stop_audio():
-        stop_audio = StopAudio()
-        
-        out_streaming_data = OutStreamingData(
-            kind="StopAudio",
-            audio_data=None,
-            stop_audio=stop_audio 
-        )
-        json_data = json.dumps(asdict(out_streaming_data), indent=4)
+        stop_audio_data = {
+            "Kind": "StopAudio",
+            "AudioData": None,
+            "StopAudio": {}
+        }
+
+        json_data = json.dumps(stop_audio_data)
         await send_message(json_data)
 
 async def send_message(message: str):

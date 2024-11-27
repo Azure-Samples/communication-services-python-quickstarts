@@ -17,12 +17,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Your ACS resource connection string
-ACS_CONNECTION_STRING = ""
+ACS_CONNECTION_STRING = "ACS_CONNECTION_STRING"
 # Transport url
-TRANSPORT_URL = ""
+TRANSPORT_URL = "<WEBSOCKET_URL>"
 
 # Callback events URI to handle callback events.
-CALLBACK_URI_HOST = ""
+CALLBACK_URI_HOST = "CALLBACK_URI_HOST"
 CALLBACK_EVENTS_URI = CALLBACK_URI_HOST + "/api/callbacks"
 
 acs_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
