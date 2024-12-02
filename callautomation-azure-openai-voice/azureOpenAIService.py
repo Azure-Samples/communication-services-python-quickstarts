@@ -1,7 +1,5 @@
 import asyncio
 import json
-from dataclasses import asdict
-from pydantic_core import Url
 from  rtclient import (
     RTLowLevelClient,
     SessionUpdateMessage,
@@ -11,8 +9,7 @@ from  rtclient import (
     InputAudioTranscription,
     )
 from azure.core.credentials import AzureKeyCredential
-import websockets
-active_websocket:websockets = None
+active_websocket = None
 answer_prompt_system_template = "You are an AI assistant that helps people find information."
 AZURE_OPENAI_SERVICE_ENDPOINT = "<AZURE_OPENAI_SERVICE_ENDPOINT>"
 AZURE_OPENAI_SERVICE_KEY = "<AZURE_OPENAI_SERVICE_KEY>"
@@ -80,10 +77,8 @@ async def receive_messages(client: RTLowLevelClient):
                 pass
                 
 async def init_websocket(socket):
-    global active_websocket, is_connected
+    global active_websocket
     active_websocket = socket
-    if active_websocket.open:
-        print(active_websocket.open)
 
 async def receive_audio_for_outbound(data):
     try:
@@ -93,7 +88,6 @@ async def receive_audio_for_outbound(data):
                     "Data":  data
             },
             "StopAudio": None
-
         }
 
         # Serialize the server streaming data
@@ -115,11 +109,8 @@ async def stop_audio():
 
 async def send_message(message: str):
     global active_websocket
-    if active_websocket.open:
-        try:
-            await active_websocket.send(message)
-            # print(message)
-        except Exception as e:
-            print(f"Failed to send message: {e}")
-    else:
-        print("WebSocket is not connected.")
+    try:
+        await active_websocket.send(message)
+    except Exception as e:
+        print(f"Failed to send message: {e}")
+

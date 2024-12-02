@@ -1,7 +1,4 @@
 import json
-import asyncio
-import websockets
-
 from azureOpenAIService import send_audio_to_external_ai
 
 async def process_websocket_message_async(stream_data):

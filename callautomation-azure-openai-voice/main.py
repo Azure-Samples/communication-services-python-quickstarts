@@ -1,37 +1,38 @@
-from flask import Flask, Response, request, json,redirect
+from quart import Quart, Response, request, json, redirect, websocket
 from azure.eventgrid import EventGridEvent, SystemEventNames
-from urllib.parse import urlencode, urljoin
+from urllib.parse import urlencode, urljoin, urlparse, urlunparse
 from logging import INFO
 from azure.communication.callautomation import (
-    CallAutomationClient,
     MediaStreamingOptions,
     AudioFormat,
     MediaStreamingTransportType,
     MediaStreamingContentType,
     MediaStreamingAudioChannelType,
     )
+from azure.communication.callautomation.aio import (
+    CallAutomationClient
+    )
 import uuid
 from azure.core.messaging import CloudEvent
-# Load environment variables
-from dotenv import load_dotenv
-load_dotenv()
+
+from azureOpenAIService import init_websocket, start_conversation
+from mediaStreamingHandler import process_websocket_message_async
+from threading import Thread
 
 # Your ACS resource connection string
 ACS_CONNECTION_STRING = "ACS_CONNECTION_STRING"
-# Transport url
-TRANSPORT_URL = "<WEBSOCKET_URL>"
 
 # Callback events URI to handle callback events.
 CALLBACK_URI_HOST = "CALLBACK_URI_HOST"
 CALLBACK_EVENTS_URI = CALLBACK_URI_HOST + "/api/callbacks"
 
 acs_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
-app = Flask(__name__)
+app = Quart(__name__)
 
 @app.route("/api/incomingCall",  methods=['POST'])
-def incoming_call_handler():
+async def incoming_call_handler():
     app.logger.info("incoming event data")
-    for event_dict in request.json:
+    for event_dict in await request.json:
             event = EventGridEvent.from_dict(event_dict)
             app.logger.info("incoming event data --> %s", event.data)
             if event.event_type == SystemEventNames.EventGridSubscriptionValidationEventName:
@@ -52,12 +53,15 @@ def incoming_call_handler():
                 guid =uuid.uuid4()
                 query_parameters = urlencode({"callerId": caller_id})
                 callback_uri = f"{CALLBACK_EVENTS_URI}/{guid}?{query_parameters}"
+                
+                parsed_url = urlparse(CALLBACK_EVENTS_URI)
+                websocket_url = urlunparse(('wss',parsed_url.netloc,'/ws','', '', ''))
 
                 app.logger.info("callback url: %s",  callback_uri)
-                app.logger.info("websocket url: %s",  TRANSPORT_URL)
+                app.logger.info("websocket url: %s",  websocket_url)
 
                 media_streaming_options = MediaStreamingOptions(
-                        transport_url=TRANSPORT_URL,
+                        transport_url=websocket_url,
                         transport_type=MediaStreamingTransportType.WEBSOCKET,
                         content_type=MediaStreamingContentType.AUDIO,
                         audio_channel_type=MediaStreamingAudioChannelType.MIXED,
@@ -65,7 +69,7 @@ def incoming_call_handler():
                         enable_bidirectional=True,
                         audio_format=AudioFormat.PCM24_K_MONO)
                 
-                answer_call_result = acs_client.answer_call(incoming_call_context=incoming_call_context,
+                answer_call_result = await acs_client.answer_call(incoming_call_context=incoming_call_context,
                                                             operation_context="incomingCall",
                                                             callback_url=callback_uri, 
                                                             media_streaming=media_streaming_options)
@@ -74,15 +78,15 @@ def incoming_call_handler():
             return Response(status=200)
 
 @app.route('/api/callbacks/<contextId>', methods=['POST'])
-def callbacks(contextId):
-     for event in request.json:
+async def callbacks(contextId):
+     for event in await request.json:
         # Parsing callback events
         global call_connection_id
         event_data = event['data']
         call_connection_id = event_data["callConnectionId"]
         app.logger.info(f"Received Event:-> {event['type']}, Correlation Id:-> {event_data['correlationId']}, CallConnectionId:-> {call_connection_id}")
         if event['type'] == "Microsoft.Communication.CallConnected":
-            call_connection_properties = acs_client.get_call_connection(call_connection_id).get_call_properties()
+            call_connection_properties = await acs_client.get_call_connection(call_connection_id).get_call_properties()
             media_streaming_subscription = call_connection_properties.media_streaming_subscription
             app.logger.info(f"MediaStreamingSubscription:--> {media_streaming_subscription}")
             app.logger.info(f"Received CallConnected event for connection id: {call_connection_id}")
@@ -102,6 +106,21 @@ def callbacks(contextId):
         elif event['type'] == "Microsoft.Communication.CallDisconnected":
             pass
      return Response(status=200)
+
+# WebSocket.
+@app.websocket('/ws')
+async def ws():
+    print("Client connected to WebSocket")
+    await init_websocket(websocket)
+    await start_conversation()
+    while True:
+        try:
+            # Receive data from the client
+            data = await websocket.receive()
+            await process_websocket_message_async(data)
+        except Exception as e:
+            print(f"WebSocket connection closed: {e}")
+            break
 
 @app.route('/')
 def home():
