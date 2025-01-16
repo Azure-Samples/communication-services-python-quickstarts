@@ -4,15 +4,15 @@ from azure.core.exceptions import HttpResponseError
 from datetime import datetime, timezone, timedelta
 from azure.communication.callautomation import (
     PhoneNumberIdentifier 
-    ,CallAutomationClient
+    # ,CallAutomationClient
 )
 from azure.communication.identity import (
     CommunicationUserIdentifier,
     CommunicationIdentityClient
 )
-# from azure.communication.callautomation.aio import (
-#     CallAutomationClient
-#     )
+from azure.communication.callautomation.aio import (
+    CallAutomationClient
+    )
 from azure.communication.rooms import (
     RoomsClient,
     RoomParticipant,
@@ -105,7 +105,7 @@ async def create_room():
     }
     return room_details
 # Connect call to the room
-def connect_call():
+async def connect_call():
     global call_connection_id
     if room_id:
 # Use CALLBACK_URI from the config
@@ -113,7 +113,7 @@ def connect_call():
         app.logger.info(f"Callback URL: {callback_uri}")
         app.logger.info(f"Room ID: {room_id}")
         
-        acs_client.connect_call(
+        await acs_client.connect_call(
         room_id=room_id,
         callback_url=callback_uri,
         cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT,
@@ -123,13 +123,13 @@ def connect_call():
         print("Room ID is empty or room not available.")
 
 # Add PSTN participant to the call
-def add_pstn_participant():
+async def add_pstn_participant():
     if call_connection_id:
         target = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
         source_caller_id_number = PhoneNumberIdentifier(ACS_RESOURCE_PHONE_NUMBER)
         app.logger.info("source_caller_id_number: %s", source_caller_id_number)
         
-        add_participant_result=  call_connection.add_participant(target_participant=target, 
+        add_participant_result= await call_connection.add_participant(target_participant=target, 
                                                                         source_caller_id_number=source_caller_id_number, 
                                                                         operation_context=None,
                                                                         invitation_timeout=15)
@@ -140,9 +140,9 @@ def add_pstn_participant():
         print("Call connection ID is empty or call not active.")
 
 # Hangup the call
-def hang_up_call():
+async def hang_up_call():
     if call_connection:
-        call_connection.hang_up(True)
+        await call_connection.hang_up(True)
         print("Call hung up.")
 
 # Routes
@@ -159,18 +159,18 @@ async def home():
     return await render_template('index.html', details=room_details)
 
 @app.route('/connectCall', methods=['GET'])
-def connect_call_route():
-    connect_call()
+async def connect_call_route():
+    await connect_call()
     return redirect('/')
 
 @app.route('/addParticipant', methods=['GET'])
-def add_participant_route():
-    add_pstn_participant()
+async def add_participant_route():
+    await add_pstn_participant()
     return redirect('/')
 
 @app.route('/hangup', methods=['GET'])
-def hangup_route():
-    hang_up_call()
+async def hangup_route():
+    await hang_up_call()
     return redirect('/')
 
 @app.route('/api/callbacks', methods=['POST'])
