@@ -3,8 +3,8 @@ from quart import Quart, render_template, jsonify, request, redirect
 from azure.core.exceptions import HttpResponseError
 from datetime import datetime, timezone, timedelta
 from azure.communication.callautomation import (
-    PhoneNumberIdentifier,
-    CallAutomationClient
+    PhoneNumberIdentifier 
+    ,CallAutomationClient
 )
 from azure.communication.identity import (
     CommunicationUserIdentifier,
@@ -140,7 +140,7 @@ def add_pstn_participant():
         print("Call connection ID is empty or call not active.")
 
 # Hangup the call
-async def hang_up_call():
+def hang_up_call():
     if call_connection:
         call_connection.hang_up(True)
         print("Call hung up.")
@@ -169,8 +169,8 @@ def add_participant_route():
     return redirect('/')
 
 @app.route('/hangup', methods=['GET'])
-async def hangup_route():
-    await hang_up_call()
+def hangup_route():
+    hang_up_call()
     return redirect('/')
 
 @app.route('/api/callbacks', methods=['POST'])
