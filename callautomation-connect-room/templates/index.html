@@ -1,159 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Azure Communication Services</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f9;
-            margin: 0;
-            padding: 0;
-        }
-
-        header {
-            background-color: #0078d4;
-            color: white;
-            padding: 15px;
-            text-align: center;
-        }
-
-        h1, h4 {
-            margin: 0;
-        }
-
-        h4 {
-            font-size: 1.2em;
-            margin-top: 5px;
-        }
-
-        .container {
-            width: 80%;
-            margin: 30px auto;
-            padding: 20px;
-            background-color: white;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            border-radius: 8px;
-        }
-
-        /* Buttons in a single line */
-        .button-container {
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: space-around;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .large-button {
-            padding: 12px 25px;
-            font-size: 16px;
-            background-color: #0078d4;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        .large-button:hover {
-            background-color: #005a8d;
-        }
-
-        .room-info {
-            margin-top: 20px;
-        }
-
-        .room-info p {
-            font-size: 1.1em;
-            margin: 10px 0;
-            word-wrap: break-word;
-        }
-
-        .room-info strong {
-            color: #333;
-        }
-
-        footer {
-            text-align: center;
-            padding: 20px;
-            background-color: #f4f4f9;
-            font-size: 0.9em;
-        }
-
-        /* Ensuring text stays inside container */
-        .room-info p {
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-        }
-
-        .copy-button {
-            padding: 8px 12px;
-            background-color: #0078d4;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: background-color 0.3s;
-        }
-
-        .copy-button:hover {
-            background-color: #005a8d;
-        }
-    </style>
+    <title>Azure Communication Services Quickstart</title>
 </head>
+
 <body>
-    <header>
-        <h4>Azure Communication Services</h4>
-        <h1>Connect Rooms Call Quickstart</h1>
-    </header>
+    <h4>Azure Communication Services</h4>
+    <h2>Connect Rooms Call Quickstart</h2>
 
-    <div class="container">
-        <!-- ACS Control Buttons Form -->
-        <div class="button-container">
-            <form style="display: block;">
-                <input class="large-button" type="submit" formaction="/connectCall" value="Connect call!">
-                <input class="large-button" type="submit" formaction="/addParticipant" value="Add participant!">
-                <input class="large-button" type="submit" formaction="/hangup" value="Hangup call!">
-            </form>
+    <form>
+        <div>
+            <input type="submit" formaction="/connectCall" value="Connect call!">
+            <input type="submit" formaction="/addParticipant" value="Add participant!">
+            <input type="submit" formaction="/hangup" value="Hangup call!">
         </div>
 
-        <div class="room-info">
-            <h2>Room Information</h2>
-            <p><strong>Room ID:</strong> 
-                <span id="roomId">{{ details.room_id }}</span>
-                <button class="copy-button" onclick="copyToClipboard('roomId')">Copy</button>
-            </p>
-            <p><strong>Presenter ID:</strong> {{ details.presenter_id }}</p>
-            <p><strong>Presenter Token:</strong>
-                <span id="presenterToken">{{ details.presenter_token }}</span>
-                <button class="copy-button" onclick="copyToClipboard('presenterToken')">Copy</button>
-            </p>
-            <p><strong>Attendee ID:</strong> {{ details.attendee_id }}</p>
-            <p><strong>Attendee Token:</strong>
-                <span id="attendeeToken">{{ details.attendee_token }}</span>
-                <button class="copy-button" onclick="copyToClipboard('attendeeToken')">Copy</button>
-            </p>
+        <h3>Room Details</h3>
+
+        <div id="roomId-info">
+            <h4>Room</h4>
+            <p>Room Id: <span id="roomId-text">{{ details.room_id }}</span></p>
         </div>
-    </div>
 
-    <footer>
-        <p>&copy; 2025 Azure Communication Services Quickstart</p>
-    </footer>
+        <div id="presenter-info">
+            <h4>Presenter</h4>
+            <p>User Id: <span id="presenter-id">{{details.presenter_id}}</span></p>
+            <p>Token: <span id="presenter-token">{{ details.presenter_token }}</span></p>
+        </div>
 
-    <script>
-        function copyToClipboard(id) {
-            var text = document.getElementById(id).innerText;
-            var textArea = document.createElement('textarea');
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-        }
-        
-    </script>
+        <div id="attendee-info">
+            <h4>Attendee</h4>
+            <p>User Id: <span id="attendee-id">{{ details.attendee_id }}</span></p>
+            <p>Token: <span id="attendee-token">{{ details.attendee_token }}</span></p>
+        </div>
+    </form>
 </body>
+
 </html>
