@@ -24,7 +24,7 @@ For full instructions on how to build this code sample from scratch, look at [Qu
 
 ## Install the packages
 
-pip install azure-communication-phonenumbers==1.2.0b2
+pip install azure-communication-phonenumbers==1.2.0
 
 pip install azure-identity
 

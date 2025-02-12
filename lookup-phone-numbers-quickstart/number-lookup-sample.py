@@ -25,7 +25,7 @@ try:
     # Use the paid number lookup functionality to get operator specific details
     # IMPORTANT NOTE: Invoking the method below will incur a charge to your account
     options = { "include_additional_operator_details": True }
-    operator_results = phone_numbers_client.search_operator_information([ phoneNumber ], options)
+    operator_results = phone_numbers_client.search_operator_information([ phoneNumber ], options=options)
     operator_information = operator_results.values[0]
 
     number_type = operator_information.number_type if operator_information.number_type else "unknown"
