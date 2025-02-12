@@ -1,10 +1,12 @@
 
 import ast
 import uuid
+import os
+from pathlib import Path
 from urllib.parse import urlencode, urljoin, urlparse, urlunparse
 from azure.eventgrid import EventGridEvent, SystemEventNames
 import requests
-from quart import Quart, Response, request, json, redirect, websocket
+from quart import Quart, Response, request, json, redirect, websocket, render_template
 import json
 from logging import INFO
 import re
@@ -15,7 +17,10 @@ from azure.communication.callautomation import (
     # TranscriptionConfiguration,
     TranscriptionTransportType,
     ServerCallLocator,
-    TranscriptionOptions
+    TranscriptionOptions,
+    RecordingContent,
+    RecordingChannel,
+    RecordingFormat
     )
 from azure.communication.callautomation.aio import (
     CallAutomationClient
@@ -69,7 +74,7 @@ call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECT
 
 recording_id = None
 recording_chunks_location = []
-is_transcription_active=False
+recording_callback_url = None
 max_retry = 2
 words_to_numbers = {
     'one': 1,
@@ -84,8 +89,9 @@ words_to_numbers = {
     'zero': 0
     }
 
-app = Quart(__name__)
-
+TEMPLATE_FILES_PATH = "template"
+app = Quart(__name__,
+            template_folder=TEMPLATE_FILES_PATH)
 
 async def handle_recognize(text_to_play,caller_id,call_connection_id,context=""):
     play_source = TextSource(text=text_to_play, voice_name="en-US-NancyNeural")
@@ -102,8 +108,6 @@ async def handle_recognize(text_to_play,caller_id,call_connection_id,context="")
         app.logger.info("handle_recognize : data=%s",recognize_result)
     except Exception as ex:
         app.logger.info("Error in recognize: %s", ex)
-
-
 
 async def handle_play(call_connection_id, text_to_play, context):     
     play_source = TextSource(text=text_to_play, voice_name= "en-US-NancyNeural") 
@@ -136,12 +140,13 @@ async def incoming_call_handler():
                 guid = uuid.uuid4()
                 callback_uri = f"{CALLBACK_EVENTS_URI}/{guid}?callerId={caller_id}"
                 websocket_url = urlunparse(("wss", urlparse(CALLBACK_URI_HOST).netloc, "/ws", "", "", ""))
-        
+                global recording_callback_url
+                recording_callback_url = callback_uri
                 transcription_config = TranscriptionOptions(
                     transport_url=websocket_url,
                     transport_type=TranscriptionTransportType.WEBSOCKET,
                     locale=LOCALE,
-                    start_transcription=False
+                    start_transcription=True
                 )
 
                 try:
@@ -164,7 +169,7 @@ async def incoming_call_handler():
 async def handle_callback(contextId):    
     try:        
         global caller_id , call_connection_id
-        app.logger.info("Request Json: %s", request.json)
+        # app.logger.info("Request Json: %s", request.json)
         for event_dict in await request.json:       
             event = CloudEvent.from_dict(event_dict)
             call_connection_id = event.data['callConnectionId']
@@ -177,22 +182,22 @@ async def handle_callback(contextId):
 
             app.logger.info("call connected : data=%s", event.data)
             if event.type == "Microsoft.Communication.CallConnected":
-                # Start the recording 
                 recording_result = await call_automation_client.start_recording(
-                    call_locator=ServerCallLocator(event.data["serverCallId"]))
+                    server_call_id=event.data["serverCallId"],
+                    recording_content_type=RecordingContent.AUDIO_VIDEO,
+                    recording_channel_type=RecordingChannel.MIXED,
+                    recording_format_type=RecordingFormat.MP4,
+                    recording_state_callback_url=recording_callback_url,
+                    pause_on_start=True
+                    )
                 global recording_id
                 recording_id=recording_result.recording_id
-
                 global call_properties
                 call_properties = await call_automation_client.get_call_connection(call_connection_id).get_call_properties()
                 app.logger.info("Transcription subscription--->=%s", call_properties.transcription_subscription)
-
-                # Start the transcription 
-                await initiate_transcription(call_connection_id)
-                time.sleep(3)
-                await pause_or_stop_transcription_and_recording(call_connection_id=call_connection_id, stop_recording=False, recording_id=recording_id)
-                time.sleep(3)
-                await handle_recognize(HELP_IVR_PROMPT,caller_id,call_connection_id,context="hellocontext") 
+                
+            elif event.type == "Microsoft.Communication.PlayStarted":
+                app.logger.info("Received PlayStarted event.")
             elif event.type == "Microsoft.Communication.PlayCompleted":
                 context=event.data['operationContext']  
                 app.logger.info("Play completed: context=%s", event.data['operationContext']) 
@@ -209,7 +214,7 @@ async def handle_callback(contextId):
                                                                         invitation_timeout=15)
                     app.logger.info("Add agent to the call: %s", add_participant_result.invitation_id)
                 elif context == GOODBYE_CONTEXT or context == ADD_PARTICIPANT_FAILURE_CONTEXT:
-                    await pause_or_stop_transcription_and_recording(call_connection_id, stop_recording=True,recording_id=recording_id)
+                    await stop_transcription_and_recording(call_connection_id, recording_id=recording_id)
                     await handle_hangup(call_connection_id=call_connection_id)
             elif event.type == "Microsoft.Communication.RecognizeCompleted":
                 app.logger.info("Recognize completed: data=%s", event.data)
@@ -222,7 +227,6 @@ async def handle_callback(contextId):
                     match = regex.search(numbers)
                     if match:
                         await resume_transcription_and_recording(call_connection_id, recording_id)
-                        await handle_play(call_connection_id, ADD_AGENT_PROMPT, ADD_AGENT_CONTEXT)
                     else:
                         await handle_recognize(INCORRECT_DOB_PROMPT, caller_id, call_connection_id, INCORRECT_DOB_CONTEXT)
             elif event.type == "Microsoft.Communication.RecognizeFailed":
@@ -240,18 +244,29 @@ async def handle_callback(contextId):
                 resultInformation = event.data['resultInformation']
                 app.logger.info("Received Add Participants Failed message=%s, sub code=%s",resultInformation['message'],resultInformation['subCode'])
                 await handle_play(call_connection_id=call_connection_id,text_to_play=ADD_PARTICIPANT_FAILURE_PROMPT, context=ADD_PARTICIPANT_FAILURE_CONTEXT)
-                
+            elif event.type == "Microsoft.Communication.RecordingStateChanged":
+                app.logger.info("Received RecordingStateChanged event.")
+                app.logger.info(event.data['state'])
             elif event.type == "Microsoft.Communication.TranscriptionStarted":
                 app.logger.info("Received TranscriptionStarted event.")
-                transcriptionUpdate = event.data['transcriptionUpdate']
-                app.logger.info(event.data['operationContext'])
-                app.logger.info(transcriptionUpdate["transcriptionStatus"])
-                app.logger.info(transcriptionUpdate["transcriptionStatusDetails"])
+                operation_context = None
+                if 'operationContext' in event.data:
+                    operation_context = event.data['operationContext']
+                
+                if operation_context is None:
+                    await call_automation_client.get_call_connection(event.data['callConnectionId']).stop_transcription(operation_context="nextRecognizeContext")
+                elif operation_context is not None and operation_context == 'StartTranscriptionContext':
+                    await handle_play(event.data['callConnectionId'], ADD_AGENT_PROMPT, ADD_AGENT_CONTEXT)
+                
             elif event.type == "Microsoft.Communication.TranscriptionStopped":
                 app.logger.info("Received TranscriptionStopped event.")
-                transcriptionUpdate = event.data['transcriptionUpdate']
-                app.logger.info(transcriptionUpdate["transcriptionStatus"])
-                app.logger.info(transcriptionUpdate["transcriptionStatusDetails"])
+                operation_context = None
+                if 'operationContext' in event.data:
+                    operation_context = event.data['operationContext']
+
+                if operation_context is not None and operation_context == 'nextRecognizeContext':
+                    await handle_recognize(HELP_IVR_PROMPT,caller_id,call_connection_id,context="hellocontext")
+                
             elif event.type == "Microsoft.Communication.TranscriptionUpdated":
                 app.logger.info("Received TranscriptionUpdated event.")
                 transcriptionUpdate = event.data['transcriptionUpdate']
@@ -292,14 +307,17 @@ async def recording_file_status():
         app.logger.error( "Failed to get recording file")
         return Response(response='Failed to get recording file', status=400)
 
-@app.route('/api/download')
+@app.route('/download')
 async def download_recording():
         try:
             app.logger.info("Content location : %s", content_location)
+            downloads_folder = str(Path.home() / "Downloads")
+            file_path = os.path.join(downloads_folder, "Recording_File.mp4")
+
             recording_data = await call_automation_client.download_recording(content_location)
-            with open("Recording_File.wav", "wb") as binary_file:
-                binary_file.write(recording_data.read())
-            return Response(response="Ok")
+            with open(file_path, "wb") as binary_file:
+                binary_file.write(await recording_data.read())
+            return redirect("/")
         except Exception as ex:
             app.logger.info("Failed to download recording --> " + str(ex))
             return Response(text=str(ex), status=500)
@@ -307,28 +325,17 @@ async def download_recording():
 async def initiate_transcription(call_connection_id):
     app.logger.info("initiate_transcription is called %s", call_connection_id)
     call_connection = call_automation_client.get_call_connection(call_connection_id)
-    await call_connection.start_transcription(locale=LOCALE, operation_context="StartTranscript")
+    await call_connection.start_transcription(locale=LOCALE, operation_context="StartTranscriptionContext")
     app.logger.info("Starting the transcription")
-    global is_transcription_active
-    is_transcription_active=True
-
-async def pause_or_stop_transcription_and_recording(call_connection_id, stop_recording, recording_id):
-    app.logger.info("pause_or_stop_transcription_and_recording method triggered.")
-    global is_transcription_active
-    app.logger.info("is_transcription_active: %s", is_transcription_active)
-    app.logger.info("stop_recording: %s", stop_recording)
-    if is_transcription_active:
-        app.logger.info("Transcription is active and attempted to stop the transcription for the call id %s", call_connection_id)           
+    
+async def stop_transcription_and_recording(call_connection_id, recording_id):
+    app.logger.info("stop_transcription_and_recording method triggered.")
+    call_properties = await call_automation_client.get_call_connection(call_connection_id).get_call_properties()
+    recording_properties = await call_automation_client.get_recording_properties(recording_id)
+    if call_properties.transcription_subscription.state == 'active':
         await call_automation_client.get_call_connection(call_connection_id).stop_transcription()
-        is_transcription_active=False
-        app.logger.info("Transcription stopped.")
-
-    if stop_recording:
+    if recording_properties.recording_state == "active":
         await call_automation_client.stop_recording(recording_id=recording_id)
-        app.logger.info(f"Recording stopped. RecordingId: {recording_id}")
-    else:
-        await call_automation_client.pause_recording(recording_id=recording_id)  
-        app.logger.info(f"Recording paused. RecordingId: {recording_id}")
 
 async def resume_transcription_and_recording(call_connection_id, recording_id):
     await initiate_transcription(call_connection_id)    
@@ -356,9 +363,9 @@ async def ws():
         # Any cleanup or final logs can go here
         print("WebSocket connection closed")
 
-@app.route("/")
-async def hello():
-    return "Hello ACS CallAutomation!..test"
+@app.route('/')
+async def index_handler():
+    return await render_template("index.html")
 
 if __name__ == '__main__':
     app.logger.setLevel(INFO)
