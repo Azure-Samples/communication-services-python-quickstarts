@@ -2,10 +2,10 @@
 |---|-----------------------------------------|---|
 |sample| <table><tr><td>Python</tr></td></table> |<table><tr><td>azure</td><td>azure-communication-services</td></tr></table>|
 
-# Call Automation - Quick Start Sample
+# Connect to a room call using Call Automation SDK
 
-In this quickstart, we cover how you can use Call Automation SDK to connect to active room call with connect endpoint. Creating room with users and enabling pstn dialout to add pstn participant.
-Creating room call with room id. The application is a web-based application built on Python.
+In this quickstart sample, we cover how you can use Call Automation SDK to connect to an active Azure Communication Services (ACS) Rooms call with a connect endpoint.
+This involves creating a room call with room id and users and enabling PSTN dial out to add PSTN participant(s).
 
 ## Prerequisites
 
@@ -54,10 +54,9 @@ devtunnel host
 Open `config.py` file to configure the following settings
 
 1. - `CALLBACK_URI`: Ngrok url for the server port (in this example port 8080)
-2. - `COGNITIVE_SERVICE_ENDPOINT`: The Cognitive Services endpoint
-3. - `CONNECTION_STRING`: Azure Communication Service resource's connection string.
-4. - `ACS_RESOURCE_PHONE_NUMBER`: Acs Phone Number
-6. - `TARGET_PHONE_NUMBER`: Agent Phone Number to add into the call
+2. - `CONNECTION_STRING`: Azure Communication Service resource's connection string.
+3. - `ACS_RESOURCE_PHONE_NUMBER`: Acs Phone Number
+4. - `TARGET_PHONE_NUMBER`: Agent Phone Number to add into the call
 
 ## Run app locally
 
@@ -67,7 +66,7 @@ Open `config.py` file to configure the following settings
 
 ### Creating and connecting to room call.
 
-1. ![create room with user](./data/createRoom.png)
+1. Navigate to `http://localhost:8080/` or devtunnel url to create users and room id ![create room with user](./data/createRoom.png)
 2. Open two tabs for Presenter and attendee  ![calling room quickstart](./data/callingRoomQuickstart.png) 
 3. Copy tokens for presenter and attendee from ![tokens](./data/tokens.png)
 4. Initialize call agent with tokens for both presenter and attendee.

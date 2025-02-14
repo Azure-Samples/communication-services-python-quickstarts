@@ -26,14 +26,12 @@ from config import Config
 # Initialize Quart app
 app = Quart(__name__)
 
-
 # Use config values from config.py
 PORT = Config.PORT
 CONNECTION_STRING = Config.CONNECTION_STRING
 ACS_RESOURCE_PHONE_NUMBER = Config.ACS_RESOURCE_PHONE_NUMBER
 TARGET_PHONE_NUMBER = Config.TARGET_PHONE_NUMBER
 CALLBACK_URI = Config.CALLBACK_URI
-COGNITIVE_SERVICES_ENDPOINT = Config.COGNITIVE_SERVICES_ENDPOINT
 
 # Initialize variables
 acs_client = None
@@ -87,7 +85,6 @@ async def create_room():
         valid_until=valid_until,
         participants=participants,
         pstn_dial_out_enabled=True
-
     )
     except HttpResponseError as ex:
         print(ex)
@@ -116,7 +113,6 @@ async def connect_call():
         await acs_client.connect_call(
         room_id=room_id,
         callback_url=callback_uri,
-        cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT,
         operation_context="connectCallContext")
         print("Call connection initiated.")
     else:
@@ -195,35 +191,7 @@ async def handle_callbacks():
 
         elif event['type'] == "Microsoft.Communication.AddParticipantSucceeded":
             app.logger.info("Received AddParticipantSucceeded event")
-            app.logger.info(f"Participant: {event_data['participant']}")
             
-        # elif event['type'] == "Microsoft.Communication.ParticipantsUpdated":
-        #     app.logger.info("Received ParticipantsUpdated event")
-        #     app.logger.info(f"Participant: {event_data['participant']}")
-        elif event['type'] == "Microsoft.Communication.ParticipantsUpdated":
-            app.logger.info("Received ParticipantsUpdated event")
-
-            app.logger.info(f"ParticipantsUpdated Event Data: {event_data}")
-
-            # Safely retrieve the participants list from the event data
-            participants = event_data.get('participants', [])
-            if participants:
-                app.logger.info(f"Total Participants: {len(participants)}")
-                for participant in participants:
-                    # Access participant details from the 'identifier' field
-                    identifier = participant.get('identifier', {})
-                    raw_id = identifier.get('rawId')
-                    kind = identifier.get('kind')
-                    phone_number = identifier.get('phoneNumber', {}).get('value')
-
-                    # Log only if valid participant details exist
-                    if raw_id and kind and phone_number:
-                        app.logger.info(f"Participant Details - Raw ID: {raw_id}, Kind: {kind}, Phone Number: {phone_number}")
-                    else:
-                        app.logger.warning(f"Incomplete participant details - Raw ID: {raw_id}, Kind: {kind}, Phone Number: {phone_number}")
-            else:
-                app.logger.error("No participants found or invalid data format in ParticipantsUpdated event.")
-
         elif event['type'] == "Microsoft.Communication.AddParticipantFailed":
             result_info = event_data['resultInformation']
             app.logger.info("Received AddParticipantFailed event")
@@ -241,14 +209,7 @@ async def handle_callbacks():
         app.logger.error(f"Error processing callback: {e}")
         return jsonify({"error": "Internal server error"}), 500
     
-    
-
 if __name__ == '__main__':
     app.logger.setLevel(INFO)
     app.run(port=PORT)
-    
-    # app.logger.setLevel(INFO)
-    # loop = asyncio.get_event_loop()
-    # loop.run_until_complete(create_acs_client())
-    # loop.run_until_complete(create_room())
-    # app.run(port=PORT)
+
