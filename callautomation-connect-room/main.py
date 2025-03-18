@@ -3,8 +3,8 @@ from quart import Quart, render_template, jsonify, request, redirect
 from azure.core.exceptions import HttpResponseError
 from datetime import datetime, timezone, timedelta
 from azure.communication.callautomation import (
-    PhoneNumberIdentifier 
-    # ,CallAutomationClient
+    PhoneNumberIdentifier,
+    TextSource
 )
 from azure.communication.identity import (
     CommunicationUserIdentifier,
@@ -32,6 +32,7 @@ CONNECTION_STRING = Config.CONNECTION_STRING
 ACS_RESOURCE_PHONE_NUMBER = Config.ACS_RESOURCE_PHONE_NUMBER
 TARGET_PHONE_NUMBER = Config.TARGET_PHONE_NUMBER
 CALLBACK_URI = Config.CALLBACK_URI
+COGNITIVE_SERVICES_ENDPOINT = Config.COGNITIVE_SERVICES_ENDPOINT
 
 # Initialize variables
 acs_client = None
@@ -110,11 +111,13 @@ async def connect_call():
         app.logger.info(f"Callback URL: {callback_uri}")
         app.logger.info(f"Room ID: {room_id}")
         
-        await acs_client.connect_call(
+        response = await acs_client.connect_call(
         room_id=room_id,
         callback_url=callback_uri,
+        cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT,
         operation_context="connectCallContext")
         print("Call connection initiated.")
+        app.logger.info(f"Connect request correlation id: {response.correlation_id}")
     else:
         print("Room ID is empty or room not available.")
 
@@ -140,7 +143,12 @@ async def hang_up_call():
     if call_connection:
         await call_connection.hang_up(True)
         print("Call hung up.")
-
+        
+async def handle_play():
+    play_source = TextSource(text="Hello, welcome to connect room contoso app.", voice_name="en-US-NancyNeural")
+    if call_connection:
+        await call_connection.play_media_to_all(play_source)
+        
 # Routes
 @app.route('/')
 async def home():
@@ -169,6 +177,11 @@ async def hangup_route():
     await hang_up_call()
     return redirect('/')
 
+@app.route('/playMedia', methods=['GET'])
+async def play_media_route():
+    await handle_play()
+    return redirect('/')
+
 @app.route('/api/callbacks', methods=['POST'])
 async def handle_callbacks():
     try:
@@ -178,16 +191,14 @@ async def handle_callbacks():
         events = await request.json
         event = events[0]  # Assumes at least one event is present
         event_data = event['data']
-
-        # Extract necessary details
-        call_connection_id = event_data['callConnectionId']
-        server_call_id = event_data['serverCallId']
-        call_connection = acs_client.get_call_connection(call_connection_id)
-
         # Handle specific event types
         if event['type'] == "Microsoft.Communication.CallConnected":
             app.logger.info("Received CallConnected event")
             app.logger.info(f"Correlation ID: {event_data['correlationId']}")
+             # Extract necessary details
+            call_connection_id = event_data['callConnectionId']
+            server_call_id = event_data['serverCallId']
+            call_connection = acs_client.get_call_connection(call_connection_id)
 
         elif event['type'] == "Microsoft.Communication.AddParticipantSucceeded":
             app.logger.info("Received AddParticipantSucceeded event")
@@ -197,7 +208,13 @@ async def handle_callbacks():
             app.logger.info("Received AddParticipantFailed event")
             app.logger.info(f"Code: {result_info['code']}, Subcode: {result_info['subCode']}")
             app.logger.info(f"Message: {result_info['message']}")
-
+        elif event['type'] == "Microsoft.Communication.PlayCompleted":
+             app.logger.info("Received PlayCompleted event")
+        elif event['type'] == "Microsoft.Communication.PlayFailed":
+            result_info = event_data['resultInformation']
+            app.logger.info("Received PlayFailed event")
+            app.logger.info(f"Code: {result_info['code']}, Subcode: {result_info['subCode']}")
+            app.logger.info(f"Message: {result_info['message']}")
         elif event['type'] == "Microsoft.Communication.CallDisconnected":
             app.logger.info("Received CallDisconnected event")
             app.logger.info(f"Correlation ID: {event_data['correlationId']}")

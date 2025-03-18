@@ -57,6 +57,7 @@ Open `config.py` file to configure the following settings
 2. - `CONNECTION_STRING`: Azure Communication Service resource's connection string.
 3. - `ACS_RESOURCE_PHONE_NUMBER`: Acs Phone Number
 4. - `TARGET_PHONE_NUMBER`: Agent Phone Number to add into the call
+5. - `COGNITIVE_SERVICES_ENDPOINT`: Cognitive service endpoint.
 
 ## Run app locally
 
