@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Azure Communication Services Quickstart</title>
+</head>
+
+<body>
+    <h4>Azure Communication Services</h4>
+    <h2>Connect Rooms Call Quickstart</h2>
+
+    <form>
+        <div>
+            <input type="submit" formaction="/connectCall" value="Connect call!">
+            <input type="submit" formaction="/addParticipant" value="Add participant!">
+            <input type="submit" formaction="/playMedia" value="Play media!">
+            <input type="submit" formaction="/hangup" value="Hangup call!">
+        </div>
+
+        <h3>Room Details</h3>
+
+        <div id="roomId-info">
+            <h4>Room</h4>
+            <p>Room Id: <span id="roomId-text">{{ details.room_id }}</span></p>
+        </div>
+
+        <div id="presenter-info">
+            <h4>Presenter</h4>
+            <p>User Id: <span id="presenter-id">{{details.presenter_id}}</span></p>
+            <p>Token: <span id="presenter-token">{{ details.presenter_token }}</span></p>
+        </div>
+
+        <div id="attendee-info">
+            <h4>Attendee</h4>
+            <p>User Id: <span id="attendee-id">{{ details.attendee_id }}</span></p>
+            <p>Token: <span id="attendee-token">{{ details.attendee_token }}</span></p>
+        </div>
+    </form>
+</body>
+
+</html>
