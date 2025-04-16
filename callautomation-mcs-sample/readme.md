@@ -4,7 +4,7 @@
 
 # Call Automation - Quick Start Sample
 
-This is a sample application that demonstrates the integration of **Azure Communication Services (ACS)** with **Azure Cognitive Services** and a bot using the **Direct Line API**. It enables real-time transcription of calls and interaction with a bot, with responses played back to the caller using SSML (Speech Synthesis Markup Language).
+This is a sample application that demonstrates the integration of **Azure Communication Services (ACS)** with **Microsoft Copilot Studio (MCS)** bot using the **Direct Line API**. It enables real-time transcription of calls and interaction with a MCS bot, with responses played back to the caller using SSML (Speech Synthesis Markup Language).
 
 ## Prerequisites
 
@@ -12,7 +12,7 @@ This is a sample application that demonstrates the integration of **Azure Commun
 - **Azure Communication Services Resource**: Create an ACS resource. For details, see [Create an Azure Communication Resource](https://docs.microsoft.com/azure/communication-services/quickstarts/create-communication-resource). Record your resource **connection string** for this sample.
 - **Calling-Enabled Phone Number**: Obtain a phone number. For details, see [Get a phone number](https://learn.microsoft.com/en-us/azure/communication-services/quickstarts/telephony/get-phone-number?tabs=windows&pivots=platform-azp).
 - **Azure Cognitive Services Resource**: Set up a Cognitive Services resource. For details, see [Create a Cognitive Services resource](https://learn.microsoft.com/en-us/azure/cognitive-services/cognitive-services-apis-create-account).
-- **Bot Framework**: Create a bot and enable the **Direct Line channel**. Obtain the **Direct Line secret**.
+- **MCS Bot Framework**: Create a MCS bot and enable the **Direct Line channel**. Obtain the **Direct Line secret**.
 - **Azure Dev Tunnels CLI**: Install and configure Azure Dev Tunnels. For details, see [Enable dev tunnel](https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/get-started?tabs=windows).
 
 ## Before running the sample for the first time
