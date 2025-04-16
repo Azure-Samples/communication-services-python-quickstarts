@@ -1,0 +1,5 @@
+quart==0.20.0
+azure-communication-callautomation==1.4.0b1
+azure-eventgrid==4.11.0
+requests==2.31.0
+websockets==11.0.3
