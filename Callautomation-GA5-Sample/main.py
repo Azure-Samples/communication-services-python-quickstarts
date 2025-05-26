@@ -45,9 +45,9 @@ ACS_CONNECTION_STRING = "endpoint=https://dacsrecordingtest.unitedstates.communi
 ACS_PHONE_NUMBER = "+18332638155"
 
 # Target phone number you want to receive the call
-TARGET_PHONE_NUMBER = "+918983968975"
+TARGET_PHONE_NUMBER = "+919866012455"
 
-PARTICIPANT_PHONE_NUMBER = "+918983968975"
+PARTICIPANT_PHONE_NUMBER = "+919866012455"
 
 TARGET_COMMUNICATION_USER = ""
 
@@ -68,7 +68,7 @@ AUDIO_FILES_PATH = "/audio"
 CONFIRM_CHOICE_LABEL = "Confirm"
 CANCEL_CHOICE_LABEL = "Cancel"
 RETRY_CONTEXT = "retry"
-MAIN_MENU_PROMPT_URI = CALLBACK_URI_HOST + AUDIO_FILES_PATH + "/MainMenu.wav"
+MAIN_MENU_PROMPT_URI = "https://sample-videos.com/audio/mp3/crowd-cheering.mp3"
 
 RECOGNITION_PROMPT = "Hello this is contoso recognition test please confirm or cancel to proceed further."
 PLAY_PROMPT = "Welcome to the Contoso Utilities. Thank you!"
@@ -123,16 +123,16 @@ class EventGridEventModel(BaseModel):
     eventType: str
     data: dict
 
-class TextSource(BaseModel):
-    text: str
-    voice_name: str = "en-US-NancyNeural"
-    source_locale: str = "en-US"
-    voice_kind: str = "MALE"
+# class TextSource(BaseModel):
+#     text: str
+#     voice_name: str = "en-US-NancyNeural"
+#     source_locale: str = "en-US"
+#     voice_kind: str = "MALE"
 
-class PlayOptions(BaseModel):
-    ssml_source: TextSource
-    operation_context: str
-    async_option: bool
+# class PlayOptions(BaseModel):
+#     ssml_source: TextSourceModel
+#     operation_context: str
+#     async_option: bool
 
 class TargetType(str):
     PSTN = "PSTN"
@@ -206,7 +206,7 @@ client = None
 
 def init_client():
     # Dummy client initializer
-    log.info("Client initialized with ACS Connection String: %s", acs_connection_string)
+    logger.info("Client initialized with ACS Connection String: %s", acs_connection_string)
     return "client_instance"
 
 
@@ -246,11 +246,11 @@ async def set_configurations(configuration_request: ConfigurationRequest = Body(
 
         client = init_client()
 
-        log.info("Initialized call automation client.")
+        logger.info("Initialized call automation client.")
         return {"message": "Configuration set successfully. Initialized call automation client."}
 
     except Exception as e:
-        log.error(f"Error configuring: {e}")
+        logger.error(f"Error configuring: {e}")
         raise HTTPException(status_code=500, detail="Failed to configure call automation client.")
 
 @app.get(
@@ -298,6 +298,7 @@ async def create_call_acs(acsString):
 
 # Helper functions (unchanged from original code)
 async def create_call():
+    global call_connection_id
     is_acs_user_target = False
     if is_acs_user_target:
         acs_target = CommunicationUserIdentifier(TARGET_COMMUNICATION_USER)
@@ -315,6 +316,7 @@ async def create_call():
             cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT,
             source_caller_id_number=source_caller
         )
+    call_connection_id = call_connection_properties.call_connection_id
     logger.info("Created call with Correlation id: - %s", call_connection_properties.correlation_id)
 
 async def create_group_call():
@@ -360,13 +362,16 @@ async def play_recognize():
         operation_context="choiceContext"
     )
 
-async def play_media():
-    is_play_to_all = True
+async def play_media(one_source: bool, is_play_to_all: bool, valid_file: bool = True):
     text_source = TextSource(text=PLAY_PROMPT, voice_name="en-US-NancyNeural")
     file_source = FileSource(url=MAIN_MENU_PROMPT_URI)
     ssml_text = SsmlSource(ssml_text=SSML_PLAY_TEXT)
     target = get_communication_target()
-    play_sources = [file_source]
+    if not valid_file:
+        file_source = FileSource(url="https://invalid-url.com/audio.mp3")
+    play_sources = [text_source, ssml_text, file_source]
+    if one_source:
+        play_sources = [text_source]
     if is_play_to_all:
         await call_automation_client.get_call_connection(call_connection_id).play_media_to_all(
             play_source=play_sources,
@@ -975,17 +980,87 @@ async def connect_call_handler():
     return RedirectResponse(url="/")
 
 @app.post(
-    "/playMedia",
+    "/playMediaToAllMultipleSources",
     tags=["Media Operations"],
-    summary="Play media to call participants",
-    description="Plays audio media (e.g., prompts or files) to all or specific call participants.",
+    summary="Play media to all call participants",
+    description="Plays audio media (e.g., prompts or files) to all call participants.",
     responses={
         302: {"description": "Redirect to home page after playing media"}
     }
 )
 async def play_media_handler():
     """Play media to call participants."""
-    await play_media()
+    await play_media(False, True)
+    return RedirectResponse(url="/")
+
+@app.post(
+    "/playMediaToParticipantsMultipleSources",
+    tags=["Media Operations"],
+    summary="Play media to specific call participants",
+    description="Plays audio media (e.g., prompts or files) to specific call participants.",
+    responses={
+        302: {"description": "Redirect to home page after playing media"}
+    }
+)
+async def play_media_handler():
+    """Play media to call participants."""
+    await play_media(True, True)
+    return RedirectResponse(url="/")
+
+@app.post(
+    "/playMediaToAllMultipleSourcesInvalid",
+    tags=["Media Operations"],
+    summary="Play media to all call participants",
+    description="Plays audio media (e.g., prompts or files) to all call participants.",
+    responses={
+        302: {"description": "Redirect to home page after playing media"}
+    }
+)
+async def play_media_handler():
+    """Play media to call participants."""
+    await play_media(False, True, False)
+    return RedirectResponse(url="/")
+
+@app.post(
+    "/playMediaToParticipantsMultipleSourcesInvalid",
+    tags=["Media Operations"],
+    summary="Play media to specific call participants",
+    description="Plays audio media (e.g., prompts or files) to specific call participants.",
+    responses={
+        302: {"description": "Redirect to home page after playing media"}
+    }
+)
+async def play_media_handler():
+    """Play media to call participants."""
+    await play_media(True, True, False)
+    return RedirectResponse(url="/")
+
+@app.post(
+    "/playMediaToAll",
+    tags=["Media Operations"],
+    summary="Play media to all call participants",
+    description="Plays audio media (e.g., prompts or files) to all call participants.",
+    responses={
+        302: {"description": "Redirect to home page after playing media"}
+    }
+)
+async def play_media_handler():
+    """Play media to call participants."""
+    await play_media(False, False)
+    return RedirectResponse(url="/")
+
+@app.post(
+    "/playMediaToParticipants",
+    tags=["Media Operations"],
+    summary="Play media to specific call participants",
+    description="Plays audio media (e.g., prompts or files) to specific call participants.",
+    responses={
+        302: {"description": "Redirect to home page after playing media"}
+    }
+)
+async def play_media_handler():
+    """Play media to call participants."""
+    await play_media(True, False)
     return RedirectResponse(url="/")
 
 @app.post(
@@ -2267,7 +2342,12 @@ async def play_text_source_barge_in_to_all():
         log.error(f"Error playing text source to all with barge-in: {e}")
         raise HTTPException(status_code=500, detail="Failed to play text source to all with barge-in.")
 
+# Add this near the end of your file, before the if __name__ == "__main__" block
+
+@app.api_route("/", methods=["GET", "POST"], response_class=HTMLResponse)
+async def root(request: Request):
+    return "<h2>ACS Call Automation Sample API is running.</h2>"
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.1.0", port=8080)
+    uvicorn.run(app, host="127.0.0.1", port=8080)
