@@ -55,9 +55,6 @@ PARTICIPANT_COMMUNICATION_USER = ""
 
 WEBSOCKET_URI_HOST=""
 
-# Callback events URI to handle callback events
-CALLBACK_URI_HOST = "https://cd12-183-83-216-191.ngrok-free.app"
-CALLBACK_EVENTS_URI = CALLBACK_URI_HOST + "/api/callbacks"
 COGNITIVE_SERVICES_ENDPOINT = "https://cognitive-service-waferwire.cognitiveservices.azure.com/"
 
 # Template and static file paths
@@ -123,23 +120,6 @@ class EventGridEventModel(BaseModel):
     eventType: str
     data: dict
 
-# class TextSource(BaseModel):
-#     text: str
-#     voice_name: str = "en-US-NancyNeural"
-#     source_locale: str = "en-US"
-#     voice_kind: str = "MALE"
-
-# class PlayOptions(BaseModel):
-#     ssml_source: TextSourceModel
-#     operation_context: str
-#     async_option: bool
-
-class TargetType(str):
-    PSTN = "PSTN"
-    ACS = "ACS"
-    TEAMS = "TEAMS"
-    ALL = "ALL"
-
 # Initialize FastAPI app with Swagger UI customization
 app = FastAPI(
     title="ACS Contoso GA5-Python",
@@ -148,6 +128,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
 class CallMedia:
     def stop_media_streaming(self):
         # Logic to stop media streaming (simulated)
@@ -209,7 +190,6 @@ def init_client():
     logger.info("Client initialized with ACS Connection String: %s", acs_connection_string)
     return "client_instance"
 
-
 @app.post(
     "/api/setConfigurations",
     tags=["Set Configuration"],
@@ -253,6 +233,18 @@ async def set_configurations(configuration_request: ConfigurationRequest = Body(
         logger.error(f"Error configuring: {e}")
         raise HTTPException(status_code=500, detail="Failed to configure call automation client.")
 
+@app.post("/api/callbacks",
+    tags=["callbacks"],
+    summary="Handle callback events",
+    description="Handles callback events from Azure Communication Services.",
+    responses={
+        200: {"description": "Callback events processed successfully."},
+        500: {"description": "Failed to process callback events."},
+    },
+)
+async def api_callbacks(cloudEvents: List[dict], request: Request):
+    return JSONResponse(content={"cloudEvents": cloudEvents}, status_code=200)
+
 @app.get(
     "/api/logs",
     tags=["Call Automation Events"],
@@ -291,7 +283,7 @@ async def create_call_acs(acsString):
         acs_target = CommunicationUserIdentifier(acsString)
         call_connection_properties = await call_automation_client.create_call(
             acs_target,
-            CALLBACK_EVENTS_URI,
+            callback_uri_host + "/api/callbacks",
             cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT
         )
 
@@ -300,11 +292,12 @@ async def create_call_acs(acsString):
 async def create_call():
     global call_connection_id
     is_acs_user_target = False
+    logger.info("callback target: %s", callback_uri_host + "/api/callbacks")
     if is_acs_user_target:
         acs_target = CommunicationUserIdentifier(TARGET_COMMUNICATION_USER)
         call_connection_properties = await call_automation_client.create_call(
             acs_target,
-            CALLBACK_EVENTS_URI,
+            callback_uri_host + "/api/callbacks",
             cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT
         )
     else:
@@ -312,7 +305,7 @@ async def create_call():
         source_caller = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
         call_connection_properties = await call_automation_client.create_call(
             pstn_target,
-            CALLBACK_EVENTS_URI,
+            callback_uri_host + "/api/callbacks",
             cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT,
             source_caller_id_number=source_caller
         )
@@ -326,7 +319,7 @@ async def create_group_call():
     targets = [pstn_target, acs_target]
     call_connection_properties = await call_automation_client.create_call(
         targets,
-        CALLBACK_EVENTS_URI,
+        callback_uri_host + "/api/callbacks",
         cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT,
         source_caller_id_number=source_caller
     )
@@ -335,7 +328,7 @@ async def create_group_call():
 async def connect_call():
     await call_automation_client.connect_call(
         group_call_id="593c4e2a-c1c7-4863-9b7e-64b984cbc362",
-        callback_url=CALLBACK_EVENTS_URI,
+        callback_url=callback_uri_host + "/api/callbacks",
         backup_cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT,
         operation_context="connectCallContext"
     )
@@ -347,20 +340,48 @@ def get_choices():
     ]
     return choices
 
-async def play_recognize():
+async def play_recognize(recognizeType: RecognizeInputType):
     text_source = TextSource(text=RECOGNITION_PROMPT, voice_name="en-US-NancyNeural")
-    file_source = FileSource(url=MAIN_MENU_PROMPT_URI)
-    ssml_text = SsmlSource(ssml_text=SSML_RECOGNITION_TEXT)
     target = get_communication_target()
-    await call_automation_client.get_call_connection(call_connection_id).start_recognizing_media(
-        input_type=RecognizeInputType.CHOICES,
-        target_participant=target,
-        choices=get_choices(),
-        play_prompt=text_source,
-        interrupt_prompt=False,
-        initial_silence_timeout=10,
-        operation_context="choiceContext"
-    )
+    if recognizeType == RecognizeInputType.SPEECH:
+        await call_automation_client.get_call_connection(call_connection_id).start_recognizing_media(
+            input_type=RecognizeInputType.SPEECH,
+            target_participant=target,
+            play_prompt=text_source,
+            interrupt_prompt=False,
+            initial_silence_timeout=10,
+            operation_context="speechContext"
+        )
+    elif recognizeType == RecognizeInputType.DTMF:
+        await call_automation_client.get_call_connection(call_connection_id).start_recognizing_media(
+            input_type=RecognizeInputType.DTMF,
+            target_participant=target,
+            play_prompt=text_source,
+            interrupt_prompt=False,
+            dtmf_max_tones_to_collect=4,
+            initial_silence_timeout=10,
+            operation_context="dtmfContext"
+        )
+    elif recognizeType == RecognizeInputType.CHOICES:
+        await call_automation_client.get_call_connection(call_connection_id).start_recognizing_media(
+            input_type=RecognizeInputType.CHOICES,
+            target_participant=target,
+            choices=get_choices(),
+            play_prompt=text_source,
+            interrupt_prompt=False,
+            initial_silence_timeout=10,
+            operation_context="choiceContext"
+        )
+    elif recognizeType == RecognizeInputType.SPEECH_OR_DTMF:
+        await call_automation_client.get_call_connection(call_connection_id).start_recognizing_media(
+            input_type=RecognizeInputType.SPEECH_OR_DTMF,
+            target_participant=target,
+            play_prompt=text_source,
+            interrupt_prompt=False,
+            dtmf_max_tones_to_collect=4,
+            initial_silence_timeout=10,
+            operation_context="speechOrDtmfContext"
+        )
 
 async def play_media(one_source: bool, is_play_to_all: bool, valid_file: bool = True):
     text_source = TextSource(text=PLAY_PROMPT, voice_name="en-US-NancyNeural")
@@ -377,7 +398,7 @@ async def play_media(one_source: bool, is_play_to_all: bool, valid_file: bool = 
             play_source=play_sources,
             operation_context="playToAllContext",
             loop=False,
-            operation_callback_url=CALLBACK_EVENTS_URI,
+            operation_callback_url=callback_uri_host + "/api/callbacks",
             interrupt_call_media_operation=False
         )
     else:
@@ -612,7 +633,7 @@ async def play_with_interrupt_media_flag():
         play_source=play_sources,
         loop=False,
         operation_context="interruptMediaContext",
-        operation_callback_url=CALLBACK_EVENTS_URI,
+        operation_callback_url=callback_uri_host + "/api/callbacks",
         interrupt_call_media_operation=True
     )
 
@@ -1064,7 +1085,7 @@ async def play_media_handler():
     return RedirectResponse(url="/")
 
 @app.post(
-    "/recognizeMedia",
+    "/recognizeMediaChoices",
     tags=["Media Operations"],
     summary="Start media recognition",
     description="Starts media recognition (e.g., DTMF or speech) for a call participant.",
@@ -1074,7 +1095,49 @@ async def play_media_handler():
 )
 async def play_recognize_handler():
     """Start media recognition."""
-    await play_recognize()
+    await play_recognize(RecognizeInputType.CHOICES)
+    return RedirectResponse(url="/")
+
+@app.post(
+    "/recognizeMediaSpeech",
+    tags=["Media Operations"],
+    summary="Start media recognition",
+    description="Starts media recognition (e.g., DTMF or speech) for a call participant.",
+    responses={
+        302: {"description": "Redirect to home page after starting recognition"}
+    }
+)
+async def play_recognize_handler():
+    """Start media recognition."""
+    await play_recognize(RecognizeInputType.SPEECH)
+    return RedirectResponse(url="/")
+
+@app.post(
+    "/recognizeMediaDTMF",
+    tags=["Media Operations"],
+    summary="Start media recognition",
+    description="Starts media recognition (e.g., DTMF or speech) for a call participant.",
+    responses={
+        302: {"description": "Redirect to home page after starting recognition"}
+    }
+)
+async def play_recognize_handler():
+    """Start media recognition."""
+    await play_recognize(RecognizeInputType.DTMF)
+    return RedirectResponse(url="/")
+
+@app.post(
+    "/recognizeMediaSpeechOrDTMF",
+    tags=["Media Operations"],
+    summary="Start media recognition",
+    description="Starts media recognition (e.g., DTMF or speech) for a call participant.",
+    responses={
+        302: {"description": "Redirect to home page after starting recognition"}
+    }
+)
+async def play_recognize_handler():
+    """Start media recognition."""
+    await play_recognize(RecognizeInputType.SPEECH_OR_DTMF)
     return RedirectResponse(url="/")
 
 @app.post(
@@ -1431,7 +1494,7 @@ async def start_recording_with_video_mp4_mixed_logic(
                 "recording_content_type": RecordingContent.AUDIO_VIDEO,
                 "recording_channel_type": RecordingChannel.MIXED,
                 "recording_format_type": RecordingFormat.MP4,
-                "recording_state_callback_url": CALLBACK_EVENTS_URI,
+                "recording_state_callback_url": callback_uri_host + "/api/callbacks",
                 "recording_storage": recording_storage,
                 "pause_on_start": is_pause_on_start
             }
@@ -1441,7 +1504,7 @@ async def start_recording_with_video_mp4_mixed_logic(
                 "recording_content_type": RecordingContent.AUDIO_VIDEO,
                 "recording_channel_type": RecordingChannel.MIXED,
                 "recording_format_type": RecordingFormat.MP4,
-                "recording_state_callback_url": CALLBACK_EVENTS_URI,
+                "recording_state_callback_url": callback_uri_host + "/api/callbacks",
                 "recording_storage": recording_storage,
                 "pause_on_start": is_pause_on_start
             }
@@ -1501,7 +1564,7 @@ async def start_recording_with_audio_wav_unmixed_logic(
                 "recording_content_type": RecordingContent.AUDIO,
                 "recording_channel_type": RecordingChannel.UNMIXED,
                 "recording_format_type": RecordingFormat.WAV,
-                "recording_state_callback_url": CALLBACK_EVENTS_URI,
+                "recording_state_callback_url": callback_uri_host + "/api/callbacks",
                 "recording_storage": recording_storage,
                 "pause_on_start": is_pause_on_start
             }
@@ -1511,7 +1574,7 @@ async def start_recording_with_audio_wav_unmixed_logic(
                 "recording_content_type": RecordingContent.AUDIO,
                 "recording_channel_type": RecordingChannel.UNMIXED,
                 "recording_format_type": RecordingFormat.WAV,
-                "recording_state_callback_url": CALLBACK_EVENTS_URI,
+                "recording_state_callback_url": callback_uri_host + "/api/callbacks",
                 "recording_storage": recording_storage,
                 "pause_on_start": is_pause_on_start
             }
@@ -1570,7 +1633,7 @@ async def start_recording_with_audio_wav_mixed_logic(
                 "recording_content_type": RecordingContent.AUDIO,
                 "recording_channel_type": RecordingChannel.MIXED,
                 "recording_format_type": RecordingFormat.WAV,
-                "recording_state_callback_url": CALLBACK_EVENTS_URI,
+                "recording_state_callback_url": callback_uri_host + "/api/callbacks",
                 "recording_storage": recording_storage,
                 "pause_on_start": is_pause_on_start
             }
@@ -1580,7 +1643,7 @@ async def start_recording_with_audio_wav_mixed_logic(
                 "recording_content_type": RecordingContent.AUDIO,
                 "recording_channel_type": RecordingChannel.MIXED,
                 "recording_format_type": RecordingFormat.WAV,
-                "recording_state_callback_url": CALLBACK_EVENTS_URI,
+                "recording_state_callback_url": callback_uri_host + "/api/callbacks",
                 "recording_storage": recording_storage,
                 "pause_on_start": is_pause_on_start
             }
@@ -1683,7 +1746,7 @@ async def start_recording_with_audio_mp3_mixed_logic(
                 "recording_content_type": RecordingContent.AUDIO,
                 "recording_channel_type": RecordingChannel.MIXED,
                 "recording_format_type": RecordingFormat.MP3,
-                "recording_state_callback_url": CALLBACK_EVENTS_URI,
+                "recording_state_callback_url": callback_uri_host + "/api/callbacks",
                 "recording_storage": recording_storage,
                 "pause_on_start": is_pause_on_start
             }
@@ -1693,7 +1756,7 @@ async def start_recording_with_audio_mp3_mixed_logic(
                 "recording_content_type": RecordingContent.AUDIO,
                 "recording_channel_type": RecordingChannel.MIXED,
                 "recording_format_type": RecordingFormat.MP3,
-                "recording_state_callback_url": CALLBACK_EVENTS_URI,
+                "recording_state_callback_url": callback_uri_host + "/api/callbacks",
                 "recording_storage": recording_storage,
                 "pause_on_start": is_pause_on_start
             }
@@ -1820,7 +1883,7 @@ async def start_recording_logic(
                 "recording_content_type": RecordingContent.AUDIO,
                 "recording_channel_type": RecordingChannel.UNMIXED,
                 "recording_format_type": RecordingFormat.WAV,
-                "recording_state_callback_url": CALLBACK_EVENTS_URI,
+                "recording_state_callback_url": callback_uri_host + "/api/callbacks",
                 "recording_storage": recording_storage,
                 "pause_on_start": is_pause_on_start
             }
@@ -1830,7 +1893,7 @@ async def start_recording_logic(
                 "recording_content_type": RecordingContent.AUDIO,
                 "recording_channel_type": RecordingChannel.UNMIXED,
                 "recording_format_type": RecordingFormat.WAV,
-                "recording_state_callback_url": CALLBACK_EVENTS_URI,
+                "recording_state_callback_url": callback_uri_host + "/api/callbacks",
                 "recording_storage": recording_storage,
                 "pause_on_start": is_pause_on_start
             }
