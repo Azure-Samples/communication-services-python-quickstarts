@@ -1,8 +1,7 @@
-import hmac
-import hashlib
 import base64
-import re
-from fastapi import Header
+import logging
+import time
+import json
 from fastapi import Body, FastAPI, HTTPException, Query, Request, Response, requests
 from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -33,10 +32,6 @@ from azure.communication.callautomation import (
 from azure.communication.callautomation.aio import CallAutomationClient
 from azure.core.messaging import CloudEvent
 from logging import INFO, log
-import logging
-import time
-import json
-import uuid
 
 # Configure logging
 logging.basicConfig(level=INFO)
@@ -50,14 +45,11 @@ ACS_PHONE_NUMBER = "+18332638155"
 
 # Target phone number you want to receive the call
 TARGET_PHONE_NUMBER = "+919866012455"
-
 PARTICIPANT_PHONE_NUMBER = "+919866012455"
-
 TARGET_COMMUNICATION_USER = ""
-
 PARTICIPANT_COMMUNICATION_USER = ""
 
-WEBSOCKET_URI_HOST=""
+WEBSOCKET_URI_HOST = ""
 
 # Template and static file paths
 TEMPLATE_FILES_PATH = "template"
@@ -122,14 +114,27 @@ class EventGridEventModel(BaseModel):
     eventType: str
     data: dict
 
-# Initialize FastAPI app with Swagger UI customization
-app = FastAPI(
-    title="ACS Contoso GA5-Python",
-    description="API for managing calls, media, and recordings using Azure Communication Services.",
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
-)
+class CallMedia:
+    def stop_media_streaming(self):
+        # Logic to stop media streaming (simulated)
+        pass
+
+class CallConnection:
+    def __init__(self, call_connection_id: str):
+        self.call_connection_id = call_connection_id
+        self.call_media = CallMedia()
+
+    def get_call_media(self):
+        return self.call_media
+
+class Configuration:
+    callback_uri_host: str = ""
+    websocket_uri_host: str = ""
+
+# Request model
+class ConfigurationRequest(BaseModel):
+    callback_uri_host: str = Field(..., description="Callback URI host")
+    websocket_uri_host: str = Field(..., description="Websocket URI host")
 
 class CallMedia:
     def stop_media_streaming(self):
@@ -144,6 +149,15 @@ class CallConnection:
     def get_call_media(self):
         return self.call_media
     
+# Initialize FastAPI app with Swagger UI customization
+app = FastAPI(
+    title="ACS Contoso GA5-Python",
+    description="API for managing calls, media, and recordings using Azure Communication Services.",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
 # Mount static files for audio
 app.mount(AUDIO_FILES_PATH, StaticFiles(directory=AUDIO_FILES_PATH.strip("/")), name="audio")
 
@@ -160,28 +174,41 @@ content_location = None
 metadata_location = None
 delete_location = None
 
-class Configuration:
-    callback_uri_host: str = ""
-    websocket_uri_host: str = ""
-
 # Singleton-style configuration
 configuration = Configuration()
-
-# Request model
-class ConfigurationRequest(BaseModel):
-    callback_uri_host: str = Field(..., description="Callback URI host")
-    websocket_uri_host: str = Field(..., description="Websocket URI host")
 
 # Global variables (simulate static vars from Java)
 callback_uri_host = ""
 websocket_uri_host = ""
 client = None
 
-
 def init_client():
     # Dummy client initializer
     logger.info("Client initialized with ACS Connection String: %s", ACS_CONNECTION_STRING)
     return "client_instance"
+
+def get_choices():
+    choices = [
+        RecognitionChoice(label=CONFIRM_CHOICE_LABEL, phrases=["Confirm", "First", "One"], tone=DtmfTone.ONE),
+        RecognitionChoice(label=CANCEL_CHOICE_LABEL, phrases=["Cancel", "Second", "Two"], tone=DtmfTone.TWO)
+    ]
+    return choices
+
+def get_call_media(call_connection_id: str):
+    if not call_connection_id:
+        raise HTTPException(status_code=400, detail="Call connection id is empty")
+    # In a real scenario, fetch the call connection from the client or service
+    return CallConnection(call_connection_id).get_call_media()
+
+def get_communication_target():
+    is_pstn_participant = False
+    is_acs_participant = False
+    is_acs_user = False
+    pstn_identifier = PhoneNumberIdentifier(PARTICIPANT_PHONE_NUMBER) if is_pstn_participant else PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
+    acs_identifier = CommunicationUserIdentifier(PARTICIPANT_COMMUNICATION_USER) if is_acs_participant else CommunicationUserIdentifier(TARGET_COMMUNICATION_USER)
+    target = acs_identifier if is_acs_user else pstn_identifier
+    logger.info("###############TARGET############---> %s", target.raw_id)
+    return target
 
 @app.post(
     "/api/setConfigurations",
@@ -231,6 +258,7 @@ async def callback_events_handler(events: List[dict], request: Request):
     Handle callback events from Azure Communication Services.
     Processes events like CallConnected, RecognizeCompleted, PlayFailed, etc.
     """
+    global call_connection_id
     try:
         logger.info("Received events: %s", json.dumps(events, indent=2))
         cloud_events = []
@@ -242,8 +270,10 @@ async def callback_events_handler(events: List[dict], request: Request):
                 "type": cloud_event.type,
                 "correlationId": cloud_event.data["correlationId"],
             })
-            # call_connection_id = cloud_event.data['callConnectionId']
-            # logger.info("%s event received for call correlation id: %s", cloud_event.type, cloud_event.data['callConnectionId'])
+            type = cloud_event.type
+            call_connection_id = cloud_event.data.get('callConnectionId', None)
+            correlation_id = cloud_event.data.get('correlationId', None)
+            logger.info("%s event received for call connection id %s with correlation id: %s", type, call_connection_id, correlation_id)
             # #call_connection_client = call_automation_client.get_call_connection(call_connection_id)
 
             # if cloud_event.type == "Microsoft.Communication.CallConnected":
@@ -434,394 +464,6 @@ async def get_azure_log_stream(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch logs: {str(e)}")
 
-async def create_call_acs(acsString):
-    global call_connection_id
-    acs_target = CommunicationUserIdentifier(acsString)
-    logger.info("callback target: %s", callback_uri_host + "/api/callbacks")
-    call_connection_properties = await call_automation_client.create_call(
-        acs_target,
-        callback_uri_host + "/api/callbacks",
-        cognitive_services_endpoint=COGNITIVE_SERVICE_ENDPOINT
-    )
-    call_connection_id = call_connection_properties.call_connection_id
-    logger.info("Created call with Correlation id: - %s", call_connection_properties.correlation_id)
-
-# Helper functions (unchanged from original code)
-async def create_call():
-    global call_connection_id
-    pstn_target = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
-    source_caller = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
-    logger.info("callback target: %s", callback_uri_host + "/api/callbacks")
-    call_connection_properties = await call_automation_client.create_call(
-        pstn_target,
-        callback_uri_host + "/api/callbacks",
-        cognitive_services_endpoint=COGNITIVE_SERVICE_ENDPOINT,
-        source_caller_id_number=source_caller
-    )
-    call_connection_id = call_connection_properties.call_connection_id
-    logger.info("Created call with Correlation id: - %s", call_connection_properties.correlation_id)
-
-async def create_group_call():
-    acs_target = CommunicationUserIdentifier(TARGET_COMMUNICATION_USER)
-    pstn_target = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
-    source_caller = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
-    targets = [pstn_target, acs_target]
-    call_connection_properties = await call_automation_client.create_call(
-        targets,
-        callback_uri_host + "/api/callbacks",
-        cognitive_services_endpoint=COGNITIVE_SERVICE_ENDPOINT,
-        source_caller_id_number=source_caller
-    )
-    logger.info("Created group call with connection id: %s", call_connection_properties.call_connection_id)
-
-async def connect_call():
-    await call_automation_client.connect_call(
-        group_call_id="593c4e2a-c1c7-4863-9b7e-64b984cbc362",
-        callback_url=callback_uri_host + "/api/callbacks",
-        backup_cognitive_services_endpoint=COGNITIVE_SERVICE_ENDPOINT,
-        operation_context="connectCallContext"
-    )
-
-def get_choices():
-    choices = [
-        RecognitionChoice(label=CONFIRM_CHOICE_LABEL, phrases=["Confirm", "First", "One"], tone=DtmfTone.ONE),
-        RecognitionChoice(label=CANCEL_CHOICE_LABEL, phrases=["Cancel", "Second", "Two"], tone=DtmfTone.TWO)
-    ]
-    return choices
-
-async def play_recognize(recognizeType: RecognizeInputType):
-    text_source = TextSource(text=RECOGNITION_PROMPT, voice_name="en-US-NancyNeural")
-    target = get_communication_target()
-    if recognizeType == RecognizeInputType.SPEECH:
-        await call_automation_client.get_call_connection(call_connection_id).start_recognizing_media(
-            input_type=RecognizeInputType.SPEECH,
-            target_participant=target,
-            play_prompt=text_source,
-            interrupt_prompt=False,
-            initial_silence_timeout=10,
-            operation_context="speechContext"
-        )
-    elif recognizeType == RecognizeInputType.DTMF:
-        await call_automation_client.get_call_connection(call_connection_id).start_recognizing_media(
-            input_type=RecognizeInputType.DTMF,
-            target_participant=target,
-            play_prompt=text_source,
-            interrupt_prompt=False,
-            dtmf_max_tones_to_collect=4,
-            initial_silence_timeout=10,
-            operation_context="dtmfContext"
-        )
-    elif recognizeType == RecognizeInputType.CHOICES:
-        await call_automation_client.get_call_connection(call_connection_id).start_recognizing_media(
-            input_type=RecognizeInputType.CHOICES,
-            target_participant=target,
-            choices=get_choices(),
-            play_prompt=text_source,
-            interrupt_prompt=False,
-            initial_silence_timeout=10,
-            operation_context="choiceContext"
-        )
-    elif recognizeType == RecognizeInputType.SPEECH_OR_DTMF:
-        await call_automation_client.get_call_connection(call_connection_id).start_recognizing_media(
-            input_type=RecognizeInputType.SPEECH_OR_DTMF,
-            target_participant=target,
-            play_prompt=text_source,
-            interrupt_prompt=False,
-            dtmf_max_tones_to_collect=4,
-            initial_silence_timeout=10,
-            operation_context="speechOrDtmfContext"
-        )
-
-async def play_media(one_source: bool, is_play_to_all: bool, valid_file: bool = True):
-    text_source = TextSource(text=PLAY_PROMPT, voice_name="en-US-NancyNeural")
-    file_source = FileSource(url=MAIN_MENU_PROMPT_URI)
-    ssml_text = SsmlSource(ssml_text=SSML_PLAY_TEXT)
-    target = get_communication_target()
-    if not valid_file:
-        file_source = FileSource(url="https://invalid-url.com/audio.mp3")
-    play_sources = [text_source, ssml_text, file_source]
-    if one_source:
-        play_sources = [text_source]
-    if is_play_to_all:
-        await call_automation_client.get_call_connection(call_connection_id).play_media_to_all(
-            play_source=play_sources,
-            operation_context="playToAllContext",
-            loop=False,
-            operation_callback_url=callback_uri_host + "/api/callbacks",
-            interrupt_call_media_operation=False
-        )
-    else:
-        await call_automation_client.get_call_connection(call_connection_id).play_media(
-            play_source=play_sources
-        )
-
-async def start_continuous_dtmf():
-    target = get_communication_target()
-    await call_automation_client.get_call_connection(call_connection_id).start_continuous_dtmf_recognition(target_participant=target)
-    logger.info("Continuous Dtmf recognition started. press 1 on dialpad.")
-
-async def stop_continuous_dtmf():
-    target = get_communication_target()
-    await call_automation_client.get_call_connection(call_connection_id).stop_continuous_dtmf_recognition(target_participant=target)
-    logger.info("Continuous Dtmf recognition stopped.")
-
-async def start_send_dtmf_tones():
-    target = get_communication_target()
-    tones = [DtmfTone.ONE, DtmfTone.TWO]
-    await call_automation_client.get_call_connection(call_connection_id).send_dtmf_tones(tones=tones, target_participant=target)
-    logger.info("Send dtmf tone started.")
-
-
-async def pause_recording():
-    if recording_id:
-        if (await get_recording_state()) == "active":
-            await call_automation_client.pause_recording(recording_id)
-            logger.info("Recording is paused.")
-        else:
-            logger.info("Recording is already inactive.")
-    else:
-        logger.info("Recording id is empty.")
-
-async def resume_recording():
-    if recording_id:
-        if (await get_recording_state()) == "inactive":
-            await call_automation_client.resume_recording(recording_id)
-            logger.info("Recording is resumed.")
-        else:
-            logger.info("Recording is already active.")
-    else:
-        logger.info("Recording id is empty.")
-
-async def stop_recording():
-    if recording_id:
-        if (await get_recording_state()) == "active":
-            await call_automation_client.resume_recording(recording_id)
-            logger.info("Recording is stopped.")
-        else:
-            logger.info("Recording is already inactive.")
-    else:
-        logger.info("Recording id is empty.")
-
-async def get_recording_state():
-    recording_state_result = await call_automation_client.get_recording_properties(recording_id)
-    logger.info("Recording State --> %s", recording_state_result.recording_state)
-    return recording_state_result.recording_state
-
-async def resume_recording_logic(recording_id: str, call_connection_id: str):
-    try:
-        if not recording_id:
-            print(f"console.log: ⚠️ Recording id is empty.")
-            raise HTTPException(
-                status_code=400,
-                detail="Recording id is empty."
-            )
-
-        if not call_connection_id:
-            print(f"console.log: ⚠️ Call connection id is empty.")
-            raise HTTPException(
-                status_code=400,
-                detail="Call connection id is empty."
-            )
-
-        # Fetch call properties to get correlationId
-        call_connection_properties = await call_automation_client.get_call_connection(
-            call_connection_id
-        ).get_call_properties()
-        correlation_id = call_connection_properties.correlation_id
-
-        recording_state = await get_recording_state(recording_id)  # Update get_recording_state to accept recording_id
-        if recording_state == "inactive":
-            print(f"console.log: ▶️ Resuming recording with RecordingId: {recording_id}")
-            await call_automation_client.resume_recording(recording_id)
-            print(f"console.log: ✅ Recording is resumed.")
-            status_message = "Recording is resumed."
-        else:
-            print(f"console.log: ℹ️ Recording is already active. RecordingId: {recording_id}")
-            status_message = "Recording is already active."
-
-        return CloudEventData(
-            callConnectionId=call_connection_id,
-            correlationId=correlation_id,
-            resultInformation={"status": status_message}
-        )
-
-    except Exception as ex:
-        error_message = f"Error resuming recording: {str(ex)}. RecordingId: {recording_id}, CallConnectionId: {call_connection_id}"
-        print(f"console.log: ❌ {error_message}")
-        raise HTTPException(
-            status_code=500,
-            detail=error_message
-        )
-
-
-async def stop_recording_logic(recording_id: str, call_connection_id: str):
-    try:
-        if not recording_id:
-            print(f"console.log: ⚠️ Recording id is empty.")
-            raise HTTPException(
-                status_code=400,
-                detail="Recording id is empty."
-            )
-
-        if not call_connection_id:
-            print(f"console.log: ⚠️ Call connection id is empty.")
-            raise HTTPException(
-                status_code=400,
-                detail="Call connection id is empty."
-            )
-
-        # Fetch call properties to get correlationId
-        call_connection_properties = await call_automation_client.get_call_connection(
-            call_connection_id
-        ).get_call_properties()
-        correlation_id = call_connection_properties.correlation_id
-
-        recording_state = await get_recording_state(recording_id)  # Update get_recording_state to accept recording_id
-        if recording_state == "active":
-            print(f"console.log: 🛑 Stopping recording with RecordingId: {recording_id}")
-            await call_automation_client.stop_recording(recording_id)
-            print(f"console.log: ✅ Recording is stopped.")
-            status_message = "Recording is stopped."
-        else:
-            print(f"console.log: ℹ️ Recording is already inactive. RecordingId: {recording_id}")
-            status_message = "Recording is already inactive."
-
-        return CloudEventData(
-            callConnectionId=call_connection_id,
-            correlationId=correlation_id,
-            resultInformation={"status": status_message}
-        )
-
-    except Exception as ex:
-        error_message = f"Error stopping recording: {str(ex)}. RecordingId: {recording_id}, CallConnectionId: {call_connection_id}"
-        print(f"console.log: ❌ {error_message}")
-        raise HTTPException(
-            status_code=500,
-            detail=error_message
-        )
-
-@app.post(
-    "/stopRecording",
-    tags=["Recording"],
-    summary="Stop call recording",
-    description="Stops an active call recording.",
-    responses={
-        302: {"description": "Redirect to home page after stopping recording"}
-    }
-)
-async def stop_recording_handler(
-    recordingId: str = Query(..., description="Recording ID to stop"),
-    callConnectionId: str = Query(..., description="Call connection ID")
-):
-    """Stop call recording."""
-    result = await stop_recording_logic(recording_id=recordingId, call_connection_id=callConnectionId)
-    return RedirectResponse(url="/")
-
-async def add_participant_pstn():
-    """Add a PSTN phone number as a participant."""
-    await call_automation_client.get_call_connection(call_connection_id).add_participant(
-        target_participant=PhoneNumberIdentifier(PARTICIPANT_PHONE_NUMBER),
-        operation_context="addPstnUserContext",
-        source_caller_id_number=PhoneNumberIdentifier(ACS_PHONE_NUMBER),
-        invitation_timeout=30
-    )
-
-async def remove_participant():
-    target = get_communication_target()
-    await call_automation_client.get_call_connection(call_connection_id).remove_participant(
-        target_participant=target,
-        operation_context="removeParticipantContext"
-    )
-
-async def cancel_all_media_oparation():
-    await call_automation_client.get_call_connection(call_connection_id).cancel_all_media_operations()
-
-async def transfer_call_to_participant():
-    is_acs_participant = False
-    transfer_target = CommunicationUserIdentifier(PARTICIPANT_COMMUNICATION_USER) if is_acs_participant else PhoneNumberIdentifier(PARTICIPANT_PHONE_NUMBER)
-    logger.info("Transfer target:- %s", transfer_target.raw_id)
-    await call_automation_client.get_call_connection(call_connection_id).transfer_call_to_participant(
-        target_participant=transfer_target,
-        operation_context="transferCallContext",
-        transferee=PhoneNumberIdentifier(TARGET_PHONE_NUMBER),
-        source_caller_id_number=PhoneNumberIdentifier(ACS_PHONE_NUMBER)
-    )
-    logger.info("Transfer call initiated.")
-
-async def hold_participant():
-    text_source = TextSource(text=HOLD_PROMPT, voice_name="en-US-NancyNeural")
-    target = get_communication_target()
-    await call_automation_client.get_call_connection(call_connection_id).hold(
-        target_participant=target,
-        play_source=text_source
-    )
-
-async def unhold_participant():
-    target = get_communication_target()
-    await call_automation_client.get_call_connection(call_connection_id).unhold(
-        target_participant=target
-    )
-
-async def play_with_interrupt_media_flag():
-    text_source = TextSource(text=INTERRUPT_PROMPT, voice_name="en-US-NancyNeural")
-    file_source = FileSource(url=MAIN_MENU_PROMPT_URI)
-    ssml_text = SsmlSource(ssml_text=SSML_INTERRUPT_TEXT)
-    play_sources = [text_source, file_source, ssml_text]
-    call_connection = call_automation_client.get_call_connection(call_connection_id)
-    await call_connection.play_media_to_all(
-        play_source=play_sources,
-        loop=False,
-        operation_context="interruptMediaContext",
-        operation_callback_url=callback_uri_host + "/api/callbacks",
-        interrupt_call_media_operation=True
-    )
-
-async def mute_participant():
-    target = get_communication_target()
-    await call_automation_client.get_call_connection(call_connection_id).mute_participant(
-        target_participant=target,
-        operation_context="muteParticipantContext"
-    )
-    time.sleep(5)
-    result = await get_participant(target)
-    logger.info("Participant:--> %s", result.identifier.raw_id)
-    logger.info("Is participant muted:--> %s", result.is_muted)
-
-async def get_participant(target: CommunicationIdentifier):
-    participant = await call_automation_client.get_call_connection(call_connection_id).get_participant(target)
-    return participant
-
-async def get_participant_list():
-    participants = call_automation_client.get_call_connection(call_connection_id).list_participants()
-    logger.info("Listing participants in call")
-    async for page in participants.by_page():
-        async for participant in page:
-            logger.info("-------------------------------------------------------------")
-            logger.info("Participant: %s", participant.identifier.raw_id)
-            logger.info("Is participant muted: %s", participant.is_muted)
-            logger.info("Is participant on hold: %s", participant.is_on_hold)
-            logger.info("-------------------------------------------------------------")
-
-async def hangup_call():
-    await call_automation_client.get_call_connection(call_connection_id).hang_up(False)
-
-async def terminate_call():
-    await call_automation_client.get_call_connection(call_connection_id).hang_up(True)
-
-def get_communication_target():
-    is_pstn_participant = False
-    is_acs_participant = False
-    is_acs_user = False
-    pstn_identifier = PhoneNumberIdentifier(PARTICIPANT_PHONE_NUMBER) if is_pstn_participant else PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
-    acs_identifier = CommunicationUserIdentifier(PARTICIPANT_COMMUNICATION_USER) if is_acs_participant else CommunicationUserIdentifier(TARGET_COMMUNICATION_USER)
-    target = acs_identifier if is_acs_user else pstn_identifier
-    logger.info("###############TARGET############---> %s", target.raw_id)
-    return target
-
-async def get_call_properties():
-    call_properties = await call_automation_client.get_call_connection(call_connection_id).get_call_properties()
-    return call_properties
-
 @app.post(
     "/download",
     tags=["Recording"],
@@ -906,6 +548,79 @@ async def download_metadata():
         return Response(status_code=500, content=str(ex))
 
 @app.post(
+    "/stopRecording",
+    tags=["Recording"],
+    summary="Stop call recording",
+    description="Stops an active call recording.",
+    responses={
+        302: {"description": "Redirect to home page after stopping recording"}
+    }
+)
+async def stop_recording_handler(
+    recordingId: str = Query(..., description="Recording ID to stop"),
+    callConnectionId: str = Query(..., description="Call connection ID")
+):
+    """Stop call recording."""
+    result = await stop_recording_logic(recording_id=recordingId, call_connection_id=callConnectionId)
+    return RedirectResponse(url="/")
+
+async def stop_recording_logic(recording_id: str, call_connection_id: str):
+    try:
+        if not recording_id:
+            print(f"console.log: ⚠️ Recording id is empty.")
+            raise HTTPException(
+                status_code=400,
+                detail="Recording id is empty."
+            )
+
+        if not call_connection_id:
+            print(f"console.log: ⚠️ Call connection id is empty.")
+            raise HTTPException(
+                status_code=400,
+                detail="Call connection id is empty."
+            )
+
+        # Fetch call properties to get correlationId
+        call_connection_properties = await call_automation_client.get_call_connection(
+            call_connection_id
+        ).get_call_properties()
+        correlation_id = call_connection_properties.correlation_id
+
+        recording_state = await get_recording_state(recording_id)  # Update get_recording_state to accept recording_id
+        if recording_state == "active":
+            print(f"console.log: 🛑 Stopping recording with RecordingId: {recording_id}")
+            await call_automation_client.stop_recording(recording_id)
+            print(f"console.log: ✅ Recording is stopped.")
+            status_message = "Recording is stopped."
+        else:
+            print(f"console.log: ℹ️ Recording is already inactive. RecordingId: {recording_id}")
+            status_message = "Recording is already inactive."
+
+        return CloudEventData(
+            callConnectionId=call_connection_id,
+            correlationId=correlation_id,
+            resultInformation={"status": status_message}
+        )
+
+    except Exception as ex:
+        error_message = f"Error stopping recording: {str(ex)}. RecordingId: {recording_id}, CallConnectionId: {call_connection_id}"
+        print(f"console.log: ❌ {error_message}")
+        raise HTTPException(
+            status_code=500,
+            detail=error_message
+        )
+
+async def stop_recording():
+    if recording_id:
+        if (await get_recording_state()) == "active":
+            await call_automation_client.resume_recording(recording_id)
+            logger.info("Recording is stopped.")
+        else:
+            logger.info("Recording is already inactive.")
+    else:
+        logger.info("Recording id is empty.")
+
+@app.post(
     "/outboundCall",
     tags=["Outbound Call API's"],
     summary="Initiate an outbound call",
@@ -919,6 +634,19 @@ async def outbound_call_handler():
     await create_call()
     return RedirectResponse(url="/")
 
+async def create_call():
+    global call_connection_id
+    pstn_target = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
+    source_caller = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
+    logger.info("callback target: %s", callback_uri_host + "/api/callbacks")
+    call_connection_properties = await call_automation_client.create_call(
+        pstn_target,
+        callback_uri_host + "/api/callbacks",
+        cognitive_services_endpoint=COGNITIVE_SERVICE_ENDPOINT,
+        source_caller_id_number=source_caller
+    )
+    call_connection_id = call_connection_properties.call_connection_id
+    logger.info("Created call with Correlation id: - %s", call_connection_properties.correlation_id)
 
 @app.post(
     "/acsoutboundCall",
@@ -934,6 +662,18 @@ async def outbound_acs_call_handler(acsString):
     await create_call_acs(acsString)
     return RedirectResponse(url="/")
 
+async def create_call_acs(acsString):
+    global call_connection_id
+    acs_target = CommunicationUserIdentifier(acsString)
+    logger.info("callback target: %s", callback_uri_host + "/api/callbacks")
+    call_connection_properties = await call_automation_client.create_call(
+        acs_target,
+        callback_uri_host + "/api/callbacks",
+        cognitive_services_endpoint=COGNITIVE_SERVICE_ENDPOINT
+    )
+    call_connection_id = call_connection_properties.call_connection_id
+    logger.info("Created call with Correlation id: - %s", call_connection_properties.correlation_id)
+
 @app.post(
     "/groupCall",
     tags=["Call Management"],
@@ -948,6 +688,19 @@ async def group_call_handler():
     await create_group_call()
     return RedirectResponse(url="/")
 
+async def create_group_call():
+    acs_target = CommunicationUserIdentifier(TARGET_COMMUNICATION_USER)
+    pstn_target = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
+    source_caller = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
+    targets = [pstn_target, acs_target]
+    call_connection_properties = await call_automation_client.create_call(
+        targets,
+        callback_uri_host + "/api/callbacks",
+        cognitive_services_endpoint=COGNITIVE_SERVICE_ENDPOINT,
+        source_caller_id_number=source_caller
+    )
+    logger.info("Created group call with connection id: %s", call_connection_properties.call_connection_id)
+
 @app.post(
     "/connectCall",
     tags=["Call Management"],
@@ -961,6 +714,37 @@ async def connect_call_handler():
     """Connect to an existing call."""
     await connect_call()
     return RedirectResponse(url="/")
+
+async def connect_call():
+    await call_automation_client.connect_call(
+        group_call_id="593c4e2a-c1c7-4863-9b7e-64b984cbc362",
+        callback_url=callback_uri_host + "/api/callbacks",
+        backup_cognitive_services_endpoint=COGNITIVE_SERVICE_ENDPOINT,
+        operation_context="connectCallContext"
+    )
+
+async def play_media(one_source: bool, is_play_to_all: bool, valid_file: bool = True):
+    text_source = TextSource(text=PLAY_PROMPT, voice_name="en-US-NancyNeural")
+    file_source = FileSource(url=MAIN_MENU_PROMPT_URI)
+    ssml_text = SsmlSource(ssml_text=SSML_PLAY_TEXT)
+    target = get_communication_target()
+    if not valid_file:
+        file_source = FileSource(url="https://invalid-url.com/audio.mp3")
+    play_sources = [text_source, ssml_text, file_source]
+    if one_source:
+        play_sources = [text_source]
+    if is_play_to_all:
+        await call_automation_client.get_call_connection(call_connection_id).play_media_to_all(
+            play_source=play_sources,
+            operation_context="playToAllContext",
+            loop=False,
+            operation_callback_url=callback_uri_host + "/api/callbacks",
+            interrupt_call_media_operation=False
+        )
+    else:
+        await call_automation_client.get_call_connection(call_connection_id).play_media(
+            play_source=play_sources
+        )
 
 @app.post(
     "/playMediaToAllMultipleSources",
@@ -1045,6 +829,49 @@ async def play_media_handler():
     """Play media to call participants."""
     await play_media(True, False)
     return RedirectResponse(url="/")
+
+async def play_recognize(recognizeType: RecognizeInputType):
+    text_source = TextSource(text=RECOGNITION_PROMPT, voice_name="en-US-NancyNeural")
+    target = get_communication_target()
+    if recognizeType == RecognizeInputType.SPEECH:
+        await call_automation_client.get_call_connection(call_connection_id).start_recognizing_media(
+            input_type=RecognizeInputType.SPEECH,
+            target_participant=target,
+            play_prompt=text_source,
+            interrupt_prompt=False,
+            initial_silence_timeout=10,
+            operation_context="speechContext"
+        )
+    elif recognizeType == RecognizeInputType.DTMF:
+        await call_automation_client.get_call_connection(call_connection_id).start_recognizing_media(
+            input_type=RecognizeInputType.DTMF,
+            target_participant=target,
+            play_prompt=text_source,
+            interrupt_prompt=False,
+            dtmf_max_tones_to_collect=4,
+            initial_silence_timeout=10,
+            operation_context="dtmfContext"
+        )
+    elif recognizeType == RecognizeInputType.CHOICES:
+        await call_automation_client.get_call_connection(call_connection_id).start_recognizing_media(
+            input_type=RecognizeInputType.CHOICES,
+            target_participant=target,
+            choices=get_choices(),
+            play_prompt=text_source,
+            interrupt_prompt=False,
+            initial_silence_timeout=10,
+            operation_context="choiceContext"
+        )
+    elif recognizeType == RecognizeInputType.SPEECH_OR_DTMF:
+        await call_automation_client.get_call_connection(call_connection_id).start_recognizing_media(
+            input_type=RecognizeInputType.SPEECH_OR_DTMF,
+            target_participant=target,
+            play_prompt=text_source,
+            interrupt_prompt=False,
+            dtmf_max_tones_to_collect=4,
+            initial_silence_timeout=10,
+            operation_context="speechOrDtmfContext"
+        )
 
 @app.post(
     "/recognizeMediaChoices",
@@ -1159,7 +986,6 @@ async def send_dtmf_tones_handler(
     await start_send_dtmf_tones(callConnectionId, acsTarget)
     return RedirectResponse(url="/")
 
-
 async def start_send_dtmf_tones(call_connection_id: str, acs_target_id: str):
     target = CommunicationUserIdentifier(acs_target_id)
 
@@ -1175,7 +1001,21 @@ async def start_send_dtmf_tones(call_connection_id: str, acs_target_id: str):
 
     logger.info("DTMF tones sent successfully.")
 
+async def start_continuous_dtmf():
+    target = get_communication_target()
+    await call_automation_client.get_call_connection(call_connection_id).start_continuous_dtmf_recognition(target_participant=target)
+    logger.info("Continuous Dtmf recognition started. press 1 on dialpad.")
 
+async def stop_continuous_dtmf():
+    target = get_communication_target()
+    await call_automation_client.get_call_connection(call_connection_id).stop_continuous_dtmf_recognition(target_participant=target)
+    logger.info("Continuous Dtmf recognition stopped.")
+
+async def start_send_dtmf_tones():
+    target = get_communication_target()
+    tones = [DtmfTone.ONE, DtmfTone.TWO]
+    await call_automation_client.get_call_connection(call_connection_id).send_dtmf_tones(tones=tones, target_participant=target)
+    logger.info("Send dtmf tone started.")
 
 @app.post(
     "/addParticipantpstn",
@@ -1191,8 +1031,17 @@ async def add_participant_handler():
     await add_participant_pstn()
     return RedirectResponse(url="/")
 
+async def add_participant_pstn():
+    """Add a PSTN phone number as a participant."""
+    await call_automation_client.get_call_connection(call_connection_id).add_participant(
+        target_participant=PhoneNumberIdentifier(PARTICIPANT_PHONE_NUMBER),
+        operation_context="addPstnUserContext",
+        source_caller_id_number=PhoneNumberIdentifier(ACS_PHONE_NUMBER),
+        invitation_timeout=30
+    )
+
 @app.post(
-    "/api/participants/addAcsParticipantAsync",
+    "/addAcsParticipantAsync",
     tags=["Add/Remove Participant API's"],
     summary="Add ACS participant to call",
     description="Adds a new ACS participant to an active call.",
@@ -1216,9 +1065,8 @@ async def add_acs_participant_handler(
     logger.info("ACS participant added successfully")
     return RedirectResponse(url="/")
 
-
 @app.post(
-    "/api/participants/removeParticipantAsync",
+    "/removeParticipantAsync",
     tags=["Add/Remove Participant API's"],
     summary="Remove a participant from an active call",
     description="Removes a participant (ACS or PSTN) from an ongoing call.",
@@ -1251,6 +1099,30 @@ async def remove_participant(call_connection_id: str, participant_id: str, is_ac
 
     logger.info("Participant removed successfully")
 
+async def remove_participant():
+    target = get_communication_target()
+    await call_automation_client.get_call_connection(call_connection_id).remove_participant(
+        target_participant=target,
+        operation_context="removeParticipantContext"
+    )
+
+@app.post(
+    "/muteParticipantAsync",
+    tags=["Add/Remove Participant API's"],
+    summary="Mute a participant in an active call",
+    description="Mutes a participant (ACS or PSTN) in an ongoing call.",
+    responses={
+        302: {"description": "Redirect to home page after muting participant"}
+    }
+)
+async def mute_participant_handler(
+    callConnectionId: str = Query(..., description="Call connection ID"),
+    participantId: str = Query(..., description="ACS user ID or phone number"),
+    isAcsUser: bool = Query(..., description="True for ACS user, False for PSTN")
+):
+    await mute_participant(call_connection_id=callConnectionId, participant_id=participantId, is_acs_user=isAcsUser)
+    return RedirectResponse(url="/")
+    
 async def mute_participant(call_connection_id: str, participant_id: str, is_acs_user: bool):
     logger.info(f"Muting participant {participant_id} in call {call_connection_id}, isAcsUser={is_acs_user}")
 
@@ -1272,25 +1144,6 @@ async def mute_participant(call_connection_id: str, participant_id: str, is_acs_
     logger.info("Participant:--> %s", result.identifier.raw_id)
     logger.info("Is participant muted:--> %s", result.is_muted)
 
-
-# 🚀 Route Handler
-@app.post(
-    "/api/participants/muteParticipantAsync",
-    tags=["Add/Remove Participant API's"],
-    summary="Mute a participant in an active call",
-    description="Mutes a participant (ACS or PSTN) in an ongoing call.",
-    responses={
-        302: {"description": "Redirect to home page after muting participant"}
-    }
-)
-async def mute_participant_handler(
-    callConnectionId: str = Query(..., description="Call connection ID"),
-    participantId: str = Query(..., description="ACS user ID or phone number"),
-    isAcsUser: bool = Query(..., description="True for ACS user, False for PSTN")
-):
-    await mute_participant(call_connection_id=callConnectionId, participant_id=participantId, is_acs_user=isAcsUser)
-    return RedirectResponse(url="/")
-
 @app.post(
     "/holdParticipantAsync",
     tags=["Mute/Unmute Participant API's"],
@@ -1304,6 +1157,14 @@ async def hold_participant_handler():
     await hold_participant()
     return RedirectResponse(url="/")
 
+async def hold_participant():
+    text_source = TextSource(text=HOLD_PROMPT, voice_name="en-US-NancyNeural")
+    target = get_communication_target()
+    await call_automation_client.get_call_connection(call_connection_id).hold(
+        target_participant=target,
+        play_source=text_source
+    )
+
 @app.post(
     "/unholdParticipantAsync",
     tags=["Mute/Unmute Participant API's"],
@@ -1316,6 +1177,12 @@ async def hold_participant_handler():
 async def unhold_participant_handler():
     await unhold_participant()
     return RedirectResponse(url="/")
+
+async def unhold_participant():
+    target = get_communication_target()
+    await call_automation_client.get_call_connection(call_connection_id).unhold(
+        target_participant=target
+    )
 
 @app.post(
     "/getParticipant",
@@ -1346,25 +1213,7 @@ async def get_participant_list_handler():
     await get_participant_list()
     return RedirectResponse(url="/")
 
-async def transfer_call_to_acs_participant(call_connection_id: str, transfer_target_id: str, transferee_id: str):
-    transfer_target = CommunicationUserIdentifier(transfer_target_id)
-    transferee = CommunicationUserIdentifier(transferee_id)
-
-    logger.info(f"Transferring call ID {call_connection_id} from {transferee.raw_id} to {transfer_target.raw_id}")
-
-    await call_automation_client.get_call_connection(call_connection_id).transfer_call_to_participant(
-        target_participant=transfer_target,
-        transferee=transferee,
-        operation_context="transferCallContext"
-    )
-
-    logger.info("Call transfer initiated successfully.")
-
-    
-
 async def start_recording_with_video_mp4_mixed_logic(
-    call_connection_id: str,
-    is_recording_with_call_connection_id: bool,
     is_pause_on_start: bool
 ):
     global recording_id
@@ -1385,29 +1234,15 @@ async def start_recording_with_video_mp4_mixed_logic(
             else AzureCommunicationsRecordingStorage()
         )
 
-        recording_options = (
-            {
-                "call_connection_id": call_connection_properties.call_connection_id,
-                "recording_content_type": RecordingContent.AUDIO_VIDEO,
-                "recording_channel_type": RecordingChannel.MIXED,
-                "recording_format_type": RecordingFormat.MP4,
-                "recording_state_callback_url": callback_uri_host + "/api/callbacks",
-                "recording_storage": recording_storage,
-                "pause_on_start": is_pause_on_start
-            }
-            if is_recording_with_call_connection_id
-            else {
-                "call_locator": call_locator,
-                "recording_content_type": RecordingContent.AUDIO_VIDEO,
-                "recording_channel_type": RecordingChannel.MIXED,
-                "recording_format_type": RecordingFormat.MP4,
-                "recording_state_callback_url": callback_uri_host + "/api/callbacks",
-                "recording_storage": recording_storage,
-                "pause_on_start": is_pause_on_start
-            }
+        recording_result = await call_automation_client.start_recording(
+            server_call_id=server_call_id,
+            recording_content_type=RecordingContent.AUDIO_VIDEO,
+            recording_channel_type=RecordingChannel.MIXED,
+            recording_format_type=RecordingFormat.MP4,
+            recording_state_callback_url=callback_uri_host + "/api/callbacks",
+            recording_storage=recording_storage,
+            pause_on_start=is_pause_on_start
         )
-
-        recording_result = await call_automation_client.start_recording(**recording_options)
         recording_id = recording_result.recording_id
 
         print(
@@ -1430,21 +1265,15 @@ async def start_recording_with_video_mp4_mixed_logic(
             detail=error_message
         )
     
-
-
 async def start_recording_with_audio_wav_unmixed_logic(
-    call_connection_id: str,
-    is_recording_with_call_connection_id: bool,
     is_pause_on_start: bool
 ):
     global recording_id
     try:
-        call_connection_properties = await call_automation_client.get_call_connection(
-            call_connection_id
-        ).get_call_properties()
+        call_connection_properties = await call_automation_client.get_call_connection(call_connection_id).get_call_properties()
         server_call_id = call_connection_properties.server_call_id
         correlation_id = call_connection_properties.correlation_id
-        call_locator = ServerCallLocator(server_call_id)
+        #call_locator = ServerCallLocator(server_call_id)
 
         print(f"console.log: 🎙️ Starting audio recording on call ID: {call_connection_id}")
         print(f"console.log: 🔗 Correlation ID: {correlation_id}")
@@ -1455,29 +1284,31 @@ async def start_recording_with_audio_wav_unmixed_logic(
             else AzureCommunicationsRecordingStorage()
         )
 
-        recording_options = (
-            {
-                "call_connection_id": call_connection_properties.call_connection_id,
-                "recording_content_type": RecordingContent.AUDIO,
-                "recording_channel_type": RecordingChannel.UNMIXED,
-                "recording_format_type": RecordingFormat.WAV,
-                "recording_state_callback_url": callback_uri_host + "/api/callbacks",
-                "recording_storage": recording_storage,
-                "pause_on_start": is_pause_on_start
-            }
-            if is_recording_with_call_connection_id
-            else {
-                "call_locator": call_locator,
-                "recording_content_type": RecordingContent.AUDIO,
-                "recording_channel_type": RecordingChannel.UNMIXED,
-                "recording_format_type": RecordingFormat.WAV,
-                "recording_state_callback_url": callback_uri_host + "/api/callbacks",
-                "recording_storage": recording_storage,
-                "pause_on_start": is_pause_on_start
-            }
+        logger.info("Recording storage initialized.")
+        # recording_options = (
+        #     {
+        #         "call_locator": call_locator,
+        #         "recording_content_type": RecordingContent.AUDIO,
+        #         "recording_channel_type": RecordingChannel.UNMIXED,
+        #         "recording_format_type": RecordingFormat.WAV,
+        #         "recording_state_callback_url": callback_uri_host + "/api/callbacks",
+        #         "recording_storage": recording_storage,
+        #         "pause_on_start": is_pause_on_start
+        #     }
+        # )
+
+        logger.info("Recording storage initialized.")
+        recording_result = await call_automation_client.start_recording(
+            server_call_id=server_call_id,
+            recording_content_type=RecordingContent.AUDIO,
+            recording_channel_type=RecordingChannel.UNMIXED,
+            recording_format_type=RecordingFormat.WAV,
+            recording_state_callback_url=callback_uri_host + "/api/callbacks",
+            recording_storage=recording_storage,
+            pause_on_start=is_pause_on_start
         )
 
-        recording_result = await call_automation_client.start_recording(**recording_options)
+        logger.info("Recording storage initialized.")
         recording_id = recording_result.recording_id
 
         print(
@@ -1500,10 +1331,7 @@ async def start_recording_with_audio_wav_unmixed_logic(
             detail=error_message
         )
 
-
 async def start_recording_with_audio_wav_mixed_logic(
-    call_connection_id: str,
-    is_recording_with_call_connection_id: bool,
     is_pause_on_start: bool
 ):
     global recording_id
@@ -1524,29 +1352,15 @@ async def start_recording_with_audio_wav_mixed_logic(
             else AzureCommunicationsRecordingStorage()
         )
 
-        recording_options = (
-            {
-                "call_connection_id": call_connection_properties.call_connection_id,
-                "recording_content_type": RecordingContent.AUDIO,
-                "recording_channel_type": RecordingChannel.MIXED,
-                "recording_format_type": RecordingFormat.WAV,
-                "recording_state_callback_url": callback_uri_host + "/api/callbacks",
-                "recording_storage": recording_storage,
-                "pause_on_start": is_pause_on_start
-            }
-            if is_recording_with_call_connection_id
-            else {
-                "call_locator": call_locator,
-                "recording_content_type": RecordingContent.AUDIO,
-                "recording_channel_type": RecordingChannel.MIXED,
-                "recording_format_type": RecordingFormat.WAV,
-                "recording_state_callback_url": callback_uri_host + "/api/callbacks",
-                "recording_storage": recording_storage,
-                "pause_on_start": is_pause_on_start
-            }
+        recording_result = await call_automation_client.start_recording(
+            server_call_id=server_call_id,
+            recording_content_type=RecordingContent.AUDIO,
+            recording_channel_type=RecordingChannel.MIXED,
+            recording_format_type=RecordingFormat.WAV,
+            recording_state_callback_url=callback_uri_host + "/api/callbacks",
+            recording_storage=recording_storage,
+            pause_on_start=is_pause_on_start
         )
-
-        recording_result = await call_automation_client.start_recording(**recording_options)
         recording_id = recording_result.recording_id
 
         print(
@@ -1579,17 +1393,12 @@ async def start_recording_with_audio_wav_mixed_logic(
     }
 )
 async def start_recording_with_audio_wav_mixed_handler(
-    callConnectionId: str = Query(..., description="Call connection ID"),
-    isRecordingWithCallConnectionId: bool = Query(..., description="Whether to use call connection ID for recording"),
     isPauseOnStart: bool = Query(..., description="Whether to pause recording on start")
 ):
     result = await start_recording_with_audio_wav_mixed_logic(
-        call_connection_id=callConnectionId,
-        is_recording_with_call_connection_id=isRecordingWithCallConnectionId,
         is_pause_on_start=isPauseOnStart
     )
     return RedirectResponse(url="/")
-
 
 @app.post(
     "/startRecordingWithAudioWavUnmixed",
@@ -1601,22 +1410,14 @@ async def start_recording_with_audio_wav_mixed_handler(
     }
 )
 async def start_recording_with_audio_wav_unmixed_handler(
-    callConnectionId: str = Query(..., description="Call connection ID"),
-    isRecordingWithCallConnectionId: bool = Query(..., description="Whether to use call connection ID for recording"),
     isPauseOnStart: bool = Query(..., description="Whether to pause recording on start")
 ):
     result = await start_recording_with_audio_wav_unmixed_logic(
-        call_connection_id=callConnectionId,
-        is_recording_with_call_connection_id=isRecordingWithCallConnectionId,
         is_pause_on_start=isPauseOnStart
     )
     return RedirectResponse(url="/")
 
-    
-    
 async def start_recording_with_audio_mp3_mixed_logic(
-    call_connection_id: str,
-    is_recording_with_call_connection_id: bool,
     is_pause_on_start: bool
 ):
     global recording_id
@@ -1637,29 +1438,15 @@ async def start_recording_with_audio_mp3_mixed_logic(
             else AzureCommunicationsRecordingStorage()
         )
 
-        recording_options = (
-            {
-                "call_connection_id": call_connection_properties.call_connection_id,
-                "recording_content_type": RecordingContent.AUDIO,
-                "recording_channel_type": RecordingChannel.MIXED,
-                "recording_format_type": RecordingFormat.MP3,
-                "recording_state_callback_url": callback_uri_host + "/api/callbacks",
-                "recording_storage": recording_storage,
-                "pause_on_start": is_pause_on_start
-            }
-            if is_recording_with_call_connection_id
-            else {
-                "call_locator": call_locator,
-                "recording_content_type": RecordingContent.AUDIO,
-                "recording_channel_type": RecordingChannel.MIXED,
-                "recording_format_type": RecordingFormat.MP3,
-                "recording_state_callback_url": callback_uri_host + "/api/callbacks",
-                "recording_storage": recording_storage,
-                "pause_on_start": is_pause_on_start
-            }
+        recording_result = await call_automation_client.start_recording(
+            server_call_id=server_call_id,
+            recording_content_type=RecordingContent.AUDIO,
+            recording_channel_type=RecordingChannel.MIXED,
+            recording_format_type=RecordingFormat.MP3,
+            recording_state_callback_url=callback_uri_host + "/api/callbacks",
+            recording_storage=recording_storage,
+            pause_on_start=is_pause_on_start
         )
-
-        recording_result = await call_automation_client.start_recording(**recording_options)
         recording_id = recording_result.recording_id
 
         print(
@@ -1692,20 +1479,12 @@ async def start_recording_with_audio_mp3_mixed_logic(
     }
 )
 async def start_recording_with_audio_mp3_mixed_handler(
-    callConnectionId: str = Query(..., description="Call connection ID"),
-    isRecordingWithCallConnectionId: bool = Query(..., description="Whether to use call connection ID for recording"),
     isPauseOnStart: bool = Query(..., description="Whether to pause recording on start")
 ):
     result = await start_recording_with_audio_mp3_mixed_logic(
-        call_connection_id=callConnectionId,
-        is_recording_with_call_connection_id=isRecordingWithCallConnectionId,
         is_pause_on_start=isPauseOnStart
     )
     return RedirectResponse(url="/")
-
-
-
-
 
 @app.post(
     "/startRecordingWithVideoMp4Mixed",
@@ -1717,19 +1496,13 @@ async def start_recording_with_audio_mp3_mixed_handler(
     }
 )
 async def start_recording_with_video_mp4_mixed_handler(
-    callConnectionId: str = Query(..., description="Call connection ID"),
-    isRecordingWithCallConnectionId: bool = Query(..., description="Whether to use call connection ID for recording"),
     isPauseOnStart: bool = Query(..., description="Whether to pause recording on start")
 ):
     result = await start_recording_with_video_mp4_mixed_logic(
-        call_connection_id=callConnectionId,
-        is_recording_with_call_connection_id=isRecordingWithCallConnectionId,
         is_pause_on_start=isPauseOnStart
     )
     return RedirectResponse(url="/")
 
-
-# 🚀 Swagger-visible Endpoint
 @app.post(
     "/transferCallToAcsParticipantAsync",
     tags=["Transfer Call APIs"],
@@ -1748,12 +1521,34 @@ async def transfer_call_to_acs_participant_handler(
         transferee_id=acsTarget
     )
     return RedirectResponse(url="/")
+    
+async def transfer_call_to_acs_participant(call_connection_id: str, transfer_target_id: str, transferee_id: str):
+    transfer_target = CommunicationUserIdentifier(transfer_target_id)
+    transferee = CommunicationUserIdentifier(transferee_id)
 
+    logger.info(f"Transferring call ID {call_connection_id} from {transferee.raw_id} to {transfer_target.raw_id}")
 
+    await call_automation_client.get_call_connection(call_connection_id).transfer_call_to_participant(
+        target_participant=transfer_target,
+        transferee=transferee,
+        operation_context="transferCallContext"
+    )
+
+    logger.info("Call transfer initiated successfully.")
+
+async def transfer_call_to_participant():
+    is_acs_participant = False
+    transfer_target = CommunicationUserIdentifier(PARTICIPANT_COMMUNICATION_USER) if is_acs_participant else PhoneNumberIdentifier(PARTICIPANT_PHONE_NUMBER)
+    logger.info("Transfer target:- %s", transfer_target.raw_id)
+    await call_automation_client.get_call_connection(call_connection_id).transfer_call_to_participant(
+        target_participant=transfer_target,
+        operation_context="transferCallContext",
+        transferee=PhoneNumberIdentifier(TARGET_PHONE_NUMBER),
+        source_caller_id_number=PhoneNumberIdentifier(ACS_PHONE_NUMBER)
+    )
+    logger.info("Transfer call initiated.")
 
 async def start_recording_logic(
-    call_connection_id: str,
-    is_recording_with_call_connection_id: bool,
     is_pause_on_start: bool
 ):
     global recording_id
@@ -1774,29 +1569,15 @@ async def start_recording_logic(
             else AzureCommunicationsRecordingStorage()
         )
 
-        recording_options = (
-            {
-                "call_connection_id": call_connection_properties.call_connection_id,
-                "recording_content_type": RecordingContent.AUDIO,
-                "recording_channel_type": RecordingChannel.UNMIXED,
-                "recording_format_type": RecordingFormat.WAV,
-                "recording_state_callback_url": callback_uri_host + "/api/callbacks",
-                "recording_storage": recording_storage,
-                "pause_on_start": is_pause_on_start
-            }
-            if is_recording_with_call_connection_id
-            else {
-                "call_locator": call_locator,
-                "recording_content_type": RecordingContent.AUDIO,
-                "recording_channel_type": RecordingChannel.UNMIXED,
-                "recording_format_type": RecordingFormat.WAV,
-                "recording_state_callback_url": callback_uri_host + "/api/callbacks",
-                "recording_storage": recording_storage,
-                "pause_on_start": is_pause_on_start
-            }
+        recording_result = await call_automation_client.start_recording(
+            server_call_id=server_call_id,
+            recording_content_type=RecordingContent.AUDIO,
+            recording_channel_type=RecordingChannel.UNMIXED,
+            recording_format_type=RecordingFormat.WAV,
+            recording_state_callback_url=callback_uri_host + "/api/callbacks",
+            recording_storage=recording_storage,
+            pause_on_start=is_pause_on_start
         )
-
-        recording_result = await call_automation_client.start_recording(**recording_options)
         recording_id = recording_result.recording_id
 
         print(
@@ -1829,13 +1610,9 @@ async def start_recording_logic(
     }
 )
 async def start_recording_handler(
-    callConnectionId: str = Query(..., description="Call connection ID"),
-    isRecordingWithCallConnectionId: bool = Query(..., description="Whether to use call connection ID for recording"),
     isPauseOnStart: bool = Query(..., description="Whether to pause recording on start")
 ):
     result = await start_recording_logic(
-        call_connection_id=callConnectionId,
-        is_recording_with_call_connection_id=isRecordingWithCallConnectionId,
         is_pause_on_start=isPauseOnStart
     )
     return RedirectResponse(url="/")
@@ -1889,8 +1666,77 @@ async def pause_recording_handler(
     result = await pause_recording_logic(recording_id=recordingId)
     return RedirectResponse(url="/")
 
+async def pause_recording():
+    if recording_id:
+        if (await get_recording_state()) == "active":
+            await call_automation_client.pause_recording(recording_id)
+            logger.info("Recording is paused.")
+        else:
+            logger.info("Recording is already inactive.")
+    else:
+        logger.info("Recording id is empty.")
 
+async def resume_recording():
+    if recording_id:
+        if (await get_recording_state()) == "inactive":
+            await call_automation_client.resume_recording(recording_id)
+            logger.info("Recording is resumed.")
+        else:
+            logger.info("Recording is already active.")
+    else:
+        logger.info("Recording id is empty.")
 
+async def get_recording_state():
+    recording_state_result = await call_automation_client.get_recording_properties(recording_id)
+    logger.info("Recording State --> %s", recording_state_result.recording_state)
+    return recording_state_result.recording_state
+
+async def resume_recording_logic(recording_id: str, call_connection_id: str):
+    try:
+        if not recording_id:
+            print(f"console.log: ⚠️ Recording id is empty.")
+            raise HTTPException(
+                status_code=400,
+                detail="Recording id is empty."
+            )
+
+        if not call_connection_id:
+            print(f"console.log: ⚠️ Call connection id is empty.")
+            raise HTTPException(
+                status_code=400,
+                detail="Call connection id is empty."
+            )
+
+        # Fetch call properties to get correlationId
+        call_connection_properties = await call_automation_client.get_call_connection(
+            call_connection_id
+        ).get_call_properties()
+        correlation_id = call_connection_properties.correlation_id
+
+        recording_state = await get_recording_state(recording_id)  # Update get_recording_state to accept recording_id
+        if recording_state == "inactive":
+            print(f"console.log: ▶️ Resuming recording with RecordingId: {recording_id}")
+            await call_automation_client.resume_recording(recording_id)
+            print(f"console.log: ✅ Recording is resumed.")
+            status_message = "Recording is resumed."
+        else:
+            print(f"console.log: ℹ️ Recording is already active. RecordingId: {recording_id}")
+            status_message = "Recording is already active."
+
+        return CloudEventData(
+            callConnectionId=call_connection_id,
+            correlationId=correlation_id,
+            resultInformation={"status": status_message}
+        )
+
+    except Exception as ex:
+        error_message = f"Error resuming recording: {str(ex)}. RecordingId: {recording_id}, CallConnectionId: {call_connection_id}"
+        print(f"console.log: ❌ {error_message}")
+        raise HTTPException(
+            status_code=500,
+            detail=error_message
+        )
+    
 async def resume_recording_logic(recording_id: str, call_connection_id: str):
     try:
         if not recording_id:
@@ -1954,8 +1800,6 @@ async def resume_recording_handler(
     result = await resume_recording_logic(recording_id=recordingId, call_connection_id=callConnectionId)
     return RedirectResponse(url="/")
 
-
-
 @app.post(
     "/playWithInterruptMediaFlag",
     tags=["Media Operations"],
@@ -1983,6 +1827,9 @@ async def cancel_all_media_operation_handler():
     """Cancel all media operations."""
     await cancel_all_media_oparation()
     return RedirectResponse(url="/")
+
+async def cancel_all_media_oparation():
+    await call_automation_client.get_call_connection(call_connection_id).cancel_all_media_operations()
 
 @app.post(
     "/hangupCall",
@@ -2012,23 +1859,9 @@ async def terminate_call_handler():
     await terminate_call()
     return RedirectResponse(url="/")
 
-
 async def index_handler(request: Request):
     """Render the home page."""
     return templates.TemplateResponse("index.html", {"request": request})
-
-class CallMedia:
-    def stop_media_streaming(self):
-        # Logic to stop media streaming (simulated)
-        pass
-
-class CallConnection:
-    def __init__(self, call_connection_id: str):
-        self.call_connection_id = call_connection_id
-        self.call_media = CallMedia()
-
-    def get_call_media(self):
-        return self.call_media
 
 @app.post(
     "/stopMediaStreaming",
@@ -2081,12 +1914,6 @@ async def start_media_streaming(call_connection_id: str):
         log.error(f"Error starting media streaming: {e}")
         raise HTTPException(status_code=500, detail="Failed to start media streaming.")
 
-def get_call_media(call_connection_id: str):
-    if not call_connection_id:
-        raise HTTPException(status_code=400, detail="Call connection id is empty")
-    # In a real scenario, fetch the call connection from the client or service
-    return CallConnection(call_connection_id).get_call_media()
-
 @app.post(
     "/updateTranscription",
     tags=["Transcription"],
@@ -2137,7 +1964,6 @@ async def stop_transcription_async(call_connection_id: str):
         log.error(f"Error stopping transcription: {e}")
         raise HTTPException(status_code=500, detail="Failed to stop transcription.")
 
-
 @app.post(
     "/createCallWithTranscription",
     tags=["Transcription"],
@@ -2148,8 +1974,6 @@ async def stop_transcription_async(call_connection_id: str):
         500: {"description": "Internal server error while creating the call"},
     },
 )
-
-
 async def create_call_with_transcription():
     """Creates a call with transcription enabled."""
     try:
@@ -2176,7 +2000,6 @@ async def create_call_with_transcription():
     except Exception as e:
         log.error(f"Error creating call: {e}")
         raise HTTPException(status_code=500, detail="Failed to create call.")
-
 
 @app.post(
     "/createCallWithPlay",
@@ -2210,7 +2033,6 @@ async def create_call_with_play():
     except Exception as e:
         log.error(f"Error creating call: {e}")
         raise HTTPException(status_code=500, detail="Failed to create call.")
-
 
 @app.post(
     "/playTextSourceTarget",
@@ -2271,7 +2093,6 @@ async def play_text_source_to_all():
         log.error(f"Error playing text source to all asynchronously: {e}")
         raise HTTPException(status_code=500, detail="Failed to play text source to all asynchronously.")
 
-
 @app.post(
     "/playTextSourceBargeIn",
     tags=["Play Media"],
@@ -2302,8 +2123,53 @@ async def play_text_source_barge_in_to_all():
         log.error(f"Error playing text source to all with barge-in: {e}")
         raise HTTPException(status_code=500, detail="Failed to play text source to all with barge-in.")
 
-# Add this near the end of your file, before the if __name__ == "__main__" block
+async def play_with_interrupt_media_flag():
+    text_source = TextSource(text=INTERRUPT_PROMPT, voice_name="en-US-NancyNeural")
+    file_source = FileSource(url=MAIN_MENU_PROMPT_URI)
+    ssml_text = SsmlSource(ssml_text=SSML_INTERRUPT_TEXT)
+    play_sources = [text_source, file_source, ssml_text]
+    call_connection = call_automation_client.get_call_connection(call_connection_id)
+    await call_connection.play_media_to_all(
+        play_source=play_sources,
+        loop=False,
+        operation_context="interruptMediaContext",
+        operation_callback_url=callback_uri_host + "/api/callbacks",
+        interrupt_call_media_operation=True
+    )
 
+async def mute_participant():
+    target = get_communication_target()
+    await call_automation_client.get_call_connection(call_connection_id).mute_participant(
+        target_participant=target,
+        operation_context="muteParticipantContext"
+    )
+
+async def get_participant(target: CommunicationIdentifier):
+    participant = await call_automation_client.get_call_connection(call_connection_id).get_participant(target)
+    return participant
+
+async def get_participant_list():
+    participants = call_automation_client.get_call_connection(call_connection_id).list_participants()
+    logger.info("Listing participants in call")
+    async for page in participants.by_page():
+        async for participant in page:
+            logger.info("-------------------------------------------------------------")
+            logger.info("Participant: %s", participant.identifier.raw_id)
+            logger.info("Is participant muted: %s", participant.is_muted)
+            logger.info("Is participant on hold: %s", participant.is_on_hold)
+            logger.info("-------------------------------------------------------------")
+
+async def hangup_call():
+    await call_automation_client.get_call_connection(call_connection_id).hang_up(False)
+
+async def terminate_call():
+    await call_automation_client.get_call_connection(call_connection_id).hang_up(True)
+
+async def get_call_properties():
+    call_properties = await call_automation_client.get_call_connection(call_connection_id).get_call_properties()
+    return call_properties
+
+# Add this near the end of your file, before the if __name__ == "__main__" block
 @app.api_route("/", methods=["GET", "POST"], response_class=HTMLResponse)
 async def root(request: Request):
     return "<h2>ACS Call Automation Sample API is running.</h2>"
@@ -2311,3 +2177,4 @@ async def root(request: Request):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8080)
+
