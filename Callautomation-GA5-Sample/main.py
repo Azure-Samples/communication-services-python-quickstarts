@@ -260,7 +260,7 @@ async def callback_events_handler(events: List[dict], request: Request):
     """
     global call_connection_id
     try:
-        logger.info("Received events: %s", json.dumps(events, indent=2))
+        #logger.info("Received events: %s", json.dumps(events, indent=2))
         cloud_events = []
         for event in events:
             cloud_event = CloudEvent.from_dict(event)
