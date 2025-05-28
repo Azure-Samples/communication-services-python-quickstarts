@@ -1109,27 +1109,18 @@ async def play_recognize_handler():
     description="Starts continuous DTMF tone recognition for a call participant.",
     responses={302: {"description": "Redirect to home page after starting DTMF recognition"}}
 )
-async def start_continuous_dtmf_tones_handler(
-    callConnectionId: str = Query(..., description="Call connection ID"),
-    acsTarget: str = Query(..., description="ACS participant ID to receive DTMF tones")
-):
-    await start_continuous_dtmf_logic(call_connection_id=callConnectionId, acs_target_id=acsTarget)
+async def start_continuous_dtmf_tones_handler():
+    await start_continuous_dtmf_logic()
     return RedirectResponse(url="/")
 
-async def start_continuous_dtmf_logic(call_connection_id: str, acs_target_id: str):
-    target = CommunicationUserIdentifier(acs_target_id)
-
+async def start_continuous_dtmf_logic():
+    target = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
     logger.info(f"➡️ Starting continuous DTMF recognition on call ID: {call_connection_id}")
     logger.info(f"👤 Target participant: {target.raw_id}")
-
     await call_automation_client.get_call_connection(call_connection_id).start_continuous_dtmf_recognition(
         target_participant=target
     )
-
     logger.info("✅ Continuous DTMF recognition started.")
-
-
-
 
 @app.post(
     "/stopContinuousDtmf",
@@ -1138,26 +1129,18 @@ async def start_continuous_dtmf_logic(call_connection_id: str, acs_target_id: st
     description="Stops continuous DTMF tone recognition for a call participant.",
     responses={302: {"description": "Redirect to home page after stopping DTMF recognition"}}
 )
-async def stop_continuous_dtmf_tones_handler(
-    callConnectionId: str = Query(..., description="Call connection ID"),
-    acsTarget: str = Query(..., description="ACS participant ID for whom to stop DTMF recognition")
-):
-    await stop_continuous_dtmf_logic(call_connection_id=callConnectionId, acs_target_id=acsTarget)
+async def stop_continuous_dtmf_tones_handler():
+    await stop_continuous_dtmf_logic()
     return RedirectResponse(url="/")
 
-async def stop_continuous_dtmf_logic(call_connection_id: str, acs_target_id: str):
-    target = CommunicationUserIdentifier(acs_target_id)
-
+async def stop_continuous_dtmf_logic():
+    target = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
     logger.info(f"🛑 Stopping continuous DTMF recognition on call ID: {call_connection_id}")
     logger.info(f"👤 Target participant: {target.raw_id}")
-
     await call_automation_client.get_call_connection(call_connection_id).stop_continuous_dtmf_recognition(
         target_participant=target
     )
-
     logger.info("✅ Continuous DTMF recognition stopped.")
-
-
 
 @app.post(
     "/sendDTMFTones",
