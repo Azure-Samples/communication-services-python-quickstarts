@@ -1,4 +1,8 @@
+import hmac
+import hashlib
 import base64
+import re
+from fastapi import Header
 from fastapi import Body, FastAPI, HTTPException, Query, Request, Response, requests
 from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -39,8 +43,8 @@ logging.basicConfig(level=INFO)
 logger = logging.getLogger(__name__)
 
 # Your ACS resource connection string
-ACS_CONNECTION_STRING = "endpoint=https://dacsrecordingtest.unitedstates.communication.azure.com/;accesskey=B7XxnSOl3VbKeviyV4vi4pEeqVyAXsdn8fg0hi6YCGdtjlecLHMwJQQJ99BEACULyCpAArohAAAAAZCSvjm8"
-
+ACS_CONNECTION_STRING = "endpoint=https://dacsrecordingtest.unitedstates.communication.azure.com/;accesskey=9lMdkVL4KcqJ3YXGgWS9Fxa1CjPwXs63rEMczJ7DsC9mbWR3hlbtJQQJ99BEACULyCpAArohAAAAAZCS58G3"
+COGNITIVE_SERVICE_ENDPOINT = "https://cognitive-service-waferwire.cognitiveservices.azure.com/"
 # Your ACS resource phone number will act as source number to start outbound call
 ACS_PHONE_NUMBER = "+18332638155"
 
@@ -54,8 +58,6 @@ TARGET_COMMUNICATION_USER = ""
 PARTICIPANT_COMMUNICATION_USER = ""
 
 WEBSOCKET_URI_HOST=""
-
-COGNITIVE_SERVICES_ENDPOINT = "https://cognitive-service-waferwire.cognitiveservices.azure.com/"
 
 # Template and static file paths
 TEMPLATE_FILES_PATH = "template"
@@ -159,9 +161,6 @@ metadata_location = None
 delete_location = None
 
 class Configuration:
-    acs_connection_string: str = ""
-    cognitive_service_endpoint: str = ""
-    acs_phone_number: str = ""
     callback_uri_host: str = ""
     websocket_uri_host: str = ""
 
@@ -170,16 +169,10 @@ configuration = Configuration()
 
 # Request model
 class ConfigurationRequest(BaseModel):
-    acs_connection_string: str = Field(..., description="Azure Communication Services connection string")
-    cognitive_service_endpoint: str = Field(..., description="Cognitive Services endpoint")
-    acs_phone_number: str = Field(..., description="ACS phone number")
     callback_uri_host: str = Field(..., description="Callback URI host")
     websocket_uri_host: str = Field(..., description="Websocket URI host")
 
 # Global variables (simulate static vars from Java)
-acs_connection_string = ""
-cognitive_services_endpoint = ""
-acs_phone_number = ""
 callback_uri_host = ""
 websocket_uri_host = ""
 client = None
@@ -187,7 +180,7 @@ client = None
 
 def init_client():
     # Dummy client initializer
-    logger.info("Client initialized with ACS Connection String: %s", acs_connection_string)
+    logger.info("Client initialized with ACS Connection String: %s", ACS_CONNECTION_STRING)
     return "client_instance"
 
 @app.post(
@@ -202,25 +195,16 @@ def init_client():
 )
 async def set_configurations(configuration_request: ConfigurationRequest = Body(...)):
     """Set configuration and initialize the call automation client."""
-    global acs_connection_string, cognitive_services_endpoint, acs_phone_number, callback_uri_host, websocket_uri_host, client
+    global callback_uri_host, websocket_uri_host, client
 
     try:
         # Validate and set values
-        configuration.acs_connection_string = configuration_request.acs_connection_string.strip() or \
-            (_ for _ in ()).throw(ValueError("AcsConnectionString is required"))
-        configuration.cognitive_service_endpoint = configuration_request.cognitive_service_endpoint.strip() or \
-            (_ for _ in ()).throw(ValueError("CognitiveServiceEndpoint is required"))
-        configuration.acs_phone_number = configuration_request.acs_phone_number.strip() or \
-            (_ for _ in ()).throw(ValueError("AcsPhoneNumber is required"))
         configuration.callback_uri_host = configuration_request.callback_uri_host.strip() or \
             (_ for _ in ()).throw(ValueError("CallbackUriHost is required"))
         configuration.websocket_uri_host = configuration_request.websocket_uri_host.strip() or \
             (_ for _ in ()).throw(ValueError("WebsocketUriHost is required"))
 
         # Assign to global variables
-        acs_connection_string = configuration.acs_connection_string
-        cognitive_services_endpoint = configuration.cognitive_service_endpoint
-        acs_phone_number = configuration.acs_phone_number
         callback_uri_host = configuration.callback_uri_host
         websocket_uri_host = configuration.websocket_uri_host
 
@@ -232,6 +216,189 @@ async def set_configurations(configuration_request: ConfigurationRequest = Body(
     except Exception as e:
         logger.error(f"Error configuring: {e}")
         raise HTTPException(status_code=500, detail="Failed to configure call automation client.")
+
+@app.post("/api/callbacks",
+    tags=["callbacks"],
+    summary="Handle callback events",
+    description="Handles callback events from Azure Communication Services.",
+    responses={
+        200: {"description": "Callback events processed successfully."},
+        500: {"description": "Failed to process callback events."},
+    },
+)
+async def callback_events_handler(events: List[dict], request: Request):
+    """
+    Handle callback events from Azure Communication Services.
+    Processes events like CallConnected, RecognizeCompleted, PlayFailed, etc.
+    """
+    try:
+        logger.info("Received events: %s", json.dumps(events, indent=2))
+        cloud_events = []
+        for event in events:
+            cloud_event = CloudEvent.from_dict(event)
+            # Convert CloudEvent to dict for JSON serialization
+            cloud_events.append({
+                "callConnectionId": cloud_event.data["callConnectionId"],
+                "type": cloud_event.type,
+                "correlationId": cloud_event.data["correlationId"],
+            })
+            # call_connection_id = cloud_event.data['callConnectionId']
+            # logger.info("%s event received for call correlation id: %s", cloud_event.type, cloud_event.data['callConnectionId'])
+            # #call_connection_client = call_automation_client.get_call_connection(call_connection_id)
+
+            # if cloud_event.type == "Microsoft.Communication.CallConnected":
+            #     logger.info(f"Received CallConnected event for connection id: {cloud_event.data['callConnectionId']}")
+            #     logger.info("CORRELATION ID: - %s", cloud_event.data["correlationId"])
+            #     logger.info("CALL CONNECTION ID:--> %s", cloud_event.data["callConnectionId"])
+            #     properties = await get_call_properties()
+
+            # elif cloud_event.type == "Microsoft.Communication.ConnectFailed":
+            #     logger.info(f"Received ConnectFailed event for connection id: {cloud_event.data['callConnectionId']}")
+            #     resultInformation = cloud_event.data['resultInformation']
+            #     logger.info("Encountered error during connect, message=%s, code=%s, subCode=%s", resultInformation['message'], resultInformation['code'], resultInformation['subCode'])
+
+            # elif cloud_event.type == "Microsoft.Communication.AddParticipantSucceeded":
+            #     logger.info(f"Received AddParticipantSucceeded event for connection id: {cloud_event.data['callConnectionId']}")
+
+            # elif cloud_event.type == "Microsoft.Communication.RecognizeCompleted":
+            #     logger.info(f"Received RecognizeCompleted event for connection id: {cloud_event.data['callConnectionId']}")
+            #     if cloud_event.data['recognitionType'] == "dtmf":
+            #         tones = cloud_event.data['dtmfResult']['tones']
+            #         logger.info("Recognition completed, tones=%s, context=%s", tones, cloud_event.data['operationContext'])
+            #     elif cloud_event.data['recognitionType'] == "choices":
+            #         labelDetected = cloud_event.data['choiceResult']['label']
+            #         phraseDetected = cloud_event.data['choiceResult']['recognizedPhrase']
+            #         logger.info("Recognition completed, labelDetected=%s, phraseDetected=%s, context=%s", labelDetected, phraseDetected, cloud_event.data['operationContext'])
+            #     elif cloud_event.data['recognitionType'] == "speech":
+            #         text = cloud_event.data['speechResult']['speech']
+            #         logger.info("Recognition completed, text=%s, context=%s", text, cloud_event.data['operationContext'])
+            #     else:
+            #         logger.info("Recognition completed: data=%s", cloud_event.data)
+
+            # elif cloud_event.type == "Microsoft.Communication.RecognizeFailed":
+            #     if "operationContext" in cloud_event.data:
+            #         opContext = cloud_event.data['operationContext']
+            #         logger.info("Operation context--> %s", opContext)
+            #     resultInformation = cloud_event.data['resultInformation']
+            #     logger.info("Encountered error during Recognize, message=%s, code=%s, subCode=%s", resultInformation['message'], resultInformation['code'], resultInformation['subCode'])
+            #     logger.info("Play failed source index--> %s", cloud_event.data["failedPlaySourceIndex"])
+
+            # elif cloud_event.type in "Microsoft.Communication.PlayCompleted":
+            #     logger.info(f"Received PlayCompleted event for connection id: {call_connection_id}")
+            #     if "operationContext" in cloud_event.data:
+            #         opContext = cloud_event.data['operationContext']
+            #         logger.info("Operation context--> %s", opContext)
+
+            # elif cloud_event.type in "Microsoft.Communication.PlayFailed":
+            #     logger.info(f"Received PlayFailed event for connection id: {call_connection_id}")
+            #     if "operationContext" in cloud_event.data:
+            #         opContext = cloud_event.data['operationContext']
+            #         logger.info("Operation context--> %s", opContext)
+            #     resultInformation = cloud_event.data['resultInformation']
+            #     logger.info("Encountered error during play, message=%s, code=%s, subCode=%s", resultInformation['message'], resultInformation['code'], resultInformation['subCode'])
+            #     logger.info("Play failed source index--> %s", cloud_event.data["failedPlaySourceIndex"])
+
+            # elif cloud_event.type == "Microsoft.Communication.ContinuousDtmfRecognitionToneReceived":
+            #     logger.info(f"Received ContinuousDtmfRecognitionToneReceived event for connection id: {call_connection_id}")
+            #     logger.info(f"Tone received:-->: {cloud_event.data['tone']}")
+            #     logger.info(f"Sequence Id:--> {cloud_event.data['sequenceId']}")
+
+            # elif cloud_event.type == "Microsoft.Communication.ContinuousDtmfRecognitionToneFailed":
+            #     logger.info(f"Received ContinuousDtmfRecognitionToneFailed event for connection id: {call_connection_id}")
+            #     if "operationContext" in cloud_event.data:
+            #         opContext = cloud_event.data['operationContext']
+            #         logger.info("Operation context--> %s", opContext)
+            #     resultInformation = cloud_event.data['resultInformation']
+            #     logger.info("Encountered error:- message=%s, code=%s, subCode=%s", resultInformation['message'], resultInformation['code'], resultInformation['subCode'])
+
+            # elif cloud_event.type == "Microsoft.Communication.ContinuousDtmfRecognitionStopped":
+            #     logger.info(f"Received ContinuousDtmfRecognitionStopped event for connection id: {call_connection_id}")
+
+            # elif cloud_event.type == "Microsoft.Communication.SendDtmfTonesCompleted":
+            #     logger.info(f"Received SendDtmfTonesCompleted event for connection id: {call_connection_id}")
+
+            # elif cloud_event.type == "Microsoft.Communication.SendDtmfTonesFailed":
+            #     logger.info(f"Received SendDtmfTonesFailed event for connection id: {call_connection_id}")
+            #     resultInformation = cloud_event.data['resultInformation']
+            #     logger.info("Encountered error:- message=%s, code=%s, subCode=%s", resultInformation['message'], resultInformation['code'], resultInformation['subCode'])
+
+            # elif cloud_event.type == "Microsoft.Communication.RemoveParticipantSucceeded":
+            #     logger.info(f"Received RemoveParticipantSucceeded event for connection id: {call_connection_id}")
+
+            # elif cloud_event.type == "Microsoft.Communication.RemoveParticipantFailed":
+            #     logger.info(f"Received RemoveParticipantFailed event for connection id: {call_connection_id}")
+            #     resultInformation = cloud_event.data['resultInformation']
+            #     logger.info("Encountered error:- message=%s, code=%s, subCode=%s", resultInformation['message'], resultInformation['code'], resultInformation['subCode'])
+
+            # elif cloud_event.type == "Microsoft.Communication.HoldFailed":
+            #     logger.info("Hold Failed.")
+            #     resultInformation = cloud_event.data['resultInformation']
+            #     logger.info("Encountered error during Hold, message=%s, code=%s, subCode=%s", resultInformation['message'], resultInformation['code'], resultInformation['subCode'])
+
+            # elif cloud_event.type == "Microsoft.Communication.PlayStarted":
+            #     logger.info("PlayStarted event received.")
+
+            # elif cloud_event.type in "Microsoft.Communication.PlayCanceled":
+            #     logger.info(f"Received PlayCanceled event for connection id: {call_connection_id}")
+            #     if "operationContext" in cloud_event.data:
+            #         opContext = cloud_event.data['operationContext']
+            #         logger.info("Operation context--> %s", opContext)
+
+            # elif cloud_event.type in "Microsoft.Communication.RecognizeCanceled":
+            #     logger.info(f"Received RecognizeCanceled event for connection id: {call_connection_id}")
+            #     if "operationContext" in cloud_event.data:
+            #         opContext = cloud_event.data['operationContext']
+            #         logger.info("Operation context--> %s", opContext)
+
+            # elif cloud_event.type == "Microsoft.Communication.RecordingStateChanged":
+            #     logger.info(f"Received RecordingStateChanged event for connection id: {call_connection_id}")
+
+            # elif cloud_event.type == "Microsoft.Communication.CallTransferAccepted":
+            #     logger.info(f"Received CallTransferAccepted event for connection id: {call_connection_id}")
+
+            # elif cloud_event.type == "Microsoft.Communication.CallTransferFailed":
+            #     logger.info(f"Received CallTransferFailed event for connection id: {call_connection_id}")
+            #     if "operationContext" in cloud_event.data:
+            #         opContext = cloud_event.data['operationContext']
+            #         logger.info("Operation context--> %s", opContext)
+            #     resultInformation = cloud_event.data['resultInformation']
+            #     logger.info("Encountered error:- message=%s, code=%s, subCode=%s", resultInformation['message'], resultInformation['code'], resultInformation['subCode'])
+
+            # elif cloud_event.type == "Microsoft.Communication.AddParticipantFailed":
+            #     logger.info(f"Received AddParticipantFailed event for connection id: {call_connection_id}")
+            #     if "operationContext" in cloud_event.data:
+            #         opContext = cloud_event.data['operationContext']
+            #         logger.info("Operation context--> %s", opContext)
+            #     resultInformation = cloud_event.data['resultInformation']
+            #     logger.info("Encountered error:- message=%s, code=%s, subCode=%s", resultInformation['message'], resultInformation['code'], resultInformation['subCode'])
+
+            # elif cloud_event.type == "Microsoft.Communication.CancelAddParticipantSucceeded":
+            #     logger.info(f"Received CancelAddParticipantSucceeded event for connection id: {call_connection_id}")
+
+            # elif cloud_event.type == "Microsoft.Communication.CancelAddParticipantFailed":
+            #     logger.info(f"Received CancelAddParticipantFailed event for connection id: {call_connection_id}")
+            #     if "operationContext" in cloud_event.data:
+            #         opContext = cloud_event.data['operationContext']
+            #         logger.info("Operation context--> %s", opContext)
+            #     resultInformation = cloud_event.data['resultInformation']
+            #     logger.info("Encountered error:- message=%s, code=%s, subCode=%s", resultInformation['message'], resultInformation['code'], resultInformation['subCode'])
+
+            # elif cloud_event.type == "Microsoft.Communication.CreateCallFailed":
+            #     logger.info(f"Received CreateCallFailed event for connection id: {call_connection_id}")
+            #     if "operationContext" in cloud_event.data:
+            #         opContext = cloud_event.data['operationContext']
+            #         logger.info("Operation context--> %s", opContext)
+            #     resultInformation = cloud_event.data['resultInformation']
+            #     logger.info("Encountered error:- message=%s, code=%s, subCode=%s", resultInformation['message'], resultInformation['code'], resultInformation['subCode'])
+
+            # elif cloud_event.type == "Microsoft.Communication.CallDisconnected":
+            #     logger.info(f"Received CallDisconnected event for connection id: {call_connection_id}")
+
+        return JSONResponse(content={"cloudEvents": cloud_events}, status_code=200)
+        # return Response(status_code=200)
+    except Exception as ex:
+        logger.error(f"Error in callback handler: {str(ex)}")
+        return Response(status_code=500, content=str(ex))
 
 @app.get(
     "/api/logs",
@@ -268,35 +435,29 @@ async def get_azure_log_stream(
         raise HTTPException(status_code=500, detail=f"Failed to fetch logs: {str(e)}")
 
 async def create_call_acs(acsString):
-        acs_target = CommunicationUserIdentifier(acsString)
-        call_connection_properties = await call_automation_client.create_call(
-            acs_target,
-            callback_uri_host + "/api/callbacks",
-            cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT
-        )
-
+    global call_connection_id
+    acs_target = CommunicationUserIdentifier(acsString)
+    logger.info("callback target: %s", callback_uri_host + "/api/callbacks")
+    call_connection_properties = await call_automation_client.create_call(
+        acs_target,
+        callback_uri_host + "/api/callbacks",
+        cognitive_services_endpoint=COGNITIVE_SERVICE_ENDPOINT
+    )
+    call_connection_id = call_connection_properties.call_connection_id
+    logger.info("Created call with Correlation id: - %s", call_connection_properties.correlation_id)
 
 # Helper functions (unchanged from original code)
 async def create_call():
     global call_connection_id
-    is_acs_user_target = False
+    pstn_target = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
+    source_caller = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
     logger.info("callback target: %s", callback_uri_host + "/api/callbacks")
-    if is_acs_user_target:
-        acs_target = CommunicationUserIdentifier(TARGET_COMMUNICATION_USER)
-        call_connection_properties = await call_automation_client.create_call(
-            acs_target,
-            callback_uri_host + "/api/callbacks",
-            cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT
-        )
-    else:
-        pstn_target = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
-        source_caller = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
-        call_connection_properties = await call_automation_client.create_call(
-            pstn_target,
-            callback_uri_host + "/api/callbacks",
-            cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT,
-            source_caller_id_number=source_caller
-        )
+    call_connection_properties = await call_automation_client.create_call(
+        pstn_target,
+        callback_uri_host + "/api/callbacks",
+        cognitive_services_endpoint=COGNITIVE_SERVICE_ENDPOINT,
+        source_caller_id_number=source_caller
+    )
     call_connection_id = call_connection_properties.call_connection_id
     logger.info("Created call with Correlation id: - %s", call_connection_properties.correlation_id)
 
@@ -308,7 +469,7 @@ async def create_group_call():
     call_connection_properties = await call_automation_client.create_call(
         targets,
         callback_uri_host + "/api/callbacks",
-        cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT,
+        cognitive_services_endpoint=COGNITIVE_SERVICE_ENDPOINT,
         source_caller_id_number=source_caller
     )
     logger.info("Created group call with connection id: %s", call_connection_properties.call_connection_id)
@@ -317,7 +478,7 @@ async def connect_call():
     await call_automation_client.connect_call(
         group_call_id="593c4e2a-c1c7-4863-9b7e-64b984cbc362",
         callback_url=callback_uri_host + "/api/callbacks",
-        backup_cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT,
+        backup_cognitive_services_endpoint=COGNITIVE_SERVICE_ENDPOINT,
         operation_context="connectCallContext"
     )
 
@@ -445,8 +606,6 @@ async def get_recording_state():
     recording_state_result = await call_automation_client.get_recording_properties(recording_id)
     logger.info("Recording State --> %s", recording_state_result.recording_state)
     return recording_state_result.recording_state
-
-
 
 async def resume_recording_logic(recording_id: str, call_connection_id: str):
     try:
@@ -596,20 +755,12 @@ async def hold_participant():
         target_participant=target,
         play_source=text_source
     )
-    time.sleep(5)
-    result = await get_participant(target)
-    logger.info("Participant:--> %s", result.identifier.raw_id)
-    logger.info("Is participant on hold:--> %s", result.is_on_hold)
 
 async def unhold_participant():
     target = get_communication_target()
     await call_automation_client.get_call_connection(call_connection_id).unhold(
         target_participant=target
     )
-    time.sleep(5)
-    result = await get_participant(target)
-    logger.info("Participant:--> %s", result.identifier.raw_id)
-    logger.info("Is participant on hold:--> %s", result.is_on_hold)
 
 async def play_with_interrupt_media_flag():
     text_source = TextSource(text=INTERRUPT_PROMPT, voice_name="en-US-NancyNeural")
@@ -670,183 +821,6 @@ def get_communication_target():
 async def get_call_properties():
     call_properties = await call_automation_client.get_call_connection(call_connection_id).get_call_properties()
     return call_properties
-
-# FastAPI Routes with Swagger Documentation
-@app.post(
-    "/api/callbacks",
-    tags=["Callbacks"],
-    summary="Handle ACS callback events",
-    description="Processes callback events from Azure Communication Services, such as call connection, recognition, and recording events.",
-    responses={
-        200: {"description": "Events processed successfully"},
-        500: {"description": "Internal server error"}
-    }
-)
-async def callback_events_handler(request: Request, events: List[CloudEventModel]):
-    """
-    Handle callback events from Azure Communication Services.
-    Processes events like CallConnected, RecognizeCompleted, PlayFailed, etc.
-    """
-    global call_connection_id
-    try:
-        for event in events:
-            cloud_event = CloudEvent.from_dict(event.dict())
-            call_connection_id = cloud_event.data['callConnectionId']
-            logger.info("%s event received for call correlation id: %s", cloud_event.type, cloud_event.data['callConnectionId'])
-            call_connection_client = call_automation_client.get_call_connection(call_connection_id)
-
-            if cloud_event.type == "Microsoft.Communication.CallConnected":
-                logger.info(f"Received CallConnected event for connection id: {cloud_event.data['callConnectionId']}")
-                logger.info("CORRELATION ID: - %s", cloud_event.data["correlationId"])
-                logger.info("CALL CONNECTION ID:--> %s", cloud_event.data["callConnectionId"])
-                properties = await get_call_properties()
-
-            elif cloud_event.type == "Microsoft.Communication.ConnectFailed":
-                logger.info(f"Received ConnectFailed event for connection id: {cloud_event.data['callConnectionId']}")
-                resultInformation = cloud_event.data['resultInformation']
-                logger.info("Encountered error during connect, message=%s, code=%s, subCode=%s", resultInformation['message'], resultInformation['code'], resultInformation['subCode'])
-
-            elif cloud_event.type == "Microsoft.Communication.AddParticipantSucceeded":
-                logger.info(f"Received AddParticipantSucceeded event for connection id: {cloud_event.data['callConnectionId']}")
-
-            elif cloud_event.type == "Microsoft.Communication.RecognizeCompleted":
-                logger.info(f"Received RecognizeCompleted event for connection id: {cloud_event.data['callConnectionId']}")
-                if cloud_event.data['recognitionType'] == "dtmf":
-                    tones = cloud_event.data['dtmfResult']['tones']
-                    logger.info("Recognition completed, tones=%s, context=%s", tones, cloud_event.data['operationContext'])
-                elif cloud_event.data['recognitionType'] == "choices":
-                    labelDetected = cloud_event.data['choiceResult']['label']
-                    phraseDetected = cloud_event.data['choiceResult']['recognizedPhrase']
-                    logger.info("Recognition completed, labelDetected=%s, phraseDetected=%s, context=%s", labelDetected, phraseDetected, cloud_event.data['operationContext'])
-                elif cloud_event.data['recognitionType'] == "speech":
-                    text = cloud_event.data['speechResult']['speech']
-                    logger.info("Recognition completed, text=%s, context=%s", text, cloud_event.data['operationContext'])
-                else:
-                    logger.info("Recognition completed: data=%s", cloud_event.data)
-
-            elif cloud_event.type == "Microsoft.Communication.RecognizeFailed":
-                if "operationContext" in cloud_event.data:
-                    opContext = cloud_event.data['operationContext']
-                    logger.info("Operation context--> %s", opContext)
-                resultInformation = cloud_event.data['resultInformation']
-                logger.info("Encountered error during Recognize, message=%s, code=%s, subCode=%s", resultInformation['message'], resultInformation['code'], resultInformation['subCode'])
-                logger.info("Play failed source index--> %s", cloud_event.data["failedPlaySourceIndex"])
-
-            elif cloud_event.type in "Microsoft.Communication.PlayCompleted":
-                logger.info(f"Received PlayCompleted event for connection id: {call_connection_id}")
-                if "operationContext" in cloud_event.data:
-                    opContext = cloud_event.data['operationContext']
-                    logger.info("Operation context--> %s", opContext)
-
-            elif cloud_event.type in "Microsoft.Communication.PlayFailed":
-                logger.info(f"Received PlayFailed event for connection id: {call_connection_id}")
-                if "operationContext" in cloud_event.data:
-                    opContext = cloud_event.data['operationContext']
-                    logger.info("Operation context--> %s", opContext)
-                resultInformation = cloud_event.data['resultInformation']
-                logger.info("Encountered error during play, message=%s, code=%s, subCode=%s", resultInformation['message'], resultInformation['code'], resultInformation['subCode'])
-                logger.info("Play failed source index--> %s", cloud_event.data["failedPlaySourceIndex"])
-
-            elif cloud_event.type == "Microsoft.Communication.ContinuousDtmfRecognitionToneReceived":
-                logger.info(f"Received ContinuousDtmfRecognitionToneReceived event for connection id: {call_connection_id}")
-                logger.info(f"Tone received:-->: {cloud_event.data['tone']}")
-                logger.info(f"Sequence Id:--> {cloud_event.data['sequenceId']}")
-
-            elif cloud_event.type == "Microsoft.Communication.ContinuousDtmfRecognitionToneFailed":
-                logger.info(f"Received ContinuousDtmfRecognitionToneFailed event for connection id: {call_connection_id}")
-                if "operationContext" in cloud_event.data:
-                    opContext = cloud_event.data['operationContext']
-                    logger.info("Operation context--> %s", opContext)
-                resultInformation = cloud_event.data['resultInformation']
-                logger.info("Encountered error:- message=%s, code=%s, subCode=%s", resultInformation['message'], resultInformation['code'], resultInformation['subCode'])
-
-            elif cloud_event.type == "Microsoft.Communication.ContinuousDtmfRecognitionStopped":
-                logger.info(f"Received ContinuousDtmfRecognitionStopped event for connection id: {call_connection_id}")
-
-            elif cloud_event.type == "Microsoft.Communication.SendDtmfTonesCompleted":
-                logger.info(f"Received SendDtmfTonesCompleted event for connection id: {call_connection_id}")
-
-            elif cloud_event.type == "Microsoft.Communication.SendDtmfTonesFailed":
-                logger.info(f"Received SendDtmfTonesFailed event for connection id: {call_connection_id}")
-                resultInformation = cloud_event.data['resultInformation']
-                logger.info("Encountered error:- message=%s, code=%s, subCode=%s", resultInformation['message'], resultInformation['code'], resultInformation['subCode'])
-
-            elif cloud_event.type == "Microsoft.Communication.RemoveParticipantSucceeded":
-                logger.info(f"Received RemoveParticipantSucceeded event for connection id: {call_connection_id}")
-
-            elif cloud_event.type == "Microsoft.Communication.RemoveParticipantFailed":
-                logger.info(f"Received RemoveParticipantFailed event for connection id: {call_connection_id}")
-                resultInformation = cloud_event.data['resultInformation']
-                logger.info("Encountered error:- message=%s, code=%s, subCode=%s", resultInformation['message'], resultInformation['code'], resultInformation['subCode'])
-
-            elif cloud_event.type == "Microsoft.Communication.HoldFailed":
-                logger.info("Hold Failed.")
-                resultInformation = cloud_event.data['resultInformation']
-                logger.info("Encountered error during Hold, message=%s, code=%s, subCode=%s", resultInformation['message'], resultInformation['code'], resultInformation['subCode'])
-
-            elif cloud_event.type == "Microsoft.Communication.PlayStarted":
-                logger.info("PlayStarted event received.")
-
-            elif cloud_event.type in "Microsoft.Communication.PlayCanceled":
-                logger.info(f"Received PlayCanceled event for connection id: {call_connection_id}")
-                if "operationContext" in cloud_event.data:
-                    opContext = cloud_event.data['operationContext']
-                    logger.info("Operation context--> %s", opContext)
-
-            elif cloud_event.type in "Microsoft.Communication.RecognizeCanceled":
-                logger.info(f"Received RecognizeCanceled event for connection id: {call_connection_id}")
-                if "operationContext" in cloud_event.data:
-                    opContext = cloud_event.data['operationContext']
-                    logger.info("Operation context--> %s", opContext)
-
-            elif cloud_event.type == "Microsoft.Communication.RecordingStateChanged":
-                logger.info(f"Received RecordingStateChanged event for connection id: {call_connection_id}")
-
-            elif cloud_event.type == "Microsoft.Communication.CallTransferAccepted":
-                logger.info(f"Received CallTransferAccepted event for connection id: {call_connection_id}")
-
-            elif cloud_event.type == "Microsoft.Communication.CallTransferFailed":
-                logger.info(f"Received CallTransferFailed event for connection id: {call_connection_id}")
-                if "operationContext" in cloud_event.data:
-                    opContext = cloud_event.data['operationContext']
-                    logger.info("Operation context--> %s", opContext)
-                resultInformation = cloud_event.data['resultInformation']
-                logger.info("Encountered error:- message=%s, code=%s, subCode=%s", resultInformation['message'], resultInformation['code'], resultInformation['subCode'])
-
-            elif cloud_event.type == "Microsoft.Communication.AddParticipantFailed":
-                logger.info(f"Received AddParticipantFailed event for connection id: {call_connection_id}")
-                if "operationContext" in cloud_event.data:
-                    opContext = cloud_event.data['operationContext']
-                    logger.info("Operation context--> %s", opContext)
-                resultInformation = cloud_event.data['resultInformation']
-                logger.info("Encountered error:- message=%s, code=%s, subCode=%s", resultInformation['message'], resultInformation['code'], resultInformation['subCode'])
-
-            elif cloud_event.type == "Microsoft.Communication.CancelAddParticipantSucceeded":
-                logger.info(f"Received CancelAddParticipantSucceeded event for connection id: {call_connection_id}")
-
-            elif cloud_event.type == "Microsoft.Communication.CancelAddParticipantFailed":
-                logger.info(f"Received CancelAddParticipantFailed event for connection id: {call_connection_id}")
-                if "operationContext" in cloud_event.data:
-                    opContext = cloud_event.data['operationContext']
-                    logger.info("Operation context--> %s", opContext)
-                resultInformation = cloud_event.data['resultInformation']
-                logger.info("Encountered error:- message=%s, code=%s, subCode=%s", resultInformation['message'], resultInformation['code'], resultInformation['subCode'])
-
-            elif cloud_event.type == "Microsoft.Communication.CreateCallFailed":
-                logger.info(f"Received CreateCallFailed event for connection id: {call_connection_id}")
-                if "operationContext" in cloud_event.data:
-                    opContext = cloud_event.data['operationContext']
-                    logger.info("Operation context--> %s", opContext)
-                resultInformation = cloud_event.data['resultInformation']
-                logger.info("Encountered error:- message=%s, code=%s, subCode=%s", resultInformation['message'], resultInformation['code'], resultInformation['subCode'])
-
-            elif cloud_event.type == "Microsoft.Communication.CallDisconnected":
-                logger.info(f"Received CallDisconnected event for connection id: {call_connection_id}")
-
-        return Response(status_code=200)
-    except Exception as ex:
-        logger.error(f"Error in callback handler: {str(ex)}")
-        return Response(status_code=500, content=str(ex))
 
 @app.post(
     "/download",
@@ -1334,29 +1308,8 @@ async def mute_participant_handler(
     await mute_participant(call_connection_id=callConnectionId, participant_id=participantId, is_acs_user=isAcsUser)
     return RedirectResponse(url="/")
 
-
-async def hold_participant(call_connection_id: str, participant_id: str, is_acs_user: bool, hold_prompt_url: str = None):
-    logger.info(f"Putting participant {participant_id} on hold in call {call_connection_id}, isAcsUser={is_acs_user}")
-
-    target = (
-        CommunicationUserIdentifier(participant_id)
-        if is_acs_user else
-        PhoneNumberIdentifier(participant_id)
-    )
-
-    connection = call_automation_client.get_call_connection(call_connection_id)
-
-    await connection.hold_participant(
-        target_participant=target,
-        hold_audio_file_url=hold_prompt_url,
-        operation_context="holdParticipantContext"
-    )
-
-    logger.info("Participant is now on hold.")
-
-# 🚀 Route Handler
 @app.post(
-    "/api/participants/holdParticipantAsync",
+    "/holdParticipantAsync",
     tags=["Mute/Unmute Participant API's"],
     summary="Put participant on hold",
     description="Puts a participant (ACS or PSTN) on hold with an optional hold prompt.",
@@ -1364,36 +1317,12 @@ async def hold_participant(call_connection_id: str, participant_id: str, is_acs_
         302: {"description": "Redirect to home page after putting participant on hold"}
     }
 )
-async def hold_participant_handler(
-    callConnectionId: str = Query(..., description="Call connection ID"),
-    participantId: str = Query(..., description="ACS user ID or phone number"),
-    isAcsUser: bool = Query(..., description="True for ACS user, False for PSTN"),
-    holdPromptUrl: str = Query(None, description="Optional URL for hold audio prompt")
-):
-    await hold_participant(call_connection_id=callConnectionId, participant_id=participantId, is_acs_user=isAcsUser, hold_prompt_url=holdPromptUrl)
+async def hold_participant_handler():
+    await hold_participant()
     return RedirectResponse(url="/")
 
-async def unhold_participant(call_connection_id: str, participant_id: str, is_acs_user: bool):
-    logger.info(f"Unholding participant {participant_id} in call {call_connection_id}, isAcsUser={is_acs_user}")
-
-    target = (
-        CommunicationUserIdentifier(participant_id)
-        if is_acs_user else
-        PhoneNumberIdentifier(participant_id)
-    )
-
-    connection = call_automation_client.get_call_connection(call_connection_id)
-
-    await connection.resume_participant(
-        target_participant=target,
-        operation_context="unholdParticipantContext"
-    )
-
-    logger.info("Participant is now off hold.")
-
-# 🚀 Route Handler
 @app.post(
-    "/api/participants/unholdParticipantAsync",
+    "/unholdParticipantAsync",
     tags=["Mute/Unmute Participant API's"],
     summary="Take participant off hold",
     description="Takes a participant (ACS or PSTN) off hold in an active call.",
@@ -1401,12 +1330,8 @@ async def unhold_participant(call_connection_id: str, participant_id: str, is_ac
         302: {"description": "Redirect to home page after taking participant off hold"}
     }
 )
-async def unhold_participant_handler(
-    callConnectionId: str = Query(..., description="Call connection ID"),
-    participantId: str = Query(..., description="ACS user ID or phone number"),
-    isAcsUser: bool = Query(..., description="True for ACS user, False for PSTN")
-):
-    await unhold_participant(call_connection_id=callConnectionId, participant_id=participantId, is_acs_user=isAcsUser)
+async def unhold_participant_handler():
+    await unhold_participant()
     return RedirectResponse(url="/")
 
 @app.post(
@@ -1423,6 +1348,7 @@ async def get_participant_handler():
     target = get_communication_target()
     await get_participant(target)
     return RedirectResponse(url="/")
+
 @app.post(
     "/listParticipant",
     tags=["Hold Participant API's"],
@@ -2251,7 +2177,7 @@ async def create_call_with_transcription():
         websocket_uri = WEBSOCKET_URI_HOST.replace("https", "wss") + "/ws"
 
         #create_call_options = CreateCallOptions(call_invite, callback_uri)
-       # call_intelligence_options = CallIntelligenceOptions(COGNITIVE_SERVICES_ENDPOINT)
+       # call_intelligence_options = CallIntelligenceOptions(COGNITIVE_SERVICE_ENDPOINT)
         #transcription_options = TranscriptionOptions(websocket_uri, "WEBSOCKET", "en-US", False)
 
        # create_call_options.set_call_intelligence_options(call_intelligence_options)
@@ -2288,7 +2214,7 @@ async def create_call_with_play():
         callback_uri = f"{callback_uri_host}/api/callbacks"
 
        # create_call_options = CreateCallOptions(call_invite, callback_uri)
-        #call_intelligence_options = CallIntelligenceOptions(COGNITIVE_SERVICES_ENDPOINT)
+        #call_intelligence_options = CallIntelligenceOptions(COGNITIVE_SERVICE_ENDPOINT)
         #create_call_options.set_call_intelligence_options(call_intelligence_options)
 
         # Create call with response
