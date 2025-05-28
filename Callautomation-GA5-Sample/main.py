@@ -233,18 +233,6 @@ async def set_configurations(configuration_request: ConfigurationRequest = Body(
         logger.error(f"Error configuring: {e}")
         raise HTTPException(status_code=500, detail="Failed to configure call automation client.")
 
-@app.post("/api/callbacks",
-    tags=["callbacks"],
-    summary="Handle callback events",
-    description="Handles callback events from Azure Communication Services.",
-    responses={
-        200: {"description": "Callback events processed successfully."},
-        500: {"description": "Failed to process callback events."},
-    },
-)
-async def api_callbacks(cloudEvents: List[dict], request: Request):
-    return JSONResponse(content={"cloudEvents": cloudEvents}, status_code=200)
-
 @app.get(
     "/api/logs",
     tags=["Call Automation Events"],
@@ -2259,7 +2247,7 @@ async def create_call_with_transcription():
         # Prepare call invite and transcription options
         target = CommunicationUserIdentifier(ACS_PHONE_NUMBER)
         call_invite = CallInvite(target)
-        callback_uri = f"{CALLBACK_URI_HOST}/api/callbacks"
+        callback_uri = f"{callback_uri_host}/api/callbacks"
         websocket_uri = WEBSOCKET_URI_HOST.replace("https", "wss") + "/ws"
 
         #create_call_options = CreateCallOptions(call_invite, callback_uri)
@@ -2297,7 +2285,7 @@ async def create_call_with_play():
         # Prepare call invite and options
         target = CommunicationUserIdentifier(ACS_PHONE_NUMBER)
         call_invite = CallInvite(target)
-        callback_uri = f"{CALLBACK_URI_HOST}/api/callbacks"
+        callback_uri = f"{callback_uri_host}/api/callbacks"
 
        # create_call_options = CreateCallOptions(call_invite, callback_uri)
         #call_intelligence_options = CallIntelligenceOptions(COGNITIVE_SERVICES_ENDPOINT)
