@@ -37,19 +37,9 @@ from logging import INFO, log
 logging.basicConfig(level=INFO)
 logger = logging.getLogger(__name__)
 
-# Your ACS resource connection string
-ACS_CONNECTION_STRING = "endpoint=https://dacsrecordingtest.unitedstates.communication.azure.com/;accesskey=9lMdkVL4KcqJ3YXGgWS9Fxa1CjPwXs63rEMczJ7DsC9mbWR3hlbtJQQJ99BEACULyCpAArohAAAAAZCS58G3"
-COGNITIVE_SERVICE_ENDPOINT = "https://cognitive-service-waferwire.cognitiveservices.azure.com/"
-# Your ACS resource phone number will act as source number to start outbound call
-ACS_PHONE_NUMBER = "+18332638155"
-
 # Target phone number you want to receive the call
-TARGET_PHONE_NUMBER = "+919866012455"
-PARTICIPANT_PHONE_NUMBER = "+919866012455"
 TARGET_COMMUNICATION_USER = ""
 PARTICIPANT_COMMUNICATION_USER = ""
-
-WEBSOCKET_URI_HOST = ""
 
 # Template and static file paths
 TEMPLATE_FILES_PATH = "template"
@@ -128,11 +118,19 @@ class CallConnection:
         return self.call_media
 
 class Configuration:
+    acs_connection_string: str = ""
+    cognitive_service_endpoint: str = ""
+    acs_phone_number: str = ""
+    target_phone_number: str = ""
     callback_uri_host: str = ""
     websocket_uri_host: str = ""
 
 # Request model
 class ConfigurationRequest(BaseModel):
+    acs_connection_string: str = Field(..., description="ACS Connection String")
+    cognitive_service_endpoint: str = Field(..., description="Cognitive Service Endpoint")
+    acs_phone_number: str = Field(..., description="ACS Phone Number")
+    target_phone_number: str = Field(..., description="Target Phone Number")
     callback_uri_host: str = Field(..., description="Callback URI host")
     websocket_uri_host: str = Field(..., description="Websocket URI host")
 
@@ -164,10 +162,8 @@ app.mount(AUDIO_FILES_PATH, StaticFiles(directory=AUDIO_FILES_PATH.strip("/")), 
 # Initialize templates
 templates = Jinja2Templates(directory=TEMPLATE_FILES_PATH)
 
-# Initialize Call Automation Client
-call_automation_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
-
 # Global variables
+call_automation_client = None
 call_connection_id = None
 recording_id = None
 content_location = None
@@ -178,13 +174,18 @@ delete_location = None
 configuration = Configuration()
 
 # Global variables (simulate static vars from Java)
+acs_connection_string = ""
+cognitive_service_endpoint = ""
 callback_uri_host = ""
 websocket_uri_host = ""
 client = None
 
 def init_client():
-    # Dummy client initializer
-    logger.info("Client initialized with ACS Connection String: %s", ACS_CONNECTION_STRING)
+    # client initializer
+    global call_automation_client
+    # Initialize Call Automation Client
+    call_automation_client = CallAutomationClient.from_connection_string(acs_connection_string)
+    logger.info("Client initialized with ACS Connection String: %s", acs_connection_string)
     return "client_instance"
 
 def get_choices():
@@ -204,7 +205,7 @@ def get_communication_target():
     is_pstn_participant = False
     is_acs_participant = False
     is_acs_user = False
-    pstn_identifier = PhoneNumberIdentifier(PARTICIPANT_PHONE_NUMBER) if is_pstn_participant else PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
+    pstn_identifier = PhoneNumberIdentifier(target_phone_number) if is_pstn_participant else PhoneNumberIdentifier(target_phone_number)
     acs_identifier = CommunicationUserIdentifier(PARTICIPANT_COMMUNICATION_USER) if is_acs_participant else CommunicationUserIdentifier(TARGET_COMMUNICATION_USER)
     target = acs_identifier if is_acs_user else pstn_identifier
     logger.info("###############TARGET############---> %s", target.raw_id)
@@ -222,18 +223,30 @@ def get_communication_target():
 )
 async def set_configurations(configuration_request: ConfigurationRequest = Body(...)):
     """Set configuration and initialize the call automation client."""
-    global callback_uri_host, websocket_uri_host, client
+    global acs_connection_string, cognitive_service_endpoint, acs_phone_number, target_phone_number, callback_uri_host, websocket_uri_host, client
 
     try:
         # Validate and set values
+        configuration.acs_connection_string = configuration_request.acs_connection_string.strip() or \
+            (_ for _ in ()).throw(ValueError("AcsConnectionString is required"))
+        configuration.cognitive_service_endpoint = configuration_request.cognitive_service_endpoint.strip() or \
+            (_ for _ in ()).throw(ValueError("CognitiveServiceEndpoint is required"))
         configuration.callback_uri_host = configuration_request.callback_uri_host.strip() or \
             (_ for _ in ()).throw(ValueError("CallbackUriHost is required"))
         configuration.websocket_uri_host = configuration_request.websocket_uri_host.strip() or \
             (_ for _ in ()).throw(ValueError("WebsocketUriHost is required"))
+        configuration.acs_phone_number = configuration_request.acs_phone_number.strip() or \
+            (_ for _ in ()).throw(ValueError("AcsPhoneNumber is required"))
+        configuration.target_phone_number = configuration_request.target_phone_number.strip() or \
+            (_ for _ in ()).throw(ValueError("TargetPhoneNumber is required"))
 
         # Assign to global variables
+        acs_connection_string = configuration.acs_connection_string
+        cognitive_service_endpoint = configuration.cognitive_service_endpoint
         callback_uri_host = configuration.callback_uri_host
         websocket_uri_host = configuration.websocket_uri_host
+        acs_phone_number = configuration.acs_phone_number
+        target_phone_number = configuration.target_phone_number
 
         client = init_client()
 
@@ -636,13 +649,13 @@ async def outbound_call_handler():
 
 async def create_call():
     global call_connection_id
-    pstn_target = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
-    source_caller = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
+    pstn_target = PhoneNumberIdentifier(target_phone_number)
+    source_caller = PhoneNumberIdentifier(acs_phone_number)
     logger.info("callback target: %s", callback_uri_host + "/api/callbacks")
     call_connection_properties = await call_automation_client.create_call(
         pstn_target,
         callback_uri_host + "/api/callbacks",
-        cognitive_services_endpoint=COGNITIVE_SERVICE_ENDPOINT,
+        cognitive_services_endpoint=cognitive_service_endpoint,
         source_caller_id_number=source_caller
     )
     call_connection_id = call_connection_properties.call_connection_id
@@ -669,7 +682,7 @@ async def create_call_acs(acsString):
     call_connection_properties = await call_automation_client.create_call(
         acs_target,
         callback_uri_host + "/api/callbacks",
-        cognitive_services_endpoint=COGNITIVE_SERVICE_ENDPOINT
+        cognitive_services_endpoint=cognitive_service_endpoint
     )
     call_connection_id = call_connection_properties.call_connection_id
     logger.info("Created call with Correlation id: - %s", call_connection_properties.correlation_id)
@@ -690,13 +703,13 @@ async def group_call_handler():
 
 async def create_group_call():
     acs_target = CommunicationUserIdentifier(TARGET_COMMUNICATION_USER)
-    pstn_target = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
-    source_caller = PhoneNumberIdentifier(ACS_PHONE_NUMBER)
+    pstn_target = PhoneNumberIdentifier(target_phone_number)
+    source_caller = PhoneNumberIdentifier(acs_phone_number)
     targets = [pstn_target, acs_target]
     call_connection_properties = await call_automation_client.create_call(
         targets,
         callback_uri_host + "/api/callbacks",
-        cognitive_services_endpoint=COGNITIVE_SERVICE_ENDPOINT,
+        cognitive_services_endpoint=cognitive_service_endpoint,
         source_caller_id_number=source_caller
     )
     logger.info("Created group call with connection id: %s", call_connection_properties.call_connection_id)
@@ -719,7 +732,7 @@ async def connect_call():
     await call_automation_client.connect_call(
         group_call_id="593c4e2a-c1c7-4863-9b7e-64b984cbc362",
         callback_url=callback_uri_host + "/api/callbacks",
-        backup_cognitive_services_endpoint=COGNITIVE_SERVICE_ENDPOINT,
+        backup_cognitive_services_endpoint=cognitive_service_endpoint,
         operation_context="connectCallContext"
     )
 
@@ -941,7 +954,7 @@ async def start_continuous_dtmf_tones_handler():
     return RedirectResponse(url="/")
 
 async def start_continuous_dtmf_logic():
-    target = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
+    target = PhoneNumberIdentifier(target_phone_number)
     logger.info(f"➡️ Starting continuous DTMF recognition on call ID: {call_connection_id}")
     logger.info(f"👤 Target participant: {target.raw_id}")
     await call_automation_client.get_call_connection(call_connection_id).start_continuous_dtmf_recognition(
@@ -961,7 +974,7 @@ async def stop_continuous_dtmf_tones_handler():
     return RedirectResponse(url="/")
 
 async def stop_continuous_dtmf_logic():
-    target = PhoneNumberIdentifier(TARGET_PHONE_NUMBER)
+    target = PhoneNumberIdentifier(target_phone_number)
     logger.info(f"🛑 Stopping continuous DTMF recognition on call ID: {call_connection_id}")
     logger.info(f"👤 Target participant: {target.raw_id}")
     await call_automation_client.get_call_connection(call_connection_id).stop_continuous_dtmf_recognition(
@@ -1034,9 +1047,9 @@ async def add_participant_handler():
 async def add_participant_pstn():
     """Add a PSTN phone number as a participant."""
     await call_automation_client.get_call_connection(call_connection_id).add_participant(
-        target_participant=PhoneNumberIdentifier(PARTICIPANT_PHONE_NUMBER),
+        target_participant=PhoneNumberIdentifier(target_phone_number),
         operation_context="addPstnUserContext",
-        source_caller_id_number=PhoneNumberIdentifier(ACS_PHONE_NUMBER),
+        source_caller_id_number=PhoneNumberIdentifier(acs_phone_number),
         invitation_timeout=30
     )
 
@@ -1538,13 +1551,13 @@ async def transfer_call_to_acs_participant(call_connection_id: str, transfer_tar
 
 async def transfer_call_to_participant():
     is_acs_participant = False
-    transfer_target = CommunicationUserIdentifier(PARTICIPANT_COMMUNICATION_USER) if is_acs_participant else PhoneNumberIdentifier(PARTICIPANT_PHONE_NUMBER)
+    transfer_target = CommunicationUserIdentifier(PARTICIPANT_COMMUNICATION_USER) if is_acs_participant else PhoneNumberIdentifier(target_phone_number)
     logger.info("Transfer target:- %s", transfer_target.raw_id)
     await call_automation_client.get_call_connection(call_connection_id).transfer_call_to_participant(
         target_participant=transfer_target,
         operation_context="transferCallContext",
-        transferee=PhoneNumberIdentifier(TARGET_PHONE_NUMBER),
-        source_caller_id_number=PhoneNumberIdentifier(ACS_PHONE_NUMBER)
+        transferee=PhoneNumberIdentifier(target_phone_number),
+        source_caller_id_number=PhoneNumberIdentifier(acs_phone_number)
     )
     logger.info("Transfer call initiated.")
 
@@ -1978,13 +1991,13 @@ async def create_call_with_transcription():
     """Creates a call with transcription enabled."""
     try:
         # Prepare call invite and transcription options
-        target = CommunicationUserIdentifier(ACS_PHONE_NUMBER)
+        target = CommunicationUserIdentifier(acs_phone_number)
         call_invite = CallInvite(target)
         callback_uri = f"{callback_uri_host}/api/callbacks"
-        websocket_uri = WEBSOCKET_URI_HOST.replace("https", "wss") + "/ws"
+        websocket_uri = websocket_uri_host.replace("https", "wss") + "/ws"
 
         #create_call_options = CreateCallOptions(call_invite, callback_uri)
-       # call_intelligence_options = CallIntelligenceOptions(COGNITIVE_SERVICE_ENDPOINT)
+       # call_intelligence_options = CallIntelligenceOptions(cognitive_service_endpoint)
         #transcription_options = TranscriptionOptions(websocket_uri, "WEBSOCKET", "en-US", False)
 
        # create_call_options.set_call_intelligence_options(call_intelligence_options)
@@ -2015,12 +2028,12 @@ async def create_call_with_play():
     """Creates a call with play media capability."""
     try:
         # Prepare call invite and options
-        target = CommunicationUserIdentifier(ACS_PHONE_NUMBER)
+        target = CommunicationUserIdentifier(acs_phone_number)
         call_invite = CallInvite(target)
         callback_uri = f"{callback_uri_host}/api/callbacks"
 
        # create_call_options = CreateCallOptions(call_invite, callback_uri)
-        #call_intelligence_options = CallIntelligenceOptions(COGNITIVE_SERVICE_ENDPOINT)
+        #call_intelligence_options = CallIntelligenceOptions(cognitive_service_endpoint)
         #create_call_options.set_call_intelligence_options(call_intelligence_options)
 
         # Create call with response
@@ -2049,7 +2062,7 @@ async def play_text_source_target():
     try:
         call_media = get_call_media()
 
-        play_to = [CommunicationUserIdentifier(ACS_PHONE_NUMBER)]
+        play_to = [CommunicationUserIdentifier(acs_phone_number)]
         #text_source = create_text_source("Hi, this is test source played through play source thanks. Goodbye!")
 
         #play_options = PlayOptions(text_source, play_to)
