@@ -211,6 +211,12 @@ def get_communication_target():
     logger.info("###############TARGET############---> %s", target.raw_id)
     return target
 
+def get_call_media(call_connection_id: str):
+    if not call_connection_id:
+        raise HTTPException(status_code=400, detail="Call connection id is empty")
+    # In a real scenario, fetch the call connection from the client or service
+    return CallConnection(call_connection_id).get_call_media()
+
 @app.post(
     "/api/setConfigurations",
     tags=["Set Configuration"],
@@ -284,10 +290,16 @@ async def callback_events_handler(events: List[dict], request: Request):
                 "correlationId": cloud_event.data["correlationId"],
             })
             type = cloud_event.type
-            call_connection_id = cloud_event.data.get('callConnectionId', None)
+            callconnection_id = cloud_event.data.get('callConnectionId', None)
             correlation_id = cloud_event.data.get('correlationId', None)
-            logger.info("%s event received for call connection id %s with correlation id: %s", type, call_connection_id, correlation_id)
-            # #call_connection_client = call_automation_client.get_call_connection(call_connection_id)
+            logger.info("%s event received for call connection id %s with correlation id: %s", type, callconnection_id, correlation_id)
+
+            # Start recording only when call is established
+            # if cloud_event.type == "Microsoft.Communication.CallConnected":
+            #     # Example: Start WAV unmixed recording (adjust as needed)
+            #     time.sleep(10)  # Simulate delay for connection establishment
+            #     logger.info("RECORDING STARTING on connection id %s", callconnection_id)
+            #     await start_recording_with_audio_wav_unmixed_logic(callconnection_id, is_pause_on_start=False)
 
             # if cloud_event.type == "Microsoft.Communication.CallConnected":
             #     logger.info(f"Received CallConnected event for connection id: {cloud_event.data['callConnectionId']}")
@@ -623,16 +635,6 @@ async def stop_recording_logic(recording_id: str, call_connection_id: str):
             detail=error_message
         )
 
-async def stop_recording():
-    if recording_id:
-        if (await get_recording_state()) == "active":
-            await call_automation_client.resume_recording(recording_id)
-            logger.info("Recording is stopped.")
-        else:
-            logger.info("Recording is already inactive.")
-    else:
-        logger.info("Recording id is empty.")
-
 @app.post(
     "/outboundCall",
     tags=["Outbound Call API's"],
@@ -736,29 +738,6 @@ async def connect_call():
         operation_context="connectCallContext"
     )
 
-async def play_media(one_source: bool, is_play_to_all: bool, valid_file: bool = True):
-    text_source = TextSource(text=PLAY_PROMPT, voice_name="en-US-NancyNeural")
-    file_source = FileSource(url=MAIN_MENU_PROMPT_URI)
-    ssml_text = SsmlSource(ssml_text=SSML_PLAY_TEXT)
-    target = get_communication_target()
-    if not valid_file:
-        file_source = FileSource(url="https://invalid-url.com/audio.mp3")
-    play_sources = [text_source, ssml_text, file_source]
-    if one_source:
-        play_sources = [text_source]
-    if is_play_to_all:
-        await call_automation_client.get_call_connection(call_connection_id).play_media_to_all(
-            play_source=play_sources,
-            operation_context="playToAllContext",
-            loop=False,
-            operation_callback_url=callback_uri_host + "/api/callbacks",
-            interrupt_call_media_operation=False
-        )
-    else:
-        await call_automation_client.get_call_connection(call_connection_id).play_media(
-            play_source=play_sources
-        )
-
 @app.post(
     "/playMediaToAllMultipleSources",
     tags=["Media Operations"],
@@ -843,47 +822,27 @@ async def play_media_handler():
     await play_media(True, False)
     return RedirectResponse(url="/")
 
-async def play_recognize(recognizeType: RecognizeInputType):
-    text_source = TextSource(text=RECOGNITION_PROMPT, voice_name="en-US-NancyNeural")
+async def play_media(one_source: bool, is_play_to_all: bool, valid_file: bool = True):
+    text_source = TextSource(text=PLAY_PROMPT, voice_name="en-US-NancyNeural")
+    file_source = FileSource(url=MAIN_MENU_PROMPT_URI)
+    ssml_text = SsmlSource(ssml_text=SSML_PLAY_TEXT)
     target = get_communication_target()
-    if recognizeType == RecognizeInputType.SPEECH:
-        await call_automation_client.get_call_connection(call_connection_id).start_recognizing_media(
-            input_type=RecognizeInputType.SPEECH,
-            target_participant=target,
-            play_prompt=text_source,
-            interrupt_prompt=False,
-            initial_silence_timeout=10,
-            operation_context="speechContext"
+    if not valid_file:
+        file_source = FileSource(url="https://invalid-url.com/audio.mp3")
+    play_sources = [text_source, ssml_text, file_source]
+    if one_source:
+        play_sources = [text_source]
+    if is_play_to_all:
+        await call_automation_client.get_call_connection(call_connection_id).play_media_to_all(
+            play_source=play_sources,
+            operation_context="playToAllContext",
+            loop=False,
+            operation_callback_url=callback_uri_host + "/api/callbacks",
+            interrupt_call_media_operation=False
         )
-    elif recognizeType == RecognizeInputType.DTMF:
-        await call_automation_client.get_call_connection(call_connection_id).start_recognizing_media(
-            input_type=RecognizeInputType.DTMF,
-            target_participant=target,
-            play_prompt=text_source,
-            interrupt_prompt=False,
-            dtmf_max_tones_to_collect=4,
-            initial_silence_timeout=10,
-            operation_context="dtmfContext"
-        )
-    elif recognizeType == RecognizeInputType.CHOICES:
-        await call_automation_client.get_call_connection(call_connection_id).start_recognizing_media(
-            input_type=RecognizeInputType.CHOICES,
-            target_participant=target,
-            choices=get_choices(),
-            play_prompt=text_source,
-            interrupt_prompt=False,
-            initial_silence_timeout=10,
-            operation_context="choiceContext"
-        )
-    elif recognizeType == RecognizeInputType.SPEECH_OR_DTMF:
-        await call_automation_client.get_call_connection(call_connection_id).start_recognizing_media(
-            input_type=RecognizeInputType.SPEECH_OR_DTMF,
-            target_participant=target,
-            play_prompt=text_source,
-            interrupt_prompt=False,
-            dtmf_max_tones_to_collect=4,
-            initial_silence_timeout=10,
-            operation_context="speechOrDtmfContext"
+    else:
+        await call_automation_client.get_call_connection(call_connection_id).play_media(
+            play_source=play_sources
         )
 
 @app.post(
@@ -941,6 +900,49 @@ async def play_recognize_handler():
     """Start media recognition."""
     await play_recognize(RecognizeInputType.SPEECH_OR_DTMF)
     return RedirectResponse(url="/")
+        
+async def play_recognize(recognizeType: RecognizeInputType):
+    text_source = TextSource(text=RECOGNITION_PROMPT, voice_name="en-US-NancyNeural")
+    target = get_communication_target()
+    if recognizeType == RecognizeInputType.SPEECH:
+        await call_automation_client.get_call_connection(call_connection_id).start_recognizing_media(
+            input_type=RecognizeInputType.SPEECH,
+            target_participant=target,
+            play_prompt=text_source,
+            interrupt_prompt=False,
+            initial_silence_timeout=10,
+            operation_context="speechContext"
+        )
+    elif recognizeType == RecognizeInputType.DTMF:
+        await call_automation_client.get_call_connection(call_connection_id).start_recognizing_media(
+            input_type=RecognizeInputType.DTMF,
+            target_participant=target,
+            play_prompt=text_source,
+            interrupt_prompt=False,
+            dtmf_max_tones_to_collect=4,
+            initial_silence_timeout=10,
+            operation_context="dtmfContext"
+        )
+    elif recognizeType == RecognizeInputType.CHOICES:
+        await call_automation_client.get_call_connection(call_connection_id).start_recognizing_media(
+            input_type=RecognizeInputType.CHOICES,
+            target_participant=target,
+            choices=get_choices(),
+            play_prompt=text_source,
+            interrupt_prompt=False,
+            initial_silence_timeout=10,
+            operation_context="choiceContext"
+        )
+    elif recognizeType == RecognizeInputType.SPEECH_OR_DTMF:
+        await call_automation_client.get_call_connection(call_connection_id).start_recognizing_media(
+            input_type=RecognizeInputType.SPEECH_OR_DTMF,
+            target_participant=target,
+            play_prompt=text_source,
+            interrupt_prompt=False,
+            dtmf_max_tones_to_collect=4,
+            initial_silence_timeout=10,
+            operation_context="speechOrDtmfContext"
+        )
 
 @app.post(
     "/startContinuousDtmf",
@@ -1013,22 +1015,6 @@ async def start_send_dtmf_tones(call_connection_id: str, acs_target_id: str):
     )
 
     logger.info("DTMF tones sent successfully.")
-
-async def start_continuous_dtmf():
-    target = get_communication_target()
-    await call_automation_client.get_call_connection(call_connection_id).start_continuous_dtmf_recognition(target_participant=target)
-    logger.info("Continuous Dtmf recognition started. press 1 on dialpad.")
-
-async def stop_continuous_dtmf():
-    target = get_communication_target()
-    await call_automation_client.get_call_connection(call_connection_id).stop_continuous_dtmf_recognition(target_participant=target)
-    logger.info("Continuous Dtmf recognition stopped.")
-
-async def start_send_dtmf_tones():
-    target = get_communication_target()
-    tones = [DtmfTone.ONE, DtmfTone.TWO]
-    await call_automation_client.get_call_connection(call_connection_id).send_dtmf_tones(tones=tones, target_participant=target)
-    logger.info("Send dtmf tone started.")
 
 @app.post(
     "/addParticipantpstn",
@@ -1111,13 +1097,6 @@ async def remove_participant(call_connection_id: str, participant_id: str, is_ac
     )
 
     logger.info("Participant removed successfully")
-
-async def remove_participant():
-    target = get_communication_target()
-    await call_automation_client.get_call_connection(call_connection_id).remove_participant(
-        target_participant=target,
-        operation_context="removeParticipantContext"
-    )
 
 @app.post(
     "/muteParticipantAsync",
@@ -1212,6 +1191,10 @@ async def get_participant_handler():
     await get_participant(target)
     return RedirectResponse(url="/")
 
+async def get_participant(target: CommunicationIdentifier):
+    participant = await call_automation_client.get_call_connection(call_connection_id).get_participant(target)
+    return participant
+
 @app.post(
     "/listParticipant",
     tags=["Hold Participant API's"],
@@ -1226,7 +1209,35 @@ async def get_participant_list_handler():
     await get_participant_list()
     return RedirectResponse(url="/")
 
-async def start_recording_with_video_mp4_mixed_logic(
+async def get_participant_list():
+    participants = call_automation_client.get_call_connection(call_connection_id).list_participants()
+    logger.info("Listing participants in call")
+    async for page in participants.by_page():
+        async for participant in page:
+            logger.info("-------------------------------------------------------------")
+            logger.info("Participant: %s", participant.identifier.raw_id)
+            logger.info("Is participant muted: %s", participant.is_muted)
+            logger.info("Is participant on hold: %s", participant.is_on_hold)
+            logger.info("-------------------------------------------------------------")
+
+@app.post(
+    "/startRecordingWithAudioWavMixed",
+    tags=["Recording"],
+    summary="Start audio recording in WAV format with mixed channel",
+    description="Starts recording a call with audio only in WAV format with mixed channel configuration.",
+    responses={
+        302: {"description": "Redirect to home page after starting recording"}
+    }
+)
+async def start_recording_with_audio_wav_mixed_handler(
+    isPauseOnStart: bool = Query(..., description="Whether to pause recording on start")
+):
+    result = await start_recording_with_audio_wav_mixed_logic(
+        is_pause_on_start=isPauseOnStart
+    )
+    return RedirectResponse(url="/")
+
+async def start_recording_with_audio_wav_mixed_logic(
     is_pause_on_start: bool
 ):
     global recording_id
@@ -1238,7 +1249,7 @@ async def start_recording_with_video_mp4_mixed_logic(
         correlation_id = call_connection_properties.correlation_id
         call_locator = ServerCallLocator(server_call_id)
 
-        print(f"console.log: 🎥 Starting recording on call ID: {call_connection_id}")
+        print(f"console.log: 🎙️ Starting audio recording on call ID: {call_connection_id}")
         print(f"console.log: 🔗 Correlation ID: {correlation_id}")
 
         recording_storage = (
@@ -1248,10 +1259,10 @@ async def start_recording_with_video_mp4_mixed_logic(
         )
 
         recording_result = await call_automation_client.start_recording(
-            server_call_id=server_call_id,
-            recording_content_type=RecordingContent.AUDIO_VIDEO,
+            call_locator=call_locator,
+            recording_content_type=RecordingContent.AUDIO,
             recording_channel_type=RecordingChannel.MIXED,
-            recording_format_type=RecordingFormat.MP4,
+            recording_format_type=RecordingFormat.WAV,
             recording_state_callback_url=callback_uri_host + "/api/callbacks",
             recording_storage=recording_storage,
             pause_on_start=is_pause_on_start
@@ -1278,7 +1289,26 @@ async def start_recording_with_video_mp4_mixed_logic(
             detail=error_message
         )
     
+@app.post(
+    "/startRecordingWithAudioWavUnmixed",
+    tags=["Recording"],
+    summary="Start audio recording in WAV format with unmixed channel",
+    description="Starts recording a call with audio only in WAV format with unmixed channel configuration.",
+    responses={
+        302: {"description": "Redirect to home page after starting recording"}
+    }
+)
+async def start_recording_with_audio_wav_unmixed_handler(
+    isPauseOnStart: bool = Query(..., description="Whether to pause recording on start")
+):
+    result = await start_recording_with_audio_wav_unmixed_logic(
+        call_connection_id=call_connection_id,
+        is_pause_on_start=isPauseOnStart
+    )
+    return RedirectResponse(url="/")
+
 async def start_recording_with_audio_wav_unmixed_logic(
+    call_connection_id: str,
     is_pause_on_start: bool
 ):
     global recording_id
@@ -1344,88 +1374,19 @@ async def start_recording_with_audio_wav_unmixed_logic(
             detail=error_message
         )
 
-async def start_recording_with_audio_wav_mixed_logic(
-    is_pause_on_start: bool
-):
-    global recording_id
-    try:
-        call_connection_properties = await call_automation_client.get_call_connection(
-            call_connection_id
-        ).get_call_properties()
-        server_call_id = call_connection_properties.server_call_id
-        correlation_id = call_connection_properties.correlation_id
-        call_locator = ServerCallLocator(server_call_id)
-
-        print(f"console.log: 🎙️ Starting audio recording on call ID: {call_connection_id}")
-        print(f"console.log: 🔗 Correlation ID: {correlation_id}")
-
-        recording_storage = (
-            AzureBlobContainerRecordingStorage(BRING_YOUR_OWN_STORAGE_URL)
-            if IS_BYOS
-            else AzureCommunicationsRecordingStorage()
-        )
-
-        recording_result = await call_automation_client.start_recording(
-            server_call_id=server_call_id,
-            recording_content_type=RecordingContent.AUDIO,
-            recording_channel_type=RecordingChannel.MIXED,
-            recording_format_type=RecordingFormat.WAV,
-            recording_state_callback_url=callback_uri_host + "/api/callbacks",
-            recording_storage=recording_storage,
-            pause_on_start=is_pause_on_start
-        )
-        recording_id = recording_result.recording_id
-
-        print(
-            f"console.log: ✅ Recording started. RecordingId: {recording_id}, "
-            f"CallConnectionId: {call_connection_id}, CorrelationId: {correlation_id}, "
-            f"Status: {recording_result.recording_state}"
-        )
-
-        return CloudEvent(
-            call_connection_id=call_connection_id,
-            correlation_id=correlation_id,
-            status=f"Recording started. RecordingId: {recording_id}. Status: {recording_result.recording_state}"
-        )
-
-    except Exception as ex:
-        error_message = f"Error starting recording: {str(ex)}. CallConnectionId: {call_connection_id}"
-        print(f"console.log: ❌ {error_message}")
-        raise HTTPException(
-            status_code=500,
-            detail=error_message
-        )
-
 @app.post(
-    "/startRecordingWithAudioWavMixed",
+    "/startRecordingWithAudioMp3Mixed",
     tags=["Recording"],
-    summary="Start audio recording in WAV format with mixed channel",
-    description="Starts recording a call with audio only in WAV format with mixed channel configuration.",
+    summary="Start audio recording in MP3 format",
+    description="Starts recording a call with audio only in MP3 format with mixed channel configuration.",
     responses={
         302: {"description": "Redirect to home page after starting recording"}
     }
 )
-async def start_recording_with_audio_wav_mixed_handler(
+async def start_recording_with_audio_mp3_mixed_handler(
     isPauseOnStart: bool = Query(..., description="Whether to pause recording on start")
 ):
-    result = await start_recording_with_audio_wav_mixed_logic(
-        is_pause_on_start=isPauseOnStart
-    )
-    return RedirectResponse(url="/")
-
-@app.post(
-    "/startRecordingWithAudioWavUnmixed",
-    tags=["Recording"],
-    summary="Start audio recording in WAV format with unmixed channel",
-    description="Starts recording a call with audio only in WAV format with unmixed channel configuration.",
-    responses={
-        302: {"description": "Redirect to home page after starting recording"}
-    }
-)
-async def start_recording_with_audio_wav_unmixed_handler(
-    isPauseOnStart: bool = Query(..., description="Whether to pause recording on start")
-):
-    result = await start_recording_with_audio_wav_unmixed_logic(
+    result = await start_recording_with_audio_mp3_mixed_logic(
         is_pause_on_start=isPauseOnStart
     )
     return RedirectResponse(url="/")
@@ -1481,24 +1442,7 @@ async def start_recording_with_audio_mp3_mixed_logic(
             status_code=500,
             detail=error_message
         )
-
-@app.post(
-    "/startRecordingWithAudioMp3Mixed",
-    tags=["Recording"],
-    summary="Start audio recording in MP3 format",
-    description="Starts recording a call with audio only in MP3 format with mixed channel configuration.",
-    responses={
-        302: {"description": "Redirect to home page after starting recording"}
-    }
-)
-async def start_recording_with_audio_mp3_mixed_handler(
-    isPauseOnStart: bool = Query(..., description="Whether to pause recording on start")
-):
-    result = await start_recording_with_audio_mp3_mixed_logic(
-        is_pause_on_start=isPauseOnStart
-    )
-    return RedirectResponse(url="/")
-
+    
 @app.post(
     "/startRecordingWithVideoMp4Mixed",
     tags=["Recording"],
@@ -1515,6 +1459,58 @@ async def start_recording_with_video_mp4_mixed_handler(
         is_pause_on_start=isPauseOnStart
     )
     return RedirectResponse(url="/")
+
+async def start_recording_with_video_mp4_mixed_logic(
+    is_pause_on_start: bool
+):
+    global recording_id
+    try:
+        call_connection_properties = await call_automation_client.get_call_connection(
+            call_connection_id
+        ).get_call_properties()
+        server_call_id = call_connection_properties.server_call_id
+        correlation_id = call_connection_properties.correlation_id
+        call_locator = ServerCallLocator(server_call_id)
+
+        print(f"console.log: 🎥 Starting recording on call ID: {call_connection_id}")
+        print(f"console.log: 🔗 Correlation ID: {correlation_id}")
+
+        recording_storage = (
+            AzureBlobContainerRecordingStorage(BRING_YOUR_OWN_STORAGE_URL)
+            if IS_BYOS
+            else AzureCommunicationsRecordingStorage()
+        )
+
+        recording_result = await call_automation_client.start_recording(
+            server_call_id=server_call_id,
+            recording_content_type=RecordingContent.AUDIO_VIDEO,
+            recording_channel_type=RecordingChannel.MIXED,
+            recording_format_type=RecordingFormat.MP4,
+            recording_state_callback_url=callback_uri_host + "/api/callbacks",
+            recording_storage=recording_storage,
+            pause_on_start=is_pause_on_start
+        )
+        recording_id = recording_result.recording_id
+
+        print(
+            f"console.log: ✅ Recording started. RecordingId: {recording_id}, "
+            f"CallConnectionId: {call_connection_id}, CorrelationId: {correlation_id}, "
+            f"Status: {recording_result.recording_state}"
+        )
+
+        return CloudEvent(
+            call_connection_id=call_connection_id,
+            correlation_id=correlation_id,
+            status=f"Recording started. RecordingId: {recording_id}. Status: {recording_result.recording_state}"
+        )
+
+    except Exception as ex:
+        error_message = f"Error starting recording: {str(ex)}. CallConnectionId: {call_connection_id}"
+        print(f"console.log: ❌ {error_message}")
+        raise HTTPException(
+            status_code=500,
+            detail=error_message
+        )
 
 @app.post(
     "/transferCallToAcsParticipantAsync",
@@ -1549,17 +1545,22 @@ async def transfer_call_to_acs_participant(call_connection_id: str, transfer_tar
 
     logger.info("Call transfer initiated successfully.")
 
-async def transfer_call_to_participant():
-    is_acs_participant = False
-    transfer_target = CommunicationUserIdentifier(PARTICIPANT_COMMUNICATION_USER) if is_acs_participant else PhoneNumberIdentifier(target_phone_number)
-    logger.info("Transfer target:- %s", transfer_target.raw_id)
-    await call_automation_client.get_call_connection(call_connection_id).transfer_call_to_participant(
-        target_participant=transfer_target,
-        operation_context="transferCallContext",
-        transferee=PhoneNumberIdentifier(target_phone_number),
-        source_caller_id_number=PhoneNumberIdentifier(acs_phone_number)
+@app.post(
+    "/startRecording",
+    tags=["Recording"],
+    summary="Start call recording",
+    description="Starts recording an active call with audio only in WAV format with unmixed channel configuration.",
+    responses={
+        302: {"description": "Redirect to home page after starting recording"}
+    }
+)
+async def start_recording_handler(
+    isPauseOnStart: bool = Query(..., description="Whether to pause recording on start")
+):
+    result = await start_recording_logic(
+        is_pause_on_start=isPauseOnStart
     )
-    logger.info("Transfer call initiated.")
+    return RedirectResponse(url="/")
 
 async def start_recording_logic(
     is_pause_on_start: bool
@@ -1571,9 +1572,8 @@ async def start_recording_logic(
         ).get_call_properties()
         server_call_id = call_connection_properties.server_call_id
         correlation_id = call_connection_properties.correlation_id
-        call_locator = ServerCallLocator(server_call_id)
 
-        print(f"console.log: 🎙️ Starting audio recording on call ID: {call_connection_id}")
+        print(f"console.log: 🎙️ Starting audio recording on server ID: {server_call_id}")
         print(f"console.log: 🔗 Correlation ID: {correlation_id}")
 
         recording_storage = (
@@ -1585,8 +1585,8 @@ async def start_recording_logic(
         recording_result = await call_automation_client.start_recording(
             server_call_id=server_call_id,
             recording_content_type=RecordingContent.AUDIO,
-            recording_channel_type=RecordingChannel.UNMIXED,
-            recording_format_type=RecordingFormat.WAV,
+            recording_channel_type=RecordingChannel.MIXED,
+            recording_format_type=RecordingFormat.MP3,
             recording_state_callback_url=callback_uri_host + "/api/callbacks",
             recording_storage=recording_storage,
             pause_on_start=is_pause_on_start
@@ -1614,22 +1614,21 @@ async def start_recording_logic(
         )
 
 @app.post(
-    "/startRecording",
+    "/pauseRecording",
     tags=["Recording"],
-    summary="Start call recording",
-    description="Starts recording an active call with audio only in WAV format with unmixed channel configuration.",
+    summary="Pause call recording",
+    description="Pauses an active call recording.",
     responses={
-        302: {"description": "Redirect to home page after starting recording"}
+        302: {"description": "Redirect to home page after pausing recording"}
     }
 )
-async def start_recording_handler(
-    isPauseOnStart: bool = Query(..., description="Whether to pause recording on start")
+async def pause_recording_handler(
+    recordingId: str = Query(..., description="Recording ID to pause")
 ):
-    result = await start_recording_logic(
-        is_pause_on_start=isPauseOnStart
-    )
+    """Pause call recording."""
+    result = await pause_recording_logic(recording_id=recordingId)
     return RedirectResponse(url="/")
-
+    
 async def pause_recording_logic(recording_id: str):
     try:
         if not recording_id:
@@ -1664,45 +1663,21 @@ async def pause_recording_logic(recording_id: str):
         )
 
 @app.post(
-    "/pauseRecording",
+    "/resumeRecording",
     tags=["Recording"],
-    summary="Pause call recording",
-    description="Pauses an active call recording.",
+    summary="Resume call recording",
+    description="Resumes a paused call recording.",
     responses={
-        302: {"description": "Redirect to home page after pausing recording"}
+        302: {"description": "Redirect to home page after resuming recording"}
     }
 )
-async def pause_recording_handler(
-    recordingId: str = Query(..., description="Recording ID to pause")
+async def resume_recording_handler(
+    recordingId: str = Query(..., description="Recording ID to resume"),
+    callConnectionId: str = Query(..., description="Call connection ID")
 ):
-    """Pause call recording."""
-    result = await pause_recording_logic(recording_id=recordingId)
+    """Resume call recording."""
+    result = await resume_recording_logic(recording_id=recordingId, call_connection_id=callConnectionId)
     return RedirectResponse(url="/")
-
-async def pause_recording():
-    if recording_id:
-        if (await get_recording_state()) == "active":
-            await call_automation_client.pause_recording(recording_id)
-            logger.info("Recording is paused.")
-        else:
-            logger.info("Recording is already inactive.")
-    else:
-        logger.info("Recording id is empty.")
-
-async def resume_recording():
-    if recording_id:
-        if (await get_recording_state()) == "inactive":
-            await call_automation_client.resume_recording(recording_id)
-            logger.info("Recording is resumed.")
-        else:
-            logger.info("Recording is already active.")
-    else:
-        logger.info("Recording id is empty.")
-
-async def get_recording_state():
-    recording_state_result = await call_automation_client.get_recording_properties(recording_id)
-    logger.info("Recording State --> %s", recording_state_result.recording_state)
-    return recording_state_result.recording_state
 
 async def resume_recording_logic(recording_id: str, call_connection_id: str):
     try:
@@ -1795,24 +1770,7 @@ async def resume_recording_logic(recording_id: str, call_connection_id: str):
             status_code=500,
             detail=error_message
         )
-
-@app.post(
-    "/resumeRecording",
-    tags=["Recording"],
-    summary="Resume call recording",
-    description="Resumes a paused call recording.",
-    responses={
-        302: {"description": "Redirect to home page after resuming recording"}
-    }
-)
-async def resume_recording_handler(
-    recordingId: str = Query(..., description="Recording ID to resume"),
-    callConnectionId: str = Query(..., description="Call connection ID")
-):
-    """Resume call recording."""
-    result = await resume_recording_logic(recording_id=recordingId, call_connection_id=callConnectionId)
-    return RedirectResponse(url="/")
-
+    
 @app.post(
     "/playWithInterruptMediaFlag",
     tags=["Media Operations"],
@@ -1826,6 +1784,20 @@ async def play_with_interrupt_media_flag_handler():
     """Play media with interrupt flag."""
     await play_with_interrupt_media_flag()
     return RedirectResponse(url="/")
+
+async def play_with_interrupt_media_flag():
+    text_source = TextSource(text=INTERRUPT_PROMPT, voice_name="en-US-NancyNeural")
+    file_source = FileSource(url=MAIN_MENU_PROMPT_URI)
+    ssml_text = SsmlSource(ssml_text=SSML_INTERRUPT_TEXT)
+    play_sources = [text_source, file_source, ssml_text]
+    call_connection = call_automation_client.get_call_connection(call_connection_id)
+    await call_connection.play_media_to_all(
+        play_source=play_sources,
+        loop=False,
+        operation_context="interruptMediaContext",
+        operation_callback_url=callback_uri_host + "/api/callbacks",
+        interrupt_call_media_operation=True
+    )
 
 @app.post(
     "/cancelAllMediaOperation",
@@ -1858,6 +1830,9 @@ async def hangup_call_handler():
     await hangup_call()
     return RedirectResponse(url="/")
 
+async def hangup_call():
+    await call_automation_client.get_call_connection(call_connection_id).hang_up(False)
+
 @app.post(
     "/terminateCall",
     tags=["Call Management"],
@@ -1872,9 +1847,8 @@ async def terminate_call_handler():
     await terminate_call()
     return RedirectResponse(url="/")
 
-async def index_handler(request: Request):
-    """Render the home page."""
-    return templates.TemplateResponse("index.html", {"request": request})
+async def terminate_call():
+    await call_automation_client.get_call_connection(call_connection_id).hang_up(True)
 
 @app.post(
     "/stopMediaStreaming",
@@ -1897,12 +1871,6 @@ async def stop_media_streaming(call_connection_id: str):
     except Exception as e:
         log.error(f"Error stopping media streaming: {e}")
         raise HTTPException(status_code=500, detail="Failed to stop media streaming.")
-
-def get_call_media(call_connection_id: str):
-    if not call_connection_id:
-        raise HTTPException(status_code=400, detail="Call connection id is empty")
-    # In a real scenario, fetch the call connection from the client or service
-    return CallConnection(call_connection_id).get_call_media()
 
 @app.post(
     "/startMediaStreaming",
@@ -2136,51 +2104,18 @@ async def play_text_source_barge_in_to_all():
         log.error(f"Error playing text source to all with barge-in: {e}")
         raise HTTPException(status_code=500, detail="Failed to play text source to all with barge-in.")
 
-async def play_with_interrupt_media_flag():
-    text_source = TextSource(text=INTERRUPT_PROMPT, voice_name="en-US-NancyNeural")
-    file_source = FileSource(url=MAIN_MENU_PROMPT_URI)
-    ssml_text = SsmlSource(ssml_text=SSML_INTERRUPT_TEXT)
-    play_sources = [text_source, file_source, ssml_text]
-    call_connection = call_automation_client.get_call_connection(call_connection_id)
-    await call_connection.play_media_to_all(
-        play_source=play_sources,
-        loop=False,
-        operation_context="interruptMediaContext",
-        operation_callback_url=callback_uri_host + "/api/callbacks",
-        interrupt_call_media_operation=True
-    )
-
-async def mute_participant():
-    target = get_communication_target()
-    await call_automation_client.get_call_connection(call_connection_id).mute_participant(
-        target_participant=target,
-        operation_context="muteParticipantContext"
-    )
-
-async def get_participant(target: CommunicationIdentifier):
-    participant = await call_automation_client.get_call_connection(call_connection_id).get_participant(target)
-    return participant
-
-async def get_participant_list():
-    participants = call_automation_client.get_call_connection(call_connection_id).list_participants()
-    logger.info("Listing participants in call")
-    async for page in participants.by_page():
-        async for participant in page:
-            logger.info("-------------------------------------------------------------")
-            logger.info("Participant: %s", participant.identifier.raw_id)
-            logger.info("Is participant muted: %s", participant.is_muted)
-            logger.info("Is participant on hold: %s", participant.is_on_hold)
-            logger.info("-------------------------------------------------------------")
-
-async def hangup_call():
-    await call_automation_client.get_call_connection(call_connection_id).hang_up(False)
-
-async def terminate_call():
-    await call_automation_client.get_call_connection(call_connection_id).hang_up(True)
+async def get_recording_state():
+    recording_state_result = await call_automation_client.get_recording_properties(recording_id)
+    logger.info("Recording State --> %s", recording_state_result.recording_state)
+    return recording_state_result.recording_state
 
 async def get_call_properties():
     call_properties = await call_automation_client.get_call_connection(call_connection_id).get_call_properties()
     return call_properties
+    
+async def index_handler(request: Request):
+    """Render the home page."""
+    return templates.TemplateResponse("index.html", {"request": request})
 
 # Add this near the end of your file, before the if __name__ == "__main__" block
 @app.api_route("/", methods=["GET", "POST"], response_class=HTMLResponse)
