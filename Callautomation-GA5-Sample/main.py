@@ -581,15 +581,12 @@ async def download_metadata():
         302: {"description": "Redirect to home page after stopping recording"}
     }
 )
-async def stop_recording_handler(
-    recordingId: str = Query(..., description="Recording ID to stop"),
-    callConnectionId: str = Query(..., description="Call connection ID")
-):
+async def stop_recording_handler():
     """Stop call recording."""
-    result = await stop_recording_logic(recording_id=recordingId, call_connection_id=callConnectionId)
+    result = await stop_recording_logic()
     return RedirectResponse(url="/")
 
-async def stop_recording_logic(recording_id: str, call_connection_id: str):
+async def stop_recording_logic():
     try:
         if not recording_id:
             print(f"console.log: ⚠️ Recording id is empty.")
@@ -611,21 +608,21 @@ async def stop_recording_logic(recording_id: str, call_connection_id: str):
         ).get_call_properties()
         correlation_id = call_connection_properties.correlation_id
 
-        recording_state = await get_recording_state(recording_id)  # Update get_recording_state to accept recording_id
+        recording_state = await get_recording_state()  
         if recording_state == "active":
-            print(f"console.log: 🛑 Stopping recording with RecordingId: {recording_id}")
-            await call_automation_client.stop_recording(recording_id)
-            print(f"console.log: ✅ Recording is stopped.")
-            status_message = "Recording is stopped."
+            print(f"console.log: ℹ️ Recording is active. RecordingId: {recording_id}")
         else:
-            print(f"console.log: ℹ️ Recording is already inactive. RecordingId: {recording_id}")
-            status_message = "Recording is already inactive."
+            print(f"console.log: ℹ️ Recording is inactive. RecordingId: {recording_id}")
 
-        return CloudEventData(
-            callConnectionId=call_connection_id,
-            correlationId=correlation_id,
-            resultInformation={"status": status_message}
-        )
+        print(f"console.log: 🛑 Stopping recording with RecordingId: {recording_id}")
+        await call_automation_client.stop_recording(recording_id)
+        status_message = "Recording is stopped."
+
+        return {
+            "callConnectionId": call_connection_id,
+            "correlationId": correlation_id,
+            "resultInformation": {"status": status_message}
+        }
 
     except Exception as ex:
         error_message = f"Error stopping recording: {str(ex)}. RecordingId: {recording_id}, CallConnectionId: {call_connection_id}"
@@ -1553,8 +1550,7 @@ async def start_recording_logic(
         server_call_id = call_connection_properties.server_call_id
         correlation_id = call_connection_properties.correlation_id
 
-        print(f"console.log: 🎙️ Starting audio recording on server ID: {server_call_id}")
-        print(f"console.log: 🔗 Correlation ID: {correlation_id}")
+        logger.info("properties:--> %s", json.dumps(call_connection_properties, indent=2))
 
         recording_storage = (
             AzureBlobContainerRecordingStorage(BRING_YOUR_OWN_STORAGE_URL)
@@ -1564,26 +1560,22 @@ async def start_recording_logic(
 
         recording_result = await call_automation_client.start_recording(
             server_call_id=server_call_id,
+            recording_state_callback_url=callback_uri_host + "/api/callbacks",
             recording_content_type=RecordingContent.AUDIO,
             recording_channel_type=RecordingChannel.MIXED,
             recording_format_type=RecordingFormat.MP3,
-            recording_state_callback_url=callback_uri_host + "/api/callbacks",
             recording_storage=recording_storage,
             pause_on_start=is_pause_on_start
         )
         recording_id = recording_result.recording_id
 
-        print(
-            f"console.log: ✅ Recording started. RecordingId: {recording_id}, "
-            f"CallConnectionId: {call_connection_id}, CorrelationId: {correlation_id}, "
-            f"Status: {recording_result.recording_state}"
-        )
-
-        return CloudEvent(
-            call_connection_id=call_connection_id,
-            correlation_id=correlation_id,
-            status=f"Recording started. RecordingId: {recording_id}. Status: {recording_result.recording_state}"
-        )
+        return {
+            "call_connection_id": call_connection_id,
+            "source": f"call-automation:{call_connection_id}",
+            "type": "com.azure.communication.callautomation.recording.started",
+            "correlation_id": correlation_id,
+            "status": f"Recording started. RecordingId: {recording_id}. Status: {recording_result.recording_state}"
+        }
 
     except Exception as ex:
         error_message = f"Error starting recording: {str(ex)}. CallConnectionId: {call_connection_id}"
@@ -1602,14 +1594,12 @@ async def start_recording_logic(
         302: {"description": "Redirect to home page after pausing recording"}
     }
 )
-async def pause_recording_handler(
-    recordingId: str = Query(..., description="Recording ID to pause")
-):
+async def pause_recording_handler():
     """Pause call recording."""
-    result = await pause_recording_logic(recording_id=recordingId)
+    result = await pause_recording_logic()
     return RedirectResponse(url="/")
     
-async def pause_recording_logic(recording_id: str):
+async def pause_recording_logic():
     try:
         if not recording_id:
             print(f"console.log: ⚠️ Recording id is empty.")
@@ -1618,21 +1608,21 @@ async def pause_recording_logic(recording_id: str):
                 detail="Recording id is empty."
             )
 
-        recording_state = await get_recording_state(recording_id)  # Update get_recording_state to accept recording_id
+        recording_state = await get_recording_state()  
         if recording_state == "active":
             print(f"console.log: ⏸️ Pausing recording with RecordingId: {recording_id}")
             await call_automation_client.pause_recording(recording_id)
             print(f"console.log: ✅ Recording is paused.")
-            return CloudEvent(
-                recording_id=recording_id,
-                status="Recording is paused."
-            )
+            return {
+                "recording_id": recording_id,
+                "status": "Recording is paused."
+            }
         else:
             print(f"console.log: ℹ️ Recording is already inactive. RecordingId: {recording_id}")
-            return CloudEvent(
-                recording_id=recording_id,
-                status="Recording is already inactive."
-            )
+            return {
+                "recording_id": recording_id,
+                "status": "Recording is already inactive."
+            }
 
     except Exception as ex:
         error_message = f"Error pausing recording: {str(ex)}. RecordingId: {recording_id}"
@@ -1651,15 +1641,12 @@ async def pause_recording_logic(recording_id: str):
         302: {"description": "Redirect to home page after resuming recording"}
     }
 )
-async def resume_recording_handler(
-    recordingId: str = Query(..., description="Recording ID to resume"),
-    callConnectionId: str = Query(..., description="Call connection ID")
-):
+async def resume_recording_handler():
     """Resume call recording."""
-    result = await resume_recording_logic(recording_id=recordingId, call_connection_id=callConnectionId)
+    result = await resume_recording_logic()
     return RedirectResponse(url="/")
 
-async def resume_recording_logic(recording_id: str, call_connection_id: str):
+async def resume_recording_logic():
     try:
         if not recording_id:
             print(f"console.log: ⚠️ Recording id is empty.")
@@ -1681,7 +1668,7 @@ async def resume_recording_logic(recording_id: str, call_connection_id: str):
         ).get_call_properties()
         correlation_id = call_connection_properties.correlation_id
 
-        recording_state = await get_recording_state(recording_id)  # Update get_recording_state to accept recording_id
+        recording_state = await get_recording_state()  
         if recording_state == "inactive":
             print(f"console.log: ▶️ Resuming recording with RecordingId: {recording_id}")
             await call_automation_client.resume_recording(recording_id)
@@ -1691,57 +1678,11 @@ async def resume_recording_logic(recording_id: str, call_connection_id: str):
             print(f"console.log: ℹ️ Recording is already active. RecordingId: {recording_id}")
             status_message = "Recording is already active."
 
-        return CloudEventData(
-            callConnectionId=call_connection_id,
-            correlationId=correlation_id,
-            resultInformation={"status": status_message}
-        )
-
-    except Exception as ex:
-        error_message = f"Error resuming recording: {str(ex)}. RecordingId: {recording_id}, CallConnectionId: {call_connection_id}"
-        print(f"console.log: ❌ {error_message}")
-        raise HTTPException(
-            status_code=500,
-            detail=error_message
-        )
-    
-async def resume_recording_logic(recording_id: str, call_connection_id: str):
-    try:
-        if not recording_id:
-            print(f"console.log: ⚠️ Recording id is empty.")
-            raise HTTPException(
-                status_code=400,
-                detail="Recording id is empty."
-            )
-
-        if not call_connection_id:
-            print(f"console.log: ⚠️ Call connection id is empty.")
-            raise HTTPException(
-                status_code=400,
-                detail="Call connection id is empty."
-            )
-
-        # Fetch call properties to get correlationId
-        call_connection_properties = await call_automation_client.get_call_connection(
-            call_connection_id
-        ).get_call_properties()
-        correlation_id = call_connection_properties.correlation_id
-
-        recording_state = await get_recording_state(recording_id)  # Update get_recording_state to accept recording_id
-        if recording_state == "inactive":
-            print(f"console.log: ▶️ Resuming recording with RecordingId: {recording_id}")
-            await call_automation_client.resume_recording(recording_id)
-            print(f"console.log: ✅ Recording is resumed.")
-            status_message = "Recording is resumed."
-        else:
-            print(f"console.log: ℹ️ Recording is already active. RecordingId: {recording_id}")
-            status_message = "Recording is already active."
-
-        return CloudEventData(
-            callConnectionId=call_connection_id,
-            correlationId=correlation_id,
-            resultInformation={"status": status_message}
-        )
+        return {
+            "callConnectionId": call_connection_id,
+            "correlationId": correlation_id,
+            "resultInformation": {"status": status_message}
+        }
 
     except Exception as ex:
         error_message = f"Error resuming recording: {str(ex)}. RecordingId: {recording_id}, CallConnectionId: {call_connection_id}"
