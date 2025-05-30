@@ -127,6 +127,24 @@ def create_group_call():
     app.logger.info("Created group call with connection id: %s", call_connection_properties.call_connection_id)
     return redirect("/")
 
+@app.route('pauseRecording')
+def pause_recording():
+    if recording_state == "active":
+        call_automation_client.pause_recording(recording_id)
+    return redirect("/")
+
+@app.route('/resumeRecording')
+def resume_recording():
+    if recording_state == "inactive":
+        call_automation_client.resume_recording(recording_id)
+    return redirect("/")
+
+@app.route('/stopRecording')
+def start_recording():
+    call_automation_client.stop_recording(recording_id)
+    return redirect("/")
+
+
 def handle_recognize(playText,callerId,call_connection_id,context="",isDtmf=False):
     choices = [ 
     RecognitionChoice( 
@@ -257,10 +275,10 @@ def incoming_call_handler():
                                 answer_call_result.call_connection_id)
                 return Response(status=200)
 # For outbound call.
-# @app.route('/api/callbacks', methods=['POST'])
-# def handle_callback():        
-@app.route("/api/callbacks/<contextId>", methods=["POST"])
-def handle_callback(contextId):
+@app.route('/api/callbacks', methods=['POST'])
+def handle_callback():        
+# @app.route("/api/callbacks/<contextId>", methods=["POST"])
+# def handle_callback(contextId):
     try:        
         global caller_id , call_connection_id, server_call_id,call_connection_client,cor_relation_id
         # app.logger.info("Request Json: %s", request.json)
@@ -273,63 +291,14 @@ def handle_callback(contextId):
             app.logger.info("%s event received for call connection id: %s", event.type, call_connection_id)
             app.logger.info("call connected : data=%s", event.data)
             if event.type == "Microsoft.Communication.CallConnected":
+                  global server_call_id
+                  global recording_state
                   app.logger.info("Call connected")
                   server_call_id = event.data["serverCallId"]
                   app.logger.info("Server Call Id --> %s", server_call_id)
                   app.logger.info("Is pause on start --> %s", IS_PAUSE_ON_START)
                   app.logger.info("Bring Your Own Storage --> %s", IS_BYOS)
                   call_connection_client =call_automation_client.get_call_connection(call_connection_id=call_connection_id)
-                  
-                #   call_connection_properties = call_connection_client.get_call_properties()
-                #   app.logger.info("ANSWERED FOR --> %s", call_connection_properties.answered_for.raw_id)
-                  if IS_BYOS:
-                      app.logger.info("Bring Your Own Storage URL --> %s", BRING_YOUR_STORAGE_URL)
-                 
-                  if IS_TRANSFER_CALL:
-                      app.logger.info("Is Transfer Call:--> %s", IS_TRANSFER_CALL)
-                      call_connection_client.transfer_call_to_participant(
-                          target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER),
-                          transferee=PhoneNumberIdentifier(ACS_PHONE_NUMBER_2),
-                          source_caller_id_number=PhoneNumberIdentifier(ACS_PHONE_NUMBER))
-                      app.logger.info("Transfer call initiated.")
-                      return 
-                  elif IS_OUTBOUND_CALL:
-                      app.logger.info("Is Outbound Call:--> %s", IS_OUTBOUND_CALL)
-                      app.logger.info("Outbound call connected.")
-                      
-                      # Cancel add participant test.
-                    #   app.logger.info("Cancel add participant test initiated.")
-                    #   response = call_connection_client.add_participant(target_participant=PhoneNumberIdentifier(ACS_PHONE_NUMBER_2),
-                    #                                      source_caller_id_number=PhoneNumberIdentifier(ACS_PHONE_NUMBER),
-                    #                                      invitation_timeout=10
-                    #                                      )
-                    #   app.logger.info(f"Invitation Id:--> {response.invitation_id}")   
-                    #   call_connection_client.cancel_add_participant_operation(response.invitation_id
-                    #                                                         #   operation_context="cancelAddParticipantContext"
-                    #                                                         )
-                      # Cancel add participant test end
-                      
-                      # Transfer call test
-                    #   call_connection_client.transfer_call_to_participant(target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER_2),
-                    #                                                       transferee=PhoneNumberIdentifier(TARGET_PHONE_NUMBER),
-                    #                                                       operation_context="transferCallContext")
-                    #   app.logger.info("Transfer call initiated.")
-                      # Transfer call test end.
-                      
-                    #   start_continuous_dtmf(call_connection_id=call_connection_id)
-                      
-                    #   handle_play(call_connection_id,"this is loop test","outboundPlayContext")
-                      
-                    #   handle_hangup(call_connection_id)
-                      call_automation_client.get_call_connection(call_connection_id).hang_up(is_for_everyone=False)
-                  else:
-                      start_recording(server_call_id)
-                      
-                      call_connection_client.add_participant(target_participant=PhoneNumberIdentifier(TARGET_PHONE_NUMBER),
-                                                             source_caller_id_number=PhoneNumberIdentifier(ACS_PHONE_NUMBER),
-                                                             operation_context="addPstnUserContext",
-                                                             invitation_timeout=10)
-                      app.logger.info("Adding PSTN participant")
                  
             elif event.type == "Microsoft.Communication.RecognizeCompleted":
                  app.logger.info("Recognition completed")
@@ -383,34 +352,6 @@ def handle_callback(contextId):
                 if context == "continuousDtmfPlayContext":
                     app.logger.info("test")
                     return
-                
-                recording_state = get_recording_state(recording_id)
-                if recording_state == "active":
-                    call_automation_client.pause_recording(recording_id)
-                    time.sleep(5)
-                    get_recording_state(recording_id)
-                    app.logger.info("Recording is paused")
-                    time.sleep(5)
-                    call_automation_client.resume_recording(recording_id)
-                    time.sleep(5)
-                    get_recording_state(recording_id)
-                    app.logger.info("Recording is resumed")
-                else:
-                    time.sleep(5)
-                    call_automation_client.resume_recording(recording_id)
-                    time.sleep(5)
-                    get_recording_state(recording_id)
-                    call_automation_client.pause_recording(recording_id)
-                    time.sleep(5)
-                    get_recording_state(recording_id)
-                    time.sleep(5)
-                    call_automation_client.resume_recording(recording_id)
-                    time.sleep(5)
-                    get_recording_state(recording_id)
-                time.sleep(5)
-                call_automation_client.stop_recording(recording_id)
-                app.logger.info("Recording is stopped")
-                handle_hangup(call_connection_id)
             elif event.type == "Microsoft.Communication.CallTransferAccepted":
                 app.logger.info(f"Call transfer accepted event received for connection id: {call_connection_id}")   
                 app.logger.info(f"Operation context:--> {event.data['operationContext']}")
@@ -494,7 +435,8 @@ def handle_callback(contextId):
                 resultInformation = event.data['resultInformation']
                 sub_code = resultInformation['subCode']
             elif event.type == "Microsoft.Communication.RecordingStateChanged":             
-                app.logger.info(f"Received RecordingStateChanged event for connection id: {call_connection_id}")   
+                app.logger.info(f"Received RecordingStateChanged event for connection id: {call_connection_id}")
+                recording_state = get_recording_state(recording_id)   
             elif event.type == "Microsoft.Communication.CallDisconnected":             
                 app.logger.info(f"Received CallDisconnected event for connection id: {call_connection_id}")
         return Response(status=200) 
@@ -562,4 +504,4 @@ def index_handler():
 
 if __name__ == '__main__':
     app.logger.setLevel(INFO)
-    app.run(port=8080)
+    app.run(port=8081)
