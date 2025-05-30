@@ -1247,7 +1247,6 @@ async def start_recording_with_audio_wav_mixed_logic(
         ).get_call_properties()
         server_call_id = call_connection_properties.server_call_id
         correlation_id = call_connection_properties.correlation_id
-        call_locator = ServerCallLocator(server_call_id)
 
         print(f"console.log: 🎙️ Starting audio recording on call ID: {call_connection_id}")
         print(f"console.log: 🔗 Correlation ID: {correlation_id}")
@@ -1259,7 +1258,7 @@ async def start_recording_with_audio_wav_mixed_logic(
         )
 
         recording_result = await call_automation_client.start_recording(
-            call_locator=call_locator,
+            server_call_id=server_call_id,
             recording_content_type=RecordingContent.AUDIO,
             recording_channel_type=RecordingChannel.MIXED,
             recording_format_type=RecordingFormat.WAV,
@@ -1302,13 +1301,11 @@ async def start_recording_with_audio_wav_unmixed_handler(
     isPauseOnStart: bool = Query(..., description="Whether to pause recording on start")
 ):
     result = await start_recording_with_audio_wav_unmixed_logic(
-        call_connection_id=call_connection_id,
         is_pause_on_start=isPauseOnStart
     )
     return RedirectResponse(url="/")
 
 async def start_recording_with_audio_wav_unmixed_logic(
-    call_connection_id: str,
     is_pause_on_start: bool
 ):
     global recording_id
@@ -1316,7 +1313,6 @@ async def start_recording_with_audio_wav_unmixed_logic(
         call_connection_properties = await call_automation_client.get_call_connection(call_connection_id).get_call_properties()
         server_call_id = call_connection_properties.server_call_id
         correlation_id = call_connection_properties.correlation_id
-        #call_locator = ServerCallLocator(server_call_id)
 
         print(f"console.log: 🎙️ Starting audio recording on call ID: {call_connection_id}")
         print(f"console.log: 🔗 Correlation ID: {correlation_id}")
@@ -1326,19 +1322,6 @@ async def start_recording_with_audio_wav_unmixed_logic(
             if IS_BYOS
             else AzureCommunicationsRecordingStorage()
         )
-
-        logger.info("Recording storage initialized.")
-        # recording_options = (
-        #     {
-        #         "call_locator": call_locator,
-        #         "recording_content_type": RecordingContent.AUDIO,
-        #         "recording_channel_type": RecordingChannel.UNMIXED,
-        #         "recording_format_type": RecordingFormat.WAV,
-        #         "recording_state_callback_url": callback_uri_host + "/api/callbacks",
-        #         "recording_storage": recording_storage,
-        #         "pause_on_start": is_pause_on_start
-        #     }
-        # )
 
         logger.info("Recording storage initialized.")
         recording_result = await call_automation_client.start_recording(
@@ -1351,7 +1334,6 @@ async def start_recording_with_audio_wav_unmixed_logic(
             pause_on_start=is_pause_on_start
         )
 
-        logger.info("Recording storage initialized.")
         recording_id = recording_result.recording_id
 
         print(
@@ -1401,7 +1383,6 @@ async def start_recording_with_audio_mp3_mixed_logic(
         ).get_call_properties()
         server_call_id = call_connection_properties.server_call_id
         correlation_id = call_connection_properties.correlation_id
-        call_locator = ServerCallLocator(server_call_id)
 
         print(f"console.log: 🎙️ Starting audio recording on call ID: {call_connection_id}")
         print(f"console.log: 🔗 Correlation ID: {correlation_id}")
@@ -1470,7 +1451,6 @@ async def start_recording_with_video_mp4_mixed_logic(
         ).get_call_properties()
         server_call_id = call_connection_properties.server_call_id
         correlation_id = call_connection_properties.correlation_id
-        call_locator = ServerCallLocator(server_call_id)
 
         print(f"console.log: 🎥 Starting recording on call ID: {call_connection_id}")
         print(f"console.log: 🔗 Correlation ID: {correlation_id}")
