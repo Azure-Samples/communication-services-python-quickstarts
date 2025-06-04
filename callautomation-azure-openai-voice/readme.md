@@ -25,7 +25,7 @@ This is a sample application demonstrated during Microsoft Ignite 2024. It highl
 Create and activate python virtual environment and install required packages using following command 
 ```
 pip install -r requirements.txt
-pip install -r ./aoai-whl/rtclient-0.5.1-py3-none-any.whl
+pip install ./aoai-whl/rtclient-0.5.1-py3-none-any.whl
 ```
 
 ### Setup and host your Azure DevTunnel
