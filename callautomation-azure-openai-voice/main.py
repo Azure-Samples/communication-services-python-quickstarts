@@ -5,7 +5,7 @@ from logging import INFO
 from azure.communication.callautomation import (
     MediaStreamingOptions,
     AudioFormat,
-    MediaStreamingTransportType,
+    StreamingTransportType,
     MediaStreamingContentType,
     MediaStreamingAudioChannelType,
     )
@@ -62,7 +62,7 @@ async def incoming_call_handler():
 
                 media_streaming_options = MediaStreamingOptions(
                         transport_url=websocket_url,
-                        transport_type=MediaStreamingTransportType.WEBSOCKET,
+                        transport_type=StreamingTransportType.WEBSOCKET,
                         content_type=MediaStreamingContentType.AUDIO,
                         audio_channel_type=MediaStreamingAudioChannelType.MIXED,
                         start_media_streaming=True,

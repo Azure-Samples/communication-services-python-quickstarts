@@ -15,7 +15,7 @@ from azure.communication.callautomation import (
     RecognizeInputType,
     TextSource,
     # TranscriptionConfiguration,
-    TranscriptionTransportType,
+    StreamingTransportType,
     ServerCallLocator,
     TranscriptionOptions,
     RecordingContent,
@@ -144,7 +144,7 @@ async def incoming_call_handler():
                 recording_callback_url = callback_uri
                 transcription_config = TranscriptionOptions(
                     transport_url=websocket_url,
-                    transport_type=TranscriptionTransportType.WEBSOCKET,
+                    transport_type=StreamingTransportType.WEBSOCKET,
                     locale=LOCALE,
                     start_transcription=True
                 )
