@@ -1,23 +1,20 @@
-from quart import Quart, Response, request, json, redirect, websocket
+from quart import Quart, Response, request, json, websocket
 from azure.eventgrid import EventGridEvent, SystemEventNames
-from urllib.parse import urlencode, urljoin, urlparse, urlunparse
+from urllib.parse import urlencode, urlparse, urlunparse
 from logging import INFO
 from azure.communication.callautomation import (
     MediaStreamingOptions,
     AudioFormat,
-    StreamingTransportType,
     MediaStreamingContentType,
     MediaStreamingAudioChannelType,
+    StreamingTransportType
     )
 from azure.communication.callautomation.aio import (
     CallAutomationClient
     )
 import uuid
-from azure.core.messaging import CloudEvent
 
-from azureOpenAIService import init_websocket, start_conversation
-from mediaStreamingHandler import process_websocket_message_async
-from threading import Thread
+from azureOpenAIService import OpenAIRTHandler
 
 # Your ACS resource connection string
 ACS_CONNECTION_STRING = "ACS_CONNECTION_STRING"
@@ -110,14 +107,16 @@ async def callbacks(contextId):
 # WebSocket.
 @app.websocket('/ws')
 async def ws():
+    handler = OpenAIRTHandler()
     print("Client connected to WebSocket")
-    await init_websocket(websocket)
-    await start_conversation()
-    while True:
+    await handler.init_incoming_websocket(websocket)
+    await handler.start_client()
+    while websocket:
         try:
             # Receive data from the client
             data = await websocket.receive()
-            await process_websocket_message_async(data)
+            await handler.acs_to_oai(data)
+            await handler.send_welcome()
         except Exception as e:
             print(f"WebSocket connection closed: {e}")
             break
@@ -128,7 +127,4 @@ def home():
 
 if __name__ == '__main__':
     app.logger.setLevel(INFO)
-    app.run(port=8080)
-    
-
-
+    app.run(port=8000)
