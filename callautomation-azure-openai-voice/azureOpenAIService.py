@@ -166,7 +166,9 @@ class OpenAIRTHandler():
             data = json.loads(stream_data)
             kind = data['kind']
             if kind == "AudioData":
-                audio_data = data["audioData"]["data"]
-                await self.audio_to_oai(audio_data)
+                audio_data_section = data.get("audioData", {})
+                if not audio_data_section.get("silent", True):
+                    audio_data = audio_data_section.get("data")
+                    await self.audio_to_oai(audio_data)
         except Exception as e:
             print(f'Error processing WebSocket message: {e}')
