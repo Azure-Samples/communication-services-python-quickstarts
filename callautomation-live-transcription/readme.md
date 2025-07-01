@@ -28,7 +28,7 @@ This sample application is also capable of making multiple concurrent inbound ca
 [Optional] Create and activate python virtual environment and install required packages using following command 
 ```
 python -m venv venv
-venv\Scripts\activate
+source venv/bin/activate
 ```
 Install the required packages using the following command
 ```
