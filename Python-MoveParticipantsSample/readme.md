@@ -10,6 +10,10 @@ In this quickstart, we cover how you can use Call Automation SDK to make an outb
 
 ![design](./data/OutboundCallDesign.png)
 
+# Scenario Image:
+
+![Move Participant](./Resources/Move_Participant_Sample.jpg)
+
 ## Prerequisites
 
 - An Azure account with an active subscription. [Create an account for free](https://azure.microsoft.com/free/?WT.mc_id=A261C142F).
@@ -83,6 +87,3 @@ call_connection_client.add_participant(target_participant = CallInvite(
    vi. Move participants between calls
    vii.Get participants for a specific call connection
 
-Scenario Image:
-
-![Move Participant](./Resources/Move_Participant_Sample.jpg)
