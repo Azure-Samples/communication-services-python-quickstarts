@@ -1,6 +1,6 @@
-|page_type| languages                               |products
-|---|-----------------------------------------|---|
-|sample| <table><tr><td>Python</tr></td></table> |<table><tr><td>azure</td><td>azure-communication-services</td></tr></table>|
+| page_type | languages                               | products                                                                    |
+| --------- | --------------------------------------- | --------------------------------------------------------------------------- |
+| sample    | <table><tr><td>Python</tr></td></table> | <table><tr><td>azure</td><td>azure-communication-services</td></tr></table> |
 
 # Call Automation - Quick Start Sample
 
@@ -12,13 +12,13 @@ In this quickstart, we cover how you can use Call Automation SDK to make an outb
 
 ## Prerequisites
 
-- An Azure account with an active subscription. [Create an account for free](https://azure.microsoft.com/free/?WT.mc_id=A261C142F). 
+- An Azure account with an active subscription. [Create an account for free](https://azure.microsoft.com/free/?WT.mc_id=A261C142F).
 - A deployed Communication Services resource. [Create a Communication Services resource](https://docs.microsoft.com/azure/communication-services/quickstarts/create-communication-resource).
 - A [phone number](https://learn.microsoft.com/en-us/azure/communication-services/quickstarts/telephony/get-phone-number) in your Azure Communication Services resource that can make outbound calls. NB: phone numbers are not available in free subscriptions.
 - Create Azure AI Multi Service resource. For details, see [Create an Azure AI Multi service](https://learn.microsoft.com/en-us/azure/cognitive-services/cognitive-services-apis-create-account).
 - Create and host a Azure Dev Tunnel. Instructions [here](https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/get-started)
 - [Python](https://www.python.org/downloads/) 3.7 or above.
-- (Optional) A Microsoft Teams user with a phone license that is `voice` enabled. Teams phone license is required to add Teams users to the call. Learn more about Teams licenses [here](https://www.microsoft.com/microsoft-teams/compare-microsoft-teams-bundle-options).  Learn about enabling phone system with `voice` [here](https://learn.microsoft.com/microsoftteams/setting-up-your-phone-system).   You also need to complete the prerequisite step [Authorization for your Azure Communication Services Resource](https://learn.microsoft.com/azure/communication-services/how-tos/call-automation/teams-interop-call-automation?pivots=programming-language-javascript#step-1-authorization-for-your-azure-communication-services-resource-to-enable-calling-to-microsoft-teams-users) to enable calling to Microsoft Teams users.
+- (Optional) A Microsoft Teams user with a phone license that is `voice` enabled. Teams phone license is required to add Teams users to the call. Learn more about Teams licenses [here](https://www.microsoft.com/microsoft-teams/compare-microsoft-teams-bundle-options). Learn about enabling phone system with `voice` [here](https://learn.microsoft.com/microsoftteams/setting-up-your-phone-system). You also need to complete the prerequisite step [Authorization for your Azure Communication Services Resource](https://learn.microsoft.com/azure/communication-services/how-tos/call-automation/teams-interop-call-automation?pivots=programming-language-javascript#step-1-authorization-for-your-azure-communication-services-resource-to-enable-calling-to-microsoft-teams-users) to enable calling to Microsoft Teams users.
 
 ## Before running the sample for the first time
 
@@ -28,7 +28,8 @@ In this quickstart, we cover how you can use Call Automation SDK to make an outb
 
 ### Setup the Python environment
 
-Create and activate python virtual environment and install required packages using following command 
+Create and activate python virtual environment and install required packages using following command
+
 ```
 pip install -r requirements.txt
 ```
@@ -48,9 +49,9 @@ devtunnel host
 Open `main.py` file to configure the following settings
 
 1. `ACS_CONNECTION_STRING`: Azure Communication Service resource's connection string.
-4. `CALLBACK_URI_HOST`: Base url of the app. (For local development use dev tunnel url)
-2. `PMA_ENDPOINT`: PMA End point to point - this should be configured in environement variables
-3. `ACS_OUTBOUND_PHONE_NUMBER`: ACS outbound Phone Number
+2. `CALLBACK_URI_HOST`: Base url of the app. (For local development use dev tunnel url)
+3. `PMA_ENDPOINT`: PMA End point to point - this should be configured in environement variables
+4. `ACS_OUTBOUND_PHONE_NUMBER`: ACS outbound Phone Number
 5. `ACS_INBOUND_PHONE_NUMBER`: ACS Inbound Phone Number
 6. `ACS_USER_PHONE_NUMBER`: ACS Phone Number to make the first call, external user number in real time
 7. `ACS_TEST_IDENTITY2`: ACS identity generatd using web client
@@ -65,20 +66,23 @@ call_connection_client.add_participant(target_participant = CallInvite(
 ## Run app locally
 
 1. Create an event subscription for incoming call
-    i.  Set up Web Hook for call back
-    ii. Add Filters as 
-        From Contains: External number, Inbound Number(ACS)
-        To Not Contains: 8
-    iii.Deploy the event subscription
+   i. Set up Web Hook for call back
+   ii. Add Filters as
+   From Contains: External number, Inbound Number(ACS)
+   To Not Contains: 8
+   iii.Deploy the event subscription
 2. Navigate to `Python-MoveparticipantsSample` folder and run `main.py` in debug mode or use command `python ./main.py` to run it from PowerShell, Command Prompt or Unix Terminal
 3. Browser should pop up with the below page. If not navigate it to `http://localhost:8080/` or your dev tunnel url.
 4. Run the main.py file to launch Swagger
 5. Run the end points in sequence
-    i.  Create Call 1 - User Call to Call Automation
-    ii. Create Call 2 - To PSTN User First And Redirect To ACS Identity
-    iii.Move participants between calls
-    iv. Get participants for a specific call connection
-    v. Create Call 3 - To PSTN User First And Redirect To ACS Identity
-    vi. Move participants between calls
-    vii.Get participants for a specific call connection
+   i. Create Call 1 - User Call to Call Automation
+   ii. Create Call 2 - To PSTN User First And Redirect To ACS Identity
+   iii.Move participants between calls
+   iv. Get participants for a specific call connection
+   v. Create Call 3 - To PSTN User First And Redirect To ACS Identity
+   vi. Move participants between calls
+   vii.Get participants for a specific call connection
 
+Scenario Image:
+
+![Move Participant](./Resources/Move_Participant_Sample.jpg)
