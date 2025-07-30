@@ -8,10 +8,6 @@ In this quickstart, we cover how you can use Call Automation SDK to make an outb
 
 # Design
 
-![design](./data/OutboundCallDesign.png)
-
-# Scenario Image:
-
 ![Move Participant](./Resources/Move_Participant_Sample.jpg)
 
 ## Prerequisites

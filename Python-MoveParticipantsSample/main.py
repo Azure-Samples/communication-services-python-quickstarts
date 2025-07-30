@@ -16,7 +16,6 @@ from azure.communication.callautomation import (
 from fastapi.responses import Response
 
 # ACS Connection String and other configurations; TO BE UPDATED BEFORE RUNNING THE APP
-# These values can be set via environment variables or directly in the code.
 # For local development, you can use environment variables or a .env file.
 ACS_CONNECTION_STRING=""
 CALLBACK_URI_HOST=""
@@ -41,7 +40,6 @@ app = FastAPI(
 # Global Variables for Move Participants Scenario
 acs_connection_string: str = ACS_CONNECTION_STRING
 callback_uri_host: str = CALLBACK_URI_HOST
-pma_endpoint: str = PMA_ENDPOINT
 
 # Phone numbers and identities for Move Participants scenario
 acs_outbound_phone_number: str = ACS_OUTBOUND_PHONE_NUMBER
@@ -71,14 +69,13 @@ def get_config_value(key: str, default: str = "") -> str:
 def initialize_client():
     """Initialize the CallAutomationClient with current configuration"""
     global client
-    if pma_endpoint and acs_connection_string:
+    if acs_connection_string:
         client = CallAutomationClient.from_connection_string(acs_connection_string)
 
 # Initialize configuration from environment variables
 try:
     # acs_connection_string = get_config_value("ACS_CONNECTION_STRING")
     # callback_uri_host = get_config_value("CALLBACK_URI_HOST")
-    # pma_endpoint = get_config_value("PMA_ENDPOINT")
     # acs_outbound_phone_number = get_config_value("ACS_OUTBOUND_PHONE_NUMBER")
     # acs_inbound_phone_number = get_config_value("ACS_INBOUND_PHONE_NUMBER")
     # acs_user_phone_number = get_config_value("ACS_USER_PHONE_NUMBER")
@@ -95,7 +92,6 @@ except ValueError as e:
 class ConfigurationRequest(BaseModel):
     acs_connection_string: Optional[str] = None
     callback_uri_host: Optional[str] = None
-    pma_endpoint: Optional[str] = None
     acs_outbound_phone_number: Optional[str] = None
     acs_inbound_phone_number: Optional[str] = None
     acs_user_phone_number: Optional[str] = None
@@ -111,7 +107,7 @@ class MoveParticipantsRequest(BaseModel):
 @app.post("/setConfigurations", tags=["Configuration"])
 async def set_configurations(configuration_request: ConfigurationRequest):
     """Set configuration values for the application"""
-    global acs_connection_string, callback_uri_host, pma_endpoint
+    global acs_connection_string, callback_uri_host
     global acs_outbound_phone_number, acs_inbound_phone_number, acs_user_phone_number
     global acs_test_identity2, acs_test_identity3
     
@@ -120,8 +116,6 @@ async def set_configurations(configuration_request: ConfigurationRequest):
             acs_connection_string = configuration_request.acs_connection_string
         if configuration_request.callback_uri_host:
             callback_uri_host = configuration_request.callback_uri_host
-        if configuration_request.pma_endpoint:
-            pma_endpoint = configuration_request.pma_endpoint
         if configuration_request.acs_outbound_phone_number:
             acs_outbound_phone_number = configuration_request.acs_outbound_phone_number
         if configuration_request.acs_inbound_phone_number:
