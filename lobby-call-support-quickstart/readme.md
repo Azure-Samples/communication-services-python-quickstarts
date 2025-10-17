@@ -4,7 +4,7 @@
 
 # Call Automation - Lobby Call Support Sample
 
-This sample demonstrates how to utilize the Call Automation SDK to implement a Lobby Callscenario. In this setup, users initially join a lobby call (Call - I)  and remain on hold until an user in the target call (Call - II)  confirms their participation. Once approved, the bot automatically moves the lobby user to the target call.
+This sample demonstrates how to utilize the Call Automation SDK to implement a Lobby Callscenario. Users initially join a lobby call (Call - I)  and remain on hold until an user in the target call (Call - II)  confirms their participation. Once approved, the `Call Automation` automatically moves the lobby user to the target call.
 
 # Design
 
@@ -31,9 +31,7 @@ This sample demonstrates how to utilize the Call Automation SDK to implement a L
     ```
 4. UI of client application will be available at `http://localhost:<port-number>/` and will look like below.
 
-![Lobby Call Support](./Resources/client-app-ui.jpg)
-
-5. Generate an Azure Communication Services identity for the lobby call receiver and target call receiver. You can do this from the Azure Portal(ACS Resource -> Identities & User Access Tokens -> Generate Identity and USER ACCESS TOKEN).
+    ![Lobby Call Support](./Resources/client-app-ui.jpg)
 
 ### Setup and host your Azure DevTunnel
 
