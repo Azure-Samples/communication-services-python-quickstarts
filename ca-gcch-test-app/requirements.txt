@@ -1,0 +1,36 @@
+# Python dependencies for Azure Communication Services Call Automation Application
+
+# Web framework
+Flask>=2.3.0
+Flask-CORS>=4.0.0
+Werkzeug>=2.3.0
+
+# Azure Communication Services
+azure-communication-callautomation>=1.5.0
+
+# Environment configuration
+python-dotenv>=1.0.0
+
+# WebSocket support
+websockets>=11.0.0
+
+# Async support
+aiohttp>=3.8.0
+
+# JSON and data handling
+requests>=2.31.0
+
+# Logging and utilities
+structlog>=23.0.0
+
+# SSL/TLS support (optional)
+pyOpenSSL>=23.0.0
+cryptography>=41.0.0
+
+# Optional: For production deployment
+gunicorn>=21.0.0
+uvicorn>=0.23.0
+
+# Optional: For enhanced WebSocket support
+python-socketio>=5.9.0
+eventlet>=0.33.0
