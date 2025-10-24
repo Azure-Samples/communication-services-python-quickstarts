@@ -23,9 +23,9 @@ COGNITIVE_SERVICES_ENDPOINT = os.getenv("COGNITIVE_SERVICES_ENDPOINT", "")
 # Callback URI host for ACS Call Automation
 CALLBACK_URI_HOST = os.getenv("CALLBACK_URI_HOST", "")
 # ACS Generated IDs for Call Automation
-ACS_GENERATED_ID_FOR_LOBBY_CALL_RECEIVER = os.getenv("ACS_GENERATED_ID_FOR_LOBBY_CALL_RECEIVER", "")
-ACS_GENERATED_ID_FOR_TARGET_CALL_RECEIVER = os.getenv("ACS_GENERATED_ID_FOR_TARGET_CALL_RECEIVER", "")
-ACS_GENERATED_ID_FOR_TARGET_CALL_SENDER = os.getenv("ACS_GENERATED_ID_FOR_TARGET_CALL_SENDER", "")
+ACS_LOBBY_CALL_RECEIVER = os.getenv("ACS_LOBBY_CALL_RECEIVER", "")
+ACS_TARGET_CALL_RECEIVER = os.getenv("ACS_TARGET_CALL_RECEIVER", "")
+ACS_TARGET_CALL_SENDER = os.getenv("ACS_TARGET_CALL_SENDER", "")
 # Confirmation message to Target Call users
 CONFIRM_MESSAGE_TO_TARGET_CALL = "A user is waiting in lobby, do you want to add the lobby user to your call?"
 # Text to play to Lobby User
@@ -36,9 +36,9 @@ required_vars = [
     ("ACS_CONNECTION_STRING", ACS_CONNECTION_STRING),
     ("CALLBACK_URI_HOST", CALLBACK_URI_HOST),
     ("COGNITIVE_SERVICES_ENDPOINT", COGNITIVE_SERVICES_ENDPOINT),
-    ("ACS_GENERATED_ID_FOR_LOBBY_CALL_RECEIVER", ACS_GENERATED_ID_FOR_LOBBY_CALL_RECEIVER),
-    ("ACS_GENERATED_ID_FOR_TARGET_CALL_RECEIVER", ACS_GENERATED_ID_FOR_TARGET_CALL_RECEIVER),
-    ("ACS_GENERATED_ID_FOR_TARGET_CALL_SENDER", ACS_GENERATED_ID_FOR_TARGET_CALL_SENDER)
+    ("ACS_LOBBY_CALL_RECEIVER", ACS_LOBBY_CALL_RECEIVER),
+    ("ACS_TARGET_CALL_RECEIVER", ACS_TARGET_CALL_RECEIVER),
+    ("ACS_TARGET_CALL_SENDER", ACS_TARGET_CALL_SENDER)
 ]
 
 missing_vars = [var_name for var_name, var_value in required_vars if not var_value]
@@ -61,9 +61,9 @@ app = FastAPI(
 # Global Variables for Lobby Call Support Scenario
 acs_connection_string: str = ACS_CONNECTION_STRING
 callback_uri_host: str = CALLBACK_URI_HOST
-acs_generated_id_for_lobby_call_receiver: str = ACS_GENERATED_ID_FOR_LOBBY_CALL_RECEIVER
-acs_generated_id_for_target_call_receiver: str = ACS_GENERATED_ID_FOR_TARGET_CALL_RECEIVER
-acs_generated_id_for_target_call_sender: str = ACS_GENERATED_ID_FOR_TARGET_CALL_SENDER
+acs_lobby_call_receiver: str = ACS_LOBBY_CALL_RECEIVER
+acs_target_call_receiver: str = ACS_TARGET_CALL_RECEIVER
+acs_target_call_sender: str = ACS_TARGET_CALL_SENDER
 confirm_message_to_target_call: str = CONFIRM_MESSAGE_TO_TARGET_CALL
 text_to_play_to_lobby_user: str = TEXT_TO_PLAY_TO_LOBBY_USER
 
@@ -95,9 +95,9 @@ except Exception as e:
 class ConfigurationRequest(BaseModel):
     acs_connection_string: Optional[str] = None
     callback_uri_host: Optional[str] = None
-    acs_generated_id_for_lobby_call_receiver: Optional[str] = None
-    acs_generated_id_for_target_call_receiver: Optional[str] = None
-    acs_generated_id_for_target_call_sender: Optional[str] = None
+    acs_lobby_call_receiver: Optional[str] = None
+    acs_target_call_receiver: Optional[str] = None
+    acs_target_call_sender: Optional[str] = None
     confirm_message_to_target_call: Optional[str] = None
     text_to_play_to_lobby_user: Optional[str] = None
 
@@ -109,8 +109,8 @@ class TargetCallRequest(BaseModel):
 async def set_configurations(configuration_request: ConfigurationRequest):
     """Set configuration values for the application"""
     global acs_connection_string, callback_uri_host, client
-    global acs_generated_id_for_lobby_call_receiver, acs_generated_id_for_target_call_receiver
-    global acs_generated_id_for_target_call_sender, confirm_message_to_target_call, text_to_play_to_lobby_user
+    global acs_lobby_call_receiver, acs_target_call_receiver
+    global acs_target_call_sender, confirm_message_to_target_call, text_to_play_to_lobby_user
     
     try:
         if configuration_request.acs_connection_string:
@@ -118,12 +118,12 @@ async def set_configurations(configuration_request: ConfigurationRequest):
             client = CallAutomationClient.from_connection_string(acs_connection_string)
         if configuration_request.callback_uri_host:
             callback_uri_host = configuration_request.callback_uri_host
-        if configuration_request.acs_generated_id_for_lobby_call_receiver:
-            acs_generated_id_for_lobby_call_receiver = configuration_request.acs_generated_id_for_lobby_call_receiver
-        if configuration_request.acs_generated_id_for_target_call_receiver:
-            acs_generated_id_for_target_call_receiver = configuration_request.acs_generated_id_for_target_call_receiver
-        if configuration_request.acs_generated_id_for_target_call_sender:
-            acs_generated_id_for_target_call_sender = configuration_request.acs_generated_id_for_target_call_sender
+        if configuration_request.acs_lobby_call_receiver:
+            acs_lobby_call_receiver = configuration_request.acs_lobby_call_receiver
+        if configuration_request.acs_target_call_receiver:
+            acs_target_call_receiver = configuration_request.acs_target_call_receiver
+        if configuration_request.acs_target_call_sender:
+            acs_target_call_sender = configuration_request.acs_target_call_sender
         if configuration_request.confirm_message_to_target_call:
             confirm_message_to_target_call = configuration_request.confirm_message_to_target_call
         if configuration_request.text_to_play_to_lobby_user:
@@ -165,10 +165,10 @@ async def lobby_call_support_event_handler(events: List[Dict[str, Any]] = Body(.
                 from_caller_id = event.data['from']["phoneNumber"]["value"] if event.data['from']['kind'] =="phoneNumber" else event.data['from']['rawId']
                 to_caller_id = event.data['to']["phoneNumber"]["value"] if event.data['to']['kind'] =="phoneNumber" else event.data['to']['rawId']
                 # Lobby Call or Target Call: Answer 
-                if (acs_generated_id_for_lobby_call_receiver in to_caller_id or 
-                    acs_generated_id_for_target_call_receiver in to_caller_id):
+                if (acs_lobby_call_receiver in to_caller_id or 
+                    acs_target_call_receiver in to_caller_id):
                     callback_uri = urljoin(callback_uri_host, "/api/callbacks")
-                    operation_context = "LobbyCall" if acs_generated_id_for_target_call_receiver not in to_caller_id else "OtherCall"
+                    operation_context = "LobbyCall" if acs_target_call_receiver not in to_caller_id else "OtherCall"
                     
                     answer_call_result = await client.answer_call(
                         incoming_call_context=incoming_call_data.get("incomingCallContext"),
@@ -177,7 +177,7 @@ async def lobby_call_support_event_handler(events: List[Dict[str, Any]] = Body(.
                         cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT,
                     )
                     
-                    if acs_generated_id_for_target_call_receiver in to_caller_id:
+                    if acs_target_call_receiver in to_caller_id:
                         target_call_connection_id = answer_call_result.call_connection_id
                         
                         msg_log.extend([
