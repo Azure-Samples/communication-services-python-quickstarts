@@ -38,6 +38,7 @@ pip install -r requirements.txt
 
 ```bash
 devtunnel create --allow-anonymous
+devtunnel port create -p 8080
 devtunnel host
 ```
 
