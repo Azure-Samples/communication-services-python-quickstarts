@@ -1,288 +1,80 @@
-# Azure Communication Services - Python Application
 
-This is a Python conversion of the TypeScript Azure Communication Services Call Automation application. It provides comprehensive call management features including outbound calls, media streaming, recording, participant management, and real-time event handling.
+|page_type|languages|products|
+|---|---|---|
+|sample|<table><tr><td>Python</td></tr></table>|<table><tr><td>azure</td><td>azure-communication-services</td></tr></table>|
 
-## Features
+# Azure Communication Services Call Automation Outbound Calling Sample
 
-### Call Management
-- ✅ **Outbound PSTN Calls** - Place calls to phone numbers
-- ✅ **Outbound ACS Calls** - Place calls to Azure Communication Services users
-- ✅ **Group Calls** - Create multi-participant calls
-- ✅ **Call Termination** - End calls for individual participants or everyone
-- ✅ **Incoming Call Handling** - Answer incoming calls automatically
+This sample demonstrates how to use the Azure Communication Services (ACS) Call Automation SDK to place outbound phone calls, play dynamic prompts using Azure AI Text-to-Speech, and recognize user voice input with Speech-to-Text. The app is designed for easy local development and secure public callback support, with clear guidance for HTTPS tunneling and production deployment.
 
-### Media Operations
-- ✅ **Play Media** - Play audio files to all participants or specific targets
-- ✅ **Media Streaming** - Real-time audio streaming with WebSocket support
-- ✅ **DTMF Recognition** - Detect and process touch-tone inputs
-- ✅ **Speech Recognition** - Convert speech to text (when configured)
+# Design
 
-### Call Recording
-- ✅ **Start/Stop/Pause/Resume Recording** - Full recording control
-- ✅ **Download Recordings** - Retrieve recorded audio files
-- ✅ **Recording Metadata** - Access recording information and statistics
+![design](./data/OutboundCallDesign.png)
 
-### Participant Management
-- ✅ **Add Participants** - Add PSTN or ACS users to ongoing calls
-- ✅ **Remove Participants** - Remove participants from calls
-- ✅ **Hold/Unhold** - Put participants on hold with optional music
-- ✅ **Mute Participants** - Mute specific participants
-- ✅ **Transfer Calls** - Transfer calls between participants
+## Prerequisites
 
-### Real-time Features
-- ✅ **Event Webhooks** - Handle Azure Communication Services events
-- ✅ **WebSocket Streaming** - Real-time audio and transcription data
-- ✅ **Live Logging** - Real-time log viewing in web interface
+- Create an Azure account with an active subscription. For details, see [Create an account for free](https://azure.microsoft.com/free/)
+- [Visual Studio Code](https://code.visualstudio.com/download) installed
+- [Python 3.8+](https://www.python.org/downloads/) installed
+- Create an Azure Communication Services resource. For details, see [Create an Azure Communication Resource](https://docs.microsoft.com/azure/communication-services/quickstarts/create-communication-resource). You will need to record your resource **connection string** for this sample.
+- Get a phone number for your new Azure Communication Services resource. For details, see [Get a phone number](https://learn.microsoft.com/azure/communication-services/quickstarts/telephony/get-phone-number?tabs=windows&pivots=programming-language-csharp)
+- Create Azure AI Multi Service resource. For details, see [Create an Azure AI Multi service](https://learn.microsoft.com/azure/cognitive-services/cognitive-services-apis-create-account).
+- (Optional) A Microsoft Teams user with a phone license that is `voice` enabled. Teams phone license is required to add Teams users to the call. Learn more about Teams licenses [here](https://www.microsoft.com/microsoft-teams/compare-microsoft-teams-bundle-options).  Learn about enabling phone system with `voice` [here](https://learn.microsoft.com/microsoftteams/setting-up-your-phone-system).   You also need to complete the prerequisite step [Authorization for your Azure Communication Services Resource](https://learn.microsoft.com/azure/communication-services/how-tos/call-automation/teams-interop-call-automation?pivots=programming-language-python#step-1-authorization-for-your-azure-communication-services-resource-to-enable-calling-to-microsoft-teams-users) to enable calling to Microsoft Teams users.
 
-## Requirements
+## Before running the sample for the first time
 
-### System Requirements
-- **Python 3.8+** (required)
-- **Virtual Environment** (recommended)
-- **Azure Communication Services Resource**
-- **Public endpoint** (for webhooks)
+1. Open an instance of PowerShell, Windows Terminal, Command Prompt or equivalent and navigate to the directory that you would like to clone the sample to.
+2. git clone `https://github.com/Azure-Samples/communication-services-python-quickstarts.git`.
+3. cd into the `ca-gcch-test-app` folder.
+4. From the root of the above folder, and with python installed, run `pip install -r requirements.txt`
 
-### Azure Resources Needed
-- Azure Communication Services resource with phone number
-- Optional: Azure Cognitive Services for call intelligence
-- Optional: Azure Storage for recording storage
+### Setup and host your Azure DevTunnel
 
-## Quick Start
-
-### 1. Automatic Setup (Recommended)
-```bash
-# Run the automated setup script
-python start.py
-```
-
-This script will:
-- Check Python version compatibility
-- Create virtual environment
-- Install all dependencies
-- Create environment configuration file
-- Start the application
-
-### 2. Manual Setup
-
-#### Install Dependencies
-```bash
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-# Windows:
-venv\Scripts\activate
-# macOS/Linux:
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-#### Configure Environment
-```bash
-# Copy environment template
-cp .env.python.template .env
-
-# Edit .env file with your configuration
-```
-
-#### Start Application
-```bash
-python main.py
-```
-
-## Configuration
-
-### Environment Variables
-
-Copy `.env.python.template` to `.env` and configure:
+[Azure DevTunnels](https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/get-started?tabs=windows) is an Azure service that enables you to share local web services hosted on the internet. Use the commands below to connect your local development environment to the public internet. This creates a tunnel with a persistent endpoint URL and which allows anonymous access. We will then use this endpoint to notify your application of calling events from the ACS Call Automation service.
 
 ```bash
-# Required Configuration
-CONNECTION_STRING=your_acs_connection_string_here
-ACS_RESOURCE_PHONE_NUMBER=+1234567890
-CALLBACK_URI=https://your-server-domain.com
+# Install Dev Tunnel CLI (if not already installed)
+pip install azure-devtunnels-cli
 
-# Optional Configuration
-PORT=3000
-COGNITIVE_SERVICES_ENDPOINT=your_cognitive_services_endpoint
-SSL_KEY_PATH=./certs/server.key
-SSL_CERT_PATH=./certs/server.crt
+# Sign in to your Azure account
+devtunnel user login
+
+# Create a tunnel (anonymous access is OK for dev)
+devtunnel create --allow-anonymous
+
+# Forward local port 8080 (or your app port)
+devtunnel port create -p 8080
+
+# Start hosting the tunnel
+devtunnel host
 ```
 
-### SSL/HTTPS Configuration
+The CLI will display a public HTTPS URL (e.g. `https://<random>.dev.tunnels.ms`). Use this as your `CALLBACK_URI` in `.env`.
 
-For production deployment, configure SSL certificates:
+**Tip:** You can also use the provided PowerShell script `scripts/start-ngrok-dev.ps1` for ngrok-based tunneling and automatic `.env` updates.
 
-1. **PEM Format** (recommended):
-   ```bash
-   SSL_KEY_PATH=./certs/server.key
-   SSL_CERT_PATH=./certs/server.crt
-   ```
+### Configuring application
 
-2. **PFX Format**:
-   ```bash
-   SSL_PFX_PATH=./certs/server.pfx
-   SSL_PFX_PASSWORD=your_password
-   ```
+Open the `.env` file to configure the following settings
 
-## API Endpoints
+1. `CONNECTION_STRING`: Azure Communication Service resource's connection string.
+2. `ACS_RESOURCE_PHONE_NUMBER`: Phone number associated with the Azure Communication Service resource. For e.g. "+1425XXXAAAA"
+3. `TARGET_PHONE_NUMBER`: Target phone number to add in the call. For e.g. "+1425XXXAAAA"
+4. `CALLBACK_URI`: Base url of the app. (For local development replace the dev tunnel url)
+5. `COGNITIVE_SERVICES_ENDPOINT` : Cognitive Service endpoint
+6. `TARGET_TEAMS_USER_ID`: (Optional) update field with the Microsoft Teams user Id you would like to add to the call. See [Use Graph API to get Teams user Id](https://learn.microsoft.com/azure/communication-services/how-tos/call-automation/teams-interop-call-automation?pivots=programming-language-python#step-2-use-the-graph-api-to-get-microsoft-entra-object-id-for-teams-users-and-optionally-check-their-presence).  Uncomment the following code snippet from `main.py` file:
 
-### Web Interface
-- `GET /` - Main application dashboard
-
-### Call Operations
-- `GET /outboundCall?targetPhoneNumber={number}&isPstn=true` - Place PSTN call
-- `GET /outboundCallACS?acsUserId={userId}` - Place ACS call
-- `GET /terminateCallAsync?isForEveryone={boolean}` - Terminate call
-
-### Media Operations
-- `GET /playMediaToAllWithFileSource` - Play media to all participants
-- `GET /startRecording?recordingContent=audio&recordingChannel=mixed&recordingFormat=wav` - Start recording
-- `GET /download` - Download recording
-- `GET /downloadMetadata` - Download recording metadata
-
-### Webhook Endpoints
-- `POST /api/incomingCall` - Handle incoming call events
-- `POST /api/callbacks` - Handle call automation events
-- `POST /api/recordingFileStatus` - Handle recording events
-
-### Utility Endpoints
-- `GET /api/logs` - Get recent application logs
-- `GET /clearLogs` - Clear application logs
-- `GET /audioprompt/{filename}` - Serve audio files
-
-## Development
-
-### Project Structure
-```
-├── main.py                     # Main Python application
-├── requirements.txt           # Python dependencies
-├── start.py                  # Automated setup script
-├── .env.python.template      # Environment configuration template
-├── src/
-│   ├── resources/
-│   │   └── media_prompts/    # Audio files for prompts
-│   └── webpage/
-│       └── index.html        # Web interface (if needed)
-└── certs/                    # SSL certificates (optional)
+```python
+await acs_client.get_call_connection(call_connection_id).add_participant(
+    target_participant=CommunicationUserIdentifier(TARGET_TEAMS_USER_ID),
+    source_display_name="Jack (Contoso Tech Support)"
+)
 ```
 
-### Key Differences from TypeScript Version
+### Run app locally
 
-1. **Framework**: Uses Flask instead of Express.js
-2. **Async Handling**: Uses Python's asyncio for asynchronous operations
-3. **WebSockets**: Simplified WebSocket implementation (can be enhanced)
-4. **Type Safety**: Uses Python type hints for better code clarity
-5. **Error Handling**: Python-style exception handling
-6. **Logging**: Enhanced logging with Python's logging module
+1. Open a new Powershell window, cd into the `ca-gcch-test-app` folder and run `python start.py`
+2. Browser should pop up with the below page. If not navigate it to `http://localhost:8080/`
+3. To initiate the call, click on the `Place a call!` button or make a Http get request to https://<CALLBACK_URI>/outboundCall
 
-### Adding New Features
-
-1. **New API Endpoint**:
-   ```python
-   @app.route('/your-endpoint')
-   async def your_function():
-       # Your implementation
-       return jsonify({'status': 'success'})
-   ```
-
-2. **New Event Handler**:
-   ```python
-   # Add to handle_callbacks function
-   elif event_type == "Microsoft.Communication.YourEvent":
-       logger.info("Received YourEvent")
-       # Handle your event
-   ```
-
-## Deployment
-
-### Local Development
-```bash
-python start.py
-```
-
-### Production Deployment
-
-#### Using Gunicorn
-```bash
-pip install gunicorn
-gunicorn -w 4 -k uvicorn.workers.UvicornWorker app:app --bind 0.0.0.0:3000
-```
-
-#### Using Docker
-```dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
-COPY . .
-EXPOSE 3000
-
-CMD ["python", "main.py"]
-```
-
-#### Environment Variables for Production
-```bash
-FLASK_ENV=production
-FLASK_DEBUG=False
-LOG_LEVEL=WARNING
-```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Import Errors**:
-   ```bash
-   # Ensure virtual environment is activated
-   source venv/bin/activate  # or venv\Scripts\activate on Windows
-   pip install -r requirements.txt
-   ```
-
-2. **Connection Errors**:
-   - Verify CONNECTION_STRING is correct
-   - Check if CALLBACK_URI is publicly accessible
-   - Ensure phone number format includes country code
-
-3. **SSL Errors**:
-   - Verify certificate paths in .env file
-   - Check certificate file permissions
-   - Consider using HTTP for development
-
-4. **Webhook Issues**:
-   - Ensure CALLBACK_URI is publicly accessible
-   - Check firewall and network security group settings
-   - Verify webhook endpoints are responding with 200 status
-
-### Logs and Debugging
-
-- **View Logs**: Access `/api/logs` endpoint or check console output
-- **Clear Logs**: Use `/clearLogs` endpoint
-- **Debug Mode**: Set `FLASK_DEBUG=True` in .env for detailed error messages
-
-## Migration from TypeScript
-
-This Python application maintains feature parity with the original TypeScript version:
-
-- ✅ All API endpoints preserved
-- ✅ Same webhook event handling
-- ✅ Identical functionality for call management
-- ✅ Compatible with existing Azure configurations
-- ✅ Same audio file and media handling
-
-Simply update your environment configuration and the application will work with your existing Azure Communication Services setup.
-
-## Support
-
-For issues specific to this Python implementation, please check:
-
-1. **Environment Configuration**: Ensure all required variables are set
-2. **Dependencies**: Verify all packages are installed correctly
-3. **Azure Setup**: Confirm your Azure Communication Services resource is configured
-4. **Network Access**: Ensure your webhook endpoints are publicly accessible
-
-For Azure Communication Services specific issues, refer to the [official documentation](https://docs.microsoft.com/en-us/azure/communication-services/).
+![design](./data/Webpage.png)
