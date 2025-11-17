@@ -17,12 +17,12 @@ from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel
 
 # Configuration constants
-ACS_CONNECTION_STRING = "endpoint=https://dacsrecordingtest.unitedstates.communication.azure.com/;accesskey=9lMdkVL4KcqJ3YXGgWS9Fxa1CjPwXs63rEMczJ7DsC9mbWR3hlbtJQQJ99BEACULyCpAArohAAAAAZCS58G3"
-COGNITIVE_SERVICES_ENDPOINT = "https://cognitive-service-waferwire.cognitiveservices.azure.com/"
-CALLBACK_URI_HOST = "https://smp64787.inc1.devtunnels.ms:8080"
-ACS_LOBBY_CALL_RECEIVER = "8:acs:19ae37ff-1a44-4e19-aade-198eedddbdf2_0000002b-318d-04f0-5de5-6f8ded7ce95b"
-ACS_TARGET_CALL_RECEIVER = "8:acs:19ae37ff-1a44-4e19-aade-198eedddbdf2_0000002b-318d-7df4-23e1-6f8ded7cdd0f"
-ACS_TARGET_CALL_SENDER = "8:acs:19ae37ff-1a44-4e19-aade-198eedddbdf2_0000002b-324e-86be-91ef-6f8ded7cf4fa"
+ACS_CONNECTION_STRING = ""
+COGNITIVE_SERVICES_ENDPOINT = ""
+CALLBACK_URI_HOST = ""
+ACS_LOBBY_CALL_RECEIVER = ""
+ACS_TARGET_CALL_RECEIVER = ""
+ACS_TARGET_CALL_SENDER = ""
 
 # Default messages
 CONFIRM_MESSAGE_TO_TARGET_CALL = (
