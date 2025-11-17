@@ -1,98 +1,118 @@
-import os
-import logging
 import json
-from typing import List, Optional, Dict, Any
+import logging
+import os
+from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
-from fastapi import FastAPI, HTTPException, WebSocket, status, Body, WebSocketDisconnect
-from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel
-from azure.eventgrid import EventGridEvent, SystemEventNames
-from azure.core.messaging import CloudEvent
-from azure.communication.callautomation.aio import CallAutomationClient
+
 from azure.communication.callautomation import (
-    PhoneNumberIdentifier,
     CommunicationUserIdentifier,
-    TextSource
+    PhoneNumberIdentifier,
+    TextSource,
 )
-from fastapi.responses import Response
+from azure.communication.callautomation.aio import CallAutomationClient
+from azure.core.messaging import CloudEvent
+from azure.eventgrid import EventGridEvent, SystemEventNames
+from fastapi import Body, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.responses import PlainTextResponse, Response
+from pydantic import BaseModel
 
-# ACS Connection String and other configurations; TO BE UPDATED BEFORE RUNNING THE APP
-# For local development, you can use environment variables or a .env file.
-ACS_CONNECTION_STRING = os.getenv("ACS_CONNECTION_STRING", "")
-COGNITIVE_SERVICES_ENDPOINT = os.getenv("COGNITIVE_SERVICES_ENDPOINT", "")
-# Callback URI host for ACS Call Automation
-CALLBACK_URI_HOST = os.getenv("CALLBACK_URI_HOST", "")
-# ACS Generated IDs for Call Automation
-ACS_LOBBY_CALL_RECEIVER = os.getenv("ACS_LOBBY_CALL_RECEIVER", "")
-ACS_TARGET_CALL_RECEIVER = os.getenv("ACS_TARGET_CALL_RECEIVER", "")
-ACS_TARGET_CALL_SENDER = os.getenv("ACS_TARGET_CALL_SENDER", "")
-# Confirmation message to Target Call users
-CONFIRM_MESSAGE_TO_TARGET_CALL = "A user is waiting in lobby, do you want to add the lobby user to your call?"
-# Text to play to Lobby User
-TEXT_TO_PLAY_TO_LOBBY_USER =  "You are currently in a lobby call, we will notify the admin that you are waiting."
+# Configuration constants
+ACS_CONNECTION_STRING = "endpoint=https://dacsrecordingtest.unitedstates.communication.azure.com/;accesskey=9lMdkVL4KcqJ3YXGgWS9Fxa1CjPwXs63rEMczJ7DsC9mbWR3hlbtJQQJ99BEACULyCpAArohAAAAAZCS58G3"
+COGNITIVE_SERVICES_ENDPOINT = "https://cognitive-service-waferwire.cognitiveservices.azure.com/"
+CALLBACK_URI_HOST = "https://smp64787.inc1.devtunnels.ms:8080"
+ACS_LOBBY_CALL_RECEIVER = "8:acs:19ae37ff-1a44-4e19-aade-198eedddbdf2_0000002b-318d-04f0-5de5-6f8ded7ce95b"
+ACS_TARGET_CALL_RECEIVER = "8:acs:19ae37ff-1a44-4e19-aade-198eedddbdf2_0000002b-318d-7df4-23e1-6f8ded7cdd0f"
+ACS_TARGET_CALL_SENDER = "8:acs:19ae37ff-1a44-4e19-aade-198eedddbdf2_0000002b-324e-86be-91ef-6f8ded7cf4fa"
 
-# Validate required environment variables
-required_vars = [
-    ("ACS_CONNECTION_STRING", ACS_CONNECTION_STRING),
-    ("CALLBACK_URI_HOST", CALLBACK_URI_HOST),
-    ("COGNITIVE_SERVICES_ENDPOINT", COGNITIVE_SERVICES_ENDPOINT),
-    ("ACS_LOBBY_CALL_RECEIVER", ACS_LOBBY_CALL_RECEIVER),
-    ("ACS_TARGET_CALL_RECEIVER", ACS_TARGET_CALL_RECEIVER),
-    ("ACS_TARGET_CALL_SENDER", ACS_TARGET_CALL_SENDER)
-]
+# Default messages
+CONFIRM_MESSAGE_TO_TARGET_CALL = (
+    "A user is waiting in lobby, do you want to add the lobby user to your call?"
+)
+TEXT_TO_PLAY_TO_LOBBY_USER = (
+    "You are currently in a lobby call, we will notify the admin that you are waiting."
+)
 
-missing_vars = [var_name for var_name, var_value in required_vars if not var_value]
+def validate_environment_variables() -> List[str]:
+    """Validate required environment variables and return missing ones."""
+    required_vars = [
+        ("ACS_CONNECTION_STRING", ACS_CONNECTION_STRING),
+        ("CALLBACK_URI_HOST", CALLBACK_URI_HOST),
+        ("COGNITIVE_SERVICES_ENDPOINT", COGNITIVE_SERVICES_ENDPOINT),
+        ("ACS_LOBBY_CALL_RECEIVER", ACS_LOBBY_CALL_RECEIVER),
+        ("ACS_TARGET_CALL_RECEIVER", ACS_TARGET_CALL_RECEIVER),
+        ("ACS_TARGET_CALL_SENDER", ACS_TARGET_CALL_SENDER),
+    ]
+    return [var_name for var_name, var_value in required_vars if not var_value]
+
+
+def initialize_logging():
+    """Configure logging for the application."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
+
+# Validate environment and initialize logging
+missing_vars = validate_environment_variables()
 if missing_vars:
     print(f"Warning: Missing environment variables: {', '.join(missing_vars)}")
-    print("The application will start but may not function properly without proper configuration.")
     print("Use the /setConfigurations endpoint to set these values after startup.")
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+initialize_logging()
 logger = logging.getLogger(__name__)
 
-# Bootstrap - FastAPI application setup
+# FastAPI application setup
 app = FastAPI(
     title="Lobby Call Support Sample",
     description="Azure Communication Services Call Automation Lobby Call Support Sample",
-    version="1.0.0"
+    version="1.0.0",
 )
 
-# Global Variables for Lobby Call Support Scenario
-acs_connection_string: str = ACS_CONNECTION_STRING
-callback_uri_host: str = CALLBACK_URI_HOST
-acs_lobby_call_receiver: str = ACS_LOBBY_CALL_RECEIVER
-acs_target_call_receiver: str = ACS_TARGET_CALL_RECEIVER
-acs_target_call_sender: str = ACS_TARGET_CALL_SENDER
-confirm_message_to_target_call: str = CONFIRM_MESSAGE_TO_TARGET_CALL
-text_to_play_to_lobby_user: str = TEXT_TO_PLAY_TO_LOBBY_USER
+# Application state
+class ApplicationState:
+    """Centralized application state management."""
+    
+    def __init__(self):
+        # Configuration
+        self.acs_connection_string: str = ACS_CONNECTION_STRING
+        self.callback_uri_host: str = CALLBACK_URI_HOST
+        self.acs_lobby_call_receiver: str = ACS_LOBBY_CALL_RECEIVER
+        self.acs_target_call_receiver: str = ACS_TARGET_CALL_RECEIVER
+        self.acs_target_call_sender: str = ACS_TARGET_CALL_SENDER
+        self.confirm_message_to_target_call: str = CONFIRM_MESSAGE_TO_TARGET_CALL
+        self.text_to_play_to_lobby_user: str = TEXT_TO_PLAY_TO_LOBBY_USER
+        
+        # Call tracking
+        self.target_call_connection_id: str = ""
+        self.lobby_connection_id: str = ""
+        self.lobby_caller_id: str = ""
+        
+        # WebSocket connection
+        self.websocket_connection: Optional[WebSocket] = None
 
-# Track workflow state
-last_workflow_call_type: str = ""
-acs_identity: str = ""
 
-# Call connection IDs
-target_call_connection_id: str = ""
-lobby_connection_id: str = ""  # User's incoming call connection id
-lobby_caller_id: str = ""  # User's incoming caller id
-call_connection_id2: str = ""  # Additional call connection id
+app_state = ApplicationState()
 
-# WebSocket connection
-websocket_connection: Optional[WebSocket] = None
+def initialize_call_automation_client(connection_string: str) -> Optional[CallAutomationClient]:
+    """Initialize CallAutomationClient with proper error handling."""
+    try:
+        if connection_string:
+            return CallAutomationClient.from_connection_string(connection_string)
+        logger.warning("CallAutomationClient not initialized - missing connection string")
+        return None
+    except Exception as e:
+        logger.error(f"Failed to initialize CallAutomationClient: {e}")
+        return None
+
 
 # Initialize CallAutomationClient
-client = None
-try:
-    if ACS_CONNECTION_STRING:
-        client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
-    else:
-        print("Warning: CallAutomationClient not initialized - missing ACS_CONNECTION_STRING")
-except Exception as e:
-    print(f"Warning: Failed to initialize CallAutomationClient: {e}")
-    print("Use the /setConfigurations endpoint to set proper connection string.")
+client = initialize_call_automation_client(ACS_CONNECTION_STRING)
 
 # Pydantic models
 class ConfigurationRequest(BaseModel):
+    """Request model for updating application configuration."""
+    
     acs_connection_string: Optional[str] = None
     callback_uri_host: Optional[str] = None
     acs_lobby_call_receiver: Optional[str] = None
@@ -101,74 +121,55 @@ class ConfigurationRequest(BaseModel):
     confirm_message_to_target_call: Optional[str] = None
     text_to_play_to_lobby_user: Optional[str] = None
 
+
 class TargetCallRequest(BaseModel):
-    acs_target: str
-
-# Configuration Endpoint
-@app.post("/setConfigurations", tags=["Configuration"])
-async def set_configurations(configuration_request: ConfigurationRequest):
-    """Set configuration values for the application"""
-    global acs_connection_string, callback_uri_host, client
-    global acs_lobby_call_receiver, acs_target_call_receiver
-    global acs_target_call_sender, confirm_message_to_target_call, text_to_play_to_lobby_user
+    """Request model for creating a target call."""
     
-    try:
-        if configuration_request.acs_connection_string:
-            acs_connection_string = configuration_request.acs_connection_string
-            client = CallAutomationClient.from_connection_string(acs_connection_string)
-        if configuration_request.callback_uri_host:
-            callback_uri_host = configuration_request.callback_uri_host
-        if configuration_request.acs_lobby_call_receiver:
-            acs_lobby_call_receiver = configuration_request.acs_lobby_call_receiver
-        if configuration_request.acs_target_call_receiver:
-            acs_target_call_receiver = configuration_request.acs_target_call_receiver
-        if configuration_request.acs_target_call_sender:
-            acs_target_call_sender = configuration_request.acs_target_call_sender
-        if configuration_request.confirm_message_to_target_call:
-            confirm_message_to_target_call = configuration_request.confirm_message_to_target_call
-        if configuration_request.text_to_play_to_lobby_user:
-            text_to_play_to_lobby_user = configuration_request.text_to_play_to_lobby_user
-        
-        log_msg = "Configuration is set successfully.\nInitialized call automation client."
-        print(log_msg)
-        return {"message": log_msg}
-        
-    except Exception as e:
-        logger.error(f"Error setting configuration: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
-
+    acs_target: str
 # Event Handler
 @app.post("/api/LobbyCallSupportEventHandler")
 async def lobby_call_support_event_handler(events: List[Dict[str, Any]] = Body(...)):
-    """Handle Event Grid events for lobby call support scenario"""
-    global lobby_connection_id, target_call_connection_id, acs_identity, client
+    """Handle Event Grid events for lobby call support scenario."""
+    if not client:
+        raise HTTPException(status_code=500, detail="Call automation client not initialized")
     
-    msg_log = ["\n~~~~~~~~~~~~ /api/LobbyCallSupportEventHandler ~~~~~~~~~~~~"]
-
     try:
         for event_data in events:
             event = EventGridEvent.from_dict(event_data)
             
             if event.event_type == SystemEventNames.EventGridSubscriptionValidationEventName:
-                validation_data = event.data
-                validation_code = validation_data.get("validationCode", "")
+                validation_code = event.data.get("validationCode", "")
                 return Response(
                     content=json.dumps({"validationResponse": validation_code}),
-                    status_code=200, 
-                    media_type="application/json"
+                    status_code=200,
+                    media_type="application/json",
                 )
             
             elif event.event_type == "Microsoft.Communication.IncomingCall":
                 incoming_call_data = event.data
-                msg_log.append(f"Event received: {event.event_type}")
+                logger.info(f"Event received: {event.event_type}")
                 
-                from_caller_id = event.data['from']["phoneNumber"]["value"] if event.data['from']['kind'] =="phoneNumber" else event.data['from']['rawId']
-                to_caller_id = event.data['to']["phoneNumber"]["value"] if event.data['to']['kind'] =="phoneNumber" else event.data['to']['rawId']
-                # Lobby Call or Target Call: Answer 
-                if (acs_lobby_call_receiver in to_caller_id or 
-                    acs_target_call_receiver in to_caller_id):
-                    callback_uri = urljoin(callback_uri_host, "/api/callbacks")
-                    operation_context = "LobbyCall" if acs_target_call_receiver not in to_caller_id else "OtherCall"
+                from_caller_id = (
+                    event.data['from']["phoneNumber"]["value"]
+                    if event.data['from']['kind'] == "phoneNumber"
+                    else event.data['from']['rawId']
+                )
+                to_caller_id = (
+                    event.data['to']["phoneNumber"]["value"]
+                    if event.data['to']['kind'] == "phoneNumber"
+                    else event.data['to']['rawId']
+                )
+                
+                # Check if this is a lobby or target call
+                if (app_state.acs_lobby_call_receiver in to_caller_id or 
+                    app_state.acs_target_call_receiver in to_caller_id):
+                    
+                    callback_uri = urljoin(app_state.callback_uri_host, "/api/callbacks")
+                    operation_context = (
+                        "LobbyCall" 
+                        if app_state.acs_target_call_receiver not in to_caller_id 
+                        else "OtherCall"
+                    )
                     
                     answer_call_result = await client.answer_call(
                         incoming_call_context=incoming_call_data.get("incomingCallContext"),
@@ -177,180 +178,105 @@ async def lobby_call_support_event_handler(events: List[Dict[str, Any]] = Body(.
                         cognitive_services_endpoint=COGNITIVE_SERVICES_ENDPOINT,
                     )
                     
-                    if acs_target_call_receiver in to_caller_id:
-                        target_call_connection_id = answer_call_result.call_connection_id
-                        
-                        msg_log.extend([
-                            "Target Call(Inbound) Answered by Call Automation.",
-                            f"From Caller Raw Id: {from_caller_id}",
-                            f"To Caller Raw Id:   {to_caller_id}",
-                            f"Target Call Connection Id: {target_call_connection_id}",
-                            f"Correlation Id:           {incoming_call_data.get('correlationId', '')}",
-                            "Target Call answered successfully."
-                        ])
+                    if app_state.acs_target_call_receiver in to_caller_id:
+                        app_state.target_call_connection_id = answer_call_result.call_connection_id
+                        logger.info(f"Target call answered: {app_state.target_call_connection_id}")
                     else:
-                        lobby_connection_id = answer_call_result.call_connection_id
-                        
-                        msg_log.extend([
-                            "User Call(Inbound) Answered by Call Automation.",
-                            f"From Caller Raw Id: {from_caller_id}",
-                            f"To Caller Raw Id:   {to_caller_id}",
-                            f"Lobby Call Connection Id: {lobby_connection_id}",
-                            f"Correlation Id:           {incoming_call_data.get('correlationId', '')}",
-                            "Lobby Call answered successfully."
-                        ])
+                        app_state.lobby_connection_id = answer_call_result.call_connection_id
+                        logger.info(f"Lobby call answered: {app_state.lobby_connection_id}")
         
-        log_to_send = "\n".join(msg_log)
-        print(log_to_send)
-        return PlainTextResponse(content=log_to_send)
+        return PlainTextResponse(content="Events processed successfully")
 
     except Exception as e:
         logger.error(f"Error processing lobby call support event: {e}")
         return Response(content=str(e), status_code=500)
 
-# Callback Handler
 @app.post("/api/callbacks")
 async def callbacks(events: List[Dict[str, Any]] = Body(...)):
-    """Handle Call Automation callback events"""
-    global client, lobby_caller_id, lobby_connection_id, websocket_connection
-    
-    msg_log = []
+    """Handle Call Automation callback events."""
+    if not client:
+        raise HTTPException(status_code=500, detail="Call automation client not initialized")
     
     try:
         for event_data in events:
-            cloud_event = CloudEvent.from_dict(event_data)            
+            cloud_event = CloudEvent.from_dict(event_data)
             operation_context = cloud_event.data.get('operationContext', '')
-            print(f"Operation Context: {operation_context}")
             event_type = cloud_event.data.get('type', cloud_event.type)
-            call_connection_id = cloud_event.data.get('callConnectionId') or cloud_event.data["callConnectionId"]
+            call_connection_id = (
+                cloud_event.data.get('callConnectionId') or 
+                cloud_event.data["callConnectionId"]
+            )
+            
+            logger.info(f"Received callback event: {event_type}, Context: {operation_context}")
             
             # Handle CallConnected event
             if "CallConnected" in event_type:
-                print(f"~~~~~~~~~~~~  /api/callbacks ~~~~~~~~~~~~")
-                print(f"Received callConnected.CallConnectionId : {call_connection_id}")
-
                 if operation_context == "LobbyCall":
-                    msg_log.extend([
-                        "~~~~~~~~~~~~  /api/callbacks ~~~~~~~~~~~~",
-                        f"Received call event  : {event_type}",
-                        f"Lobby Call Connection Id: {event_type}",
-                        f"Correlation Id:           {getattr(event_type, 'correlation_id', '')}"
-                    ])
-
-                    # Record lobby caller id and connection id 
+                    # Get lobby caller information
                     lobby_call_connection = client.get_call_connection(call_connection_id)
-                    call_connection_properties = await lobby_call_connection.get_call_properties()
-                    lobby_caller_id = call_connection_properties.source.raw_id
-                    lobby_connection_id = call_connection_properties.call_connection_id
+                    call_properties = await lobby_call_connection.get_call_properties()
+                    app_state.lobby_caller_id = call_properties.source.raw_id
+                    app_state.lobby_connection_id = call_properties.call_connection_id
                     
-                    print(f"Lobby Caller Id:     {lobby_caller_id}")
-                    print(f"Lobby Connection Id: {lobby_connection_id}")
-                    
+                    # Play message to lobby user
                     text_source = TextSource(
-                        text=text_to_play_to_lobby_user,
+                        text=app_state.text_to_play_to_lobby_user,
                         voice_name="en-US-NancyNeural"
                     )
                     await lobby_call_connection.play_media(
-                        play_source=[text_source], 
-                        play_to=[CommunicationUserIdentifier(lobby_caller_id)]
+                        play_source=[text_source],
+                        play_to=[CommunicationUserIdentifier(app_state.lobby_caller_id)]
                     )
                     
             # Handle PlayCompleted event
             elif "PlayCompleted" in event_type:
-                msg_log.extend([
-                    "~~~~~~~~~~~~  /api/callbacks ~~~~~~~~~~~~",
-                    f"Received event: {event_type}"
-                ])
-                print([
-                    "~~~~~~~~~~~~  /api/callbacks ~~~~~~~~~~~~",
-                    f"Received event: {event_type}"
-                ])
+                # Notify target call user via WebSocket
+                if app_state.websocket_connection is None:
+                    logger.warning("WebSocket connection not available")
+                    return Response(content="WebSocket not available", status_code=404)
 
-                # Notify Target Call user via WebSocket
-                if websocket_connection is None:
-                    msg_log.append("ERROR: Web socket is not available.")
-                    return Response(content="Message not sent", status_code=404)
-
-                # Notify Client
-                await websocket_connection.send_text(confirm_message_to_target_call)
-                msg_log.append(f"Target Call notified with message: {confirm_message_to_target_call}")
-                return Response(content=f"Target Call notified with message: {confirm_message_to_target_call}")
+                await app_state.websocket_connection.send_text(
+                    app_state.confirm_message_to_target_call
+                )
+                logger.info("Target call user notified via WebSocket")
+                return Response(content="Target call user notified")
             
             # Handle MoveParticipantSucceeded event
             elif "MoveParticipantSucceeded" in event_type:
-                msg_log.extend([
-                    "~~~~~~~~~~~~  /api/callbacks ~~~~~~~~~~~~",
-                    f"Received event: {event_type}",
-                    f"Call Connection Id: {call_connection_id}",
-                    f"Correlation Id:      {getattr(event_type, 'correlation_id', '')}"
-                ])
-            
-                print([
-                    "~~~~~~~~~~~~  /api/callbacks ~~~~~~~~~~~~",
-                    f"Received event: {event_type}",
-                    f"Call Connection Id: {call_connection_id}",
-                    f"Correlation Id:      {getattr(event_type, 'correlation_id', '')}"
-                ])
+                logger.info(f"Participant moved successfully: {call_connection_id}")
 
             # Handle CallDisconnected event
             elif "CallDisconnected" in event_type:
-                msg_log.extend([
-                    "~~~~~~~~~~~~  /api/callbacks ~~~~~~~~~~~~",
-                    f"Received event: {event_type}",
-                    f"Call Connection Id: {call_connection_id}",
-                    f"Correlation Id:      {getattr(event_type, 'correlation_id', '')}"
-                ])               
-            
-                print([
-                    "~~~~~~~~~~~~  /api/callbacks ~~~~~~~~~~~~",
-                    f"Received event: {event_type}",
-                    f"Call Connection Id: {call_connection_id}",
-                    f"Correlation Id:      {getattr(event_type, 'correlation_id', '')}"
-                ])
-        if msg_log:
-            log_output = "\n".join(msg_log)
-            print(log_output)
-            return PlainTextResponse(content=log_output)
-        else:
-            return PlainTextResponse(content="")
+                logger.info(f"Call disconnected: {call_connection_id}")
+        
+        return PlainTextResponse(content="Callbacks processed successfully")
             
     except Exception as e:
         logger.error(f"Error processing callback: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# Lobby Call Support Workflow Endpoints
-@app.post("/TargetCallToAcsUser(Call Replaced with client app)", tags=["Lobby Call Support APIs"])
+@app.post("/TargetCallToAcsUser", tags=["Lobby Call Support APIs"])
 async def target_call_to_acs_user(request: TargetCallRequest):
-    """Create Target Call to ACS User"""
-    global target_call_connection_id, client
-    
-    msg_log = [
-        "",
-        "~~~~~~~~~~~~ /TargetCall(Create)  ~~~~~~~~~~~~"
-    ]
+    """Create Target Call to ACS User."""
+    if not client:
+        raise HTTPException(status_code=500, detail="Call automation client not initialized")
     
     try:
-        callback_uri = urljoin(callback_uri_host, "/api/callbacks")
+        callback_uri = urljoin(app_state.callback_uri_host, "/api/callbacks")
         
         create_call_result = await client.create_call(
             target_participant=CommunicationUserIdentifier(request.acs_target),
             callback_url=callback_uri
         )
 
-        target_call_connection_id = create_call_result.call_connection_id
-
-        msg_log.extend([
-            "TargetCall:",
-            "-----------",
-            f"From: Call Automation",
-            f"To:   {request.acs_target}",
-            f"Target Call Connection Id: {target_call_connection_id}",
-            f"Correlation Id:            {create_call_result.correlation_id}"
-        ])
+        app_state.target_call_connection_id = create_call_result.call_connection_id
         
-        log_output = "\n".join(msg_log)
-        print(log_output)
-        return PlainTextResponse(content=log_output)
+        logger.info(f"Target call created: {app_state.target_call_connection_id}")
+        return {
+            "message": "Target call created successfully",
+            "call_connection_id": app_state.target_call_connection_id,
+            "correlation_id": create_call_result.correlation_id
+        }
         
     except Exception as e:
         logger.error(f"Error creating target call: {e}")
@@ -358,130 +284,119 @@ async def target_call_to_acs_user(request: TargetCallRequest):
 
 @app.get("/GetParticipants/{call_connection_id}", tags=["Lobby Call Support APIs"])
 async def get_participants(call_connection_id: str):
-    """Get participants for a specific call connection"""
-    global client
-    
-    msg_log = [
-        "",
-        f"~~~~~~~~~~~~ /GetParticipants/{call_connection_id} ~~~~~~~~~~~~"
-    ]
+    """Get participants for a specific call connection."""
+    if not client:
+        raise HTTPException(status_code=500, detail="Call automation client not initialized")
     
     try:
         call_connection = client.get_call_connection(call_connection_id)
         participants_paged = call_connection.list_participants()
         
-        participant_info = []
-        participant_count = 0
-        
+        participants = []
         async for participant in participants_paged:
-            participant_count += 1
             identifier = participant.identifier
             
             if isinstance(identifier, PhoneNumberIdentifier):
                 phone_num = getattr(identifier, 'phone_number', 'Unknown')
-                info = f"PhoneNumberIdentifier       - RawId: {identifier.raw_id}, Phone: {phone_num}"
+                participant_info = {
+                    "type": "PhoneNumberIdentifier",
+                    "raw_id": identifier.raw_id,
+                    "phone_number": phone_num
+                }
             elif isinstance(identifier, CommunicationUserIdentifier):
-                info = f"CommunicationUserIdentifier - RawId: {identifier.raw_id}"
+                participant_info = {
+                    "type": "CommunicationUserIdentifier",
+                    "raw_id": identifier.raw_id
+                }
             else:
-                info = f"{type(identifier).__name__} - RawId: {identifier.raw_id}"
+                participant_info = {
+                    "type": type(identifier).__name__,
+                    "raw_id": identifier.raw_id
+                }
             
-            participant_info.append(f"{participant_count}. {info}")
+            participants.append(participant_info)
         
-        if participant_count == 0:
-            return Response(
-                content=json.dumps({
-                    "Message": "No participants found for the specified call connection.",
-                    "CallConnectionId": call_connection_id
-                }),
+        if not participants:
+            raise HTTPException(
                 status_code=404,
-                media_type="application/json"
+                detail="No participants found for the specified call connection"
             )
         
-        msg_log.extend([
-            "",
-            f"No of Participants: {participant_count}",
-            "Participants:",
-            "-------------"
-        ])
-        msg_log.extend(participant_info)
+        return {
+            "call_connection_id": call_connection_id,
+            "participant_count": len(participants),
+            "participants": participants
+        }
         
-        log_output = "\n".join(msg_log)
-        print(log_output)
-        return PlainTextResponse(content=log_output)
-        
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting participants for call {call_connection_id}: {e}")
-        return Response(
-            content=json.dumps({
-                "Error": str(e),
-                "CallConnectionId": call_connection_id
-            }),
-            status_code=400,
-            media_type="application/json"
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
-# WebSocket endpoint
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """WebSocket endpoint for real-time communication with client app"""
-    global websocket_connection, lobby_caller_id, lobby_connection_id, target_call_connection_id
+    """WebSocket endpoint for real-time communication with client app."""
+    if not client:
+        await websocket.close(code=1000, reason="Call automation client not initialized")
+        return
     
-    print("Received WEB SOCKET request.")
     await websocket.accept()
-    websocket_connection = websocket
-    print("WebSocket connection established")
+    app_state.websocket_connection = websocket
+    logger.info("WebSocket connection established")
     
     try:
-        # Keep alive with a read loop
         while True:
             # Receive message from client
             data = await websocket.receive_text()
-            print(f"Received response from Client App: {data}")
+            logger.info(f"Received WebSocket message: {data}")
             
             # Process incoming message
             if data.lower() == "yes":
-                print("Move Participant operation begins..")
-                
-                try:
-                    print(f"""
-                    ~~~~~~~~~~~~  /api/callbacks ~~~~~~~~~~~~
-                    Move Participant operation started..
-                    Source Caller Id:     {lobby_caller_id}
-                    Source Connection Id: {lobby_connection_id}
-                    Target Connection Id: {target_call_connection_id}
-                    """)
-
-                    # Get the target connection
-                    target_connection = client.get_call_connection(target_call_connection_id)
-                    # Move the participant from lobby to target call
-                    response = await target_connection.move_participants(
-                        target_participants=[CommunicationUserIdentifier(lobby_caller_id)],
-                        from_call=lobby_connection_id
-                    )
-                    
-                    print("")
-                    print("Move Participants operation completed successfully.")
-                    print(f"Operation ID: {response.operation_id if hasattr(response, 'operation_id') else 'N/A'}")
-                    
-                except Exception as ex:
-                    logger.error(f"Error in move participants operation: {ex}")
-    
+                await _handle_move_participant()
+            
     except WebSocketDisconnect:
-        print("WebSocket disconnected")
-        websocket_connection = None
-    except Exception as ex:
-        logger.error("----- Web socket error -----")
-        logger.error(str(ex))
-        logger.error("----- End: Web socket error -----")
-        websocket_connection = None
+        logger.info("WebSocket disconnected")
+        app_state.websocket_connection = None
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        app_state.websocket_connection = None
 
-if __name__ == "__main__":
+
+async def _handle_move_participant():
+    """Handle moving participant from lobby to target call."""
+    try:
+        if not all([app_state.lobby_caller_id, app_state.lobby_connection_id, 
+                   app_state.target_call_connection_id]):
+            logger.error("Missing required call information for move operation")
+            return
+        
+        logger.info(f"Moving participant {app_state.lobby_caller_id} from lobby to target call")
+        
+        # Get the target connection and move the participant
+        target_connection = client.get_call_connection(app_state.target_call_connection_id)
+        response = await target_connection.move_participants(
+            target_participants=[CommunicationUserIdentifier(app_state.lobby_caller_id)],
+            from_call=app_state.lobby_connection_id
+        )
+        
+        logger.info("Move participants operation completed successfully")
+        
+    except Exception as e:
+        logger.error(f"Error in move participants operation: {e}")
+
+def main():
+    """Main entry point for the application."""
     import uvicorn
-    # Configure for development with WebSocket support
+    
     uvicorn.run(
-        app, 
-        host="0.0.0.0", 
+        app,
+        host="0.0.0.0",
         port=8080,
         log_level="info",
-        access_log=True
+        access_log=True,
     )
+
+
+if __name__ == "__main__":
+    main()
