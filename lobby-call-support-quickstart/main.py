@@ -17,12 +17,11 @@ from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel
 
 # Configuration constants
-ACS_CONNECTION_STRING = ""
-COGNITIVE_SERVICES_ENDPOINT = ""
-CALLBACK_URI_HOST = ""
-ACS_LOBBY_CALL_RECEIVER = ""
-ACS_TARGET_CALL_RECEIVER = ""
-ACS_TARGET_CALL_SENDER = ""
+ACS_CONNECTION_STRING = "<ACS_CONNECTION_STRING>"
+COGNITIVE_SERVICES_ENDPOINT = "<COGNITIVE_SERVICE_ENDPOINT>"
+CALLBACK_URI_HOST = "<CALLBACK_URI_HOST>"
+ACS_LOBBY_CALL_RECEIVER = "<ACS_LOBBY_CALL_RECEIVER>"
+ACS_TARGET_CALL_RECEIVER = "<ACS_TARGET_CALL_RECEIVER>"
 
 # Default messages
 CONFIRM_MESSAGE_TO_TARGET_CALL = (
@@ -40,7 +39,6 @@ def validate_environment_variables() -> List[str]:
         ("COGNITIVE_SERVICES_ENDPOINT", COGNITIVE_SERVICES_ENDPOINT),
         ("ACS_LOBBY_CALL_RECEIVER", ACS_LOBBY_CALL_RECEIVER),
         ("ACS_TARGET_CALL_RECEIVER", ACS_TARGET_CALL_RECEIVER),
-        ("ACS_TARGET_CALL_SENDER", ACS_TARGET_CALL_SENDER),
     ]
     return [var_name for var_name, var_value in required_vars if not var_value]
 
@@ -79,7 +77,6 @@ class ApplicationState:
         self.callback_uri_host: str = CALLBACK_URI_HOST
         self.acs_lobby_call_receiver: str = ACS_LOBBY_CALL_RECEIVER
         self.acs_target_call_receiver: str = ACS_TARGET_CALL_RECEIVER
-        self.acs_target_call_sender: str = ACS_TARGET_CALL_SENDER
         self.confirm_message_to_target_call: str = CONFIRM_MESSAGE_TO_TARGET_CALL
         self.text_to_play_to_lobby_user: str = TEXT_TO_PLAY_TO_LOBBY_USER
         
@@ -109,6 +106,70 @@ def initialize_call_automation_client(connection_string: str) -> Optional[CallAu
 # Initialize CallAutomationClient
 client = initialize_call_automation_client(ACS_CONNECTION_STRING)
 
+
+async def get_and_log_participants(call_connection_id: str, context: str = "") -> Dict[str, Any]:
+    """
+    Get participants for a call connection and log the information.
+    
+    Args:
+        call_connection_id: The call connection ID to get participants for
+        context: Optional context string for logging (e.g., "after move operation")
+    
+    Returns:
+        Dictionary containing participant information and count
+        
+    Raises:
+        Exception: If unable to retrieve participants
+    """
+    if not client:
+        raise Exception("Call automation client not initialized")
+    
+    try:
+        call_connection = client.get_call_connection(call_connection_id)
+        participants_paged = call_connection.list_participants()
+        
+        participants = []
+        async for participant in participants_paged:
+            identifier = participant.identifier
+            
+            if isinstance(identifier, PhoneNumberIdentifier):
+                phone_num = getattr(identifier, 'phone_number', 'Unknown')
+                participant_info = {
+                    "type": "PhoneNumberIdentifier",
+                    "raw_id": identifier.raw_id,
+                    "phone_number": phone_num
+                }
+            elif isinstance(identifier, CommunicationUserIdentifier):
+                participant_info = {
+                    "type": "CommunicationUserIdentifier",
+                    "raw_id": identifier.raw_id
+                }
+            else:
+                participant_info = {
+                    "type": type(identifier).__name__,
+                    "raw_id": identifier.raw_id
+                }
+            
+            participants.append(participant_info)
+        
+        participant_count = len(participants)
+        context_msg = f" {context}" if context else ""
+        
+        logger.info(
+            f"Call {call_connection_id}{context_msg} has {participant_count} participant(s): "
+            f"{[p['raw_id'] for p in participants]}"
+        )
+        
+        return {
+            "call_connection_id": call_connection_id,
+            "participant_count": participant_count,
+            "participants": participants
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting participants for call {call_connection_id}: {e}")
+        raise
+
 # Pydantic models
 class ConfigurationRequest(BaseModel):
     """Request model for updating application configuration."""
@@ -117,7 +178,6 @@ class ConfigurationRequest(BaseModel):
     callback_uri_host: Optional[str] = None
     acs_lobby_call_receiver: Optional[str] = None
     acs_target_call_receiver: Optional[str] = None
-    acs_target_call_sender: Optional[str] = None
     confirm_message_to_target_call: Optional[str] = None
     text_to_play_to_lobby_user: Optional[str] = None
 
@@ -244,6 +304,12 @@ async def callbacks(events: List[Dict[str, Any]] = Body(...)):
             # Handle MoveParticipantSucceeded event
             elif "MoveParticipantSucceeded" in event_type:
                 logger.info(f"Participant moved successfully: {call_connection_id}")
+                
+                # Log participants count after successful move operation
+                try:
+                    await get_and_log_participants(call_connection_id, "after move operation")
+                except Exception as e:
+                    logger.error(f"Failed to get participants after move operation: {e}")
 
             # Handle CallDisconnected event
             elif "CallDisconnected" in event_type:
@@ -285,53 +351,21 @@ async def target_call_to_acs_user(request: TargetCallRequest):
 @app.get("/GetParticipants/{call_connection_id}", tags=["Lobby Call Support APIs"])
 async def get_participants(call_connection_id: str):
     """Get participants for a specific call connection."""
-    if not client:
-        raise HTTPException(status_code=500, detail="Call automation client not initialized")
-    
     try:
-        call_connection = client.get_call_connection(call_connection_id)
-        participants_paged = call_connection.list_participants()
+        result = await get_and_log_participants(call_connection_id, "via API request")
         
-        participants = []
-        async for participant in participants_paged:
-            identifier = participant.identifier
-            
-            if isinstance(identifier, PhoneNumberIdentifier):
-                phone_num = getattr(identifier, 'phone_number', 'Unknown')
-                participant_info = {
-                    "type": "PhoneNumberIdentifier",
-                    "raw_id": identifier.raw_id,
-                    "phone_number": phone_num
-                }
-            elif isinstance(identifier, CommunicationUserIdentifier):
-                participant_info = {
-                    "type": "CommunicationUserIdentifier",
-                    "raw_id": identifier.raw_id
-                }
-            else:
-                participant_info = {
-                    "type": type(identifier).__name__,
-                    "raw_id": identifier.raw_id
-                }
-            
-            participants.append(participant_info)
-        
-        if not participants:
+        if result["participant_count"] == 0:
             raise HTTPException(
                 status_code=404,
                 detail="No participants found for the specified call connection"
             )
         
-        return {
-            "call_connection_id": call_connection_id,
-            "participant_count": len(participants),
-            "participants": participants
-        }
+        return result
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting participants for call {call_connection_id}: {e}")
+        logger.error(f"Error in get_participants API for call {call_connection_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.websocket("/ws")

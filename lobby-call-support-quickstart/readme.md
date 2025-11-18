@@ -1,79 +1,180 @@
-| page_type | languages                               | products                                                                    |
+﻿| page_type | languages                               | products                                                                    |
 | --------- | --------------------------------------- | --------------------------------------------------------------------------- |
 | sample    | <table><tr><td>Python</tr></td></table> | <table><tr><td>azure</td><td>azure-communication-services</td></tr></table> |
 
-# Call Automation - Lobby Call Support Sample
+# Call Automation – Lobby Call Support Sample
 
-This sample demonstrates how to utilize the Call Automation SDK to implement a Lobby Call scenario. Users join a lobby call and remain on hold until an user in the target call confirms their participation. Once approved, Call Automation (bot) automatically connects the lobby users to the designated target call.
-The sample uses a client application (java script sample) available in [Web Client Quickstart](https://github.com/Azure-Samples/communication-services-javascript-quickstarts/tree/users/v-kuppu/LobbyCallConfirmSample).
-# Design
+This sample demonstrates how to use the Call Automation SDK to implement a Lobby Call scenario with Azure Communication Services. Users join a lobby call and remain on hold until a participant in the target call confirms their participation. Once approved, the Call Automation bot automatically connects the lobby user to the designated target call.
 
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Design](#design)
+- [Prerequisites](#prerequisites)
+- [Getting Started](#getting-started)
+- [Configuration](#configuration)
+- [Running the App Locally](#running-the-app-locally)
+- [Workflow](#workflow)
+- [Troubleshooting](#troubleshooting)
+
+---
+
+## Overview
+
+This project provides a sample implementation for lobby call handling using Azure Communication Services and the Call Automation SDK.
+
+---
+
+## Design
 
 ![Lobby Call Support](./Resources/Lobby_Call_Support_Scenario.jpg)
 
+---
+
 ## Prerequisites
-- An Azure account with an active subscription. [Create an account for free](https://azure.microsoft.com/free/?WT.mc_id=A261C142F).
-- A deployed Communication Services resource. [Create a Communication Services resource](https://docs.microsoft.com/azure/communication-services/quickstarts/create-communication-resource).
-- A [phone number](https://learn.microsoft.com/en-us/azure/communication-services/quickstarts/telephony/get-phone-number) in your Azure Communication Services resource that can make outbound calls.
-- Create Azure AI Multi Service resource. For details, see [Create an Azure AI Multi service](https://learn.microsoft.com/en-us/azure/cognitive-services/cognitive-services-apis-create-account).
-- Create and host a Azure Dev Tunnel, instructions [here](https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/get-started).
-- A Client application that can make calls to the Azure Communication Services resource. This can be a web client or a mobile client. You can use [Web Client Quickstart](https://github.com/Azure-Samples/communication-services-javascript-quickstarts/tree/users/v-kuppu/LobbyCallConfirmSample).
 
-## Before running the sample for the first time
+- **Azure Account:** An Azure account with an active subscription.  
+  https://azure.microsoft.com/free/?WT.mc_id=A261C142F.
+- **Communication Services Resource:** A deployed Communication Services resource.  
+  https://docs.microsoft.com/azure/communication-services/quickstarts/create-communication-resource.
+- **Phone Number:** A https://learn.microsoft.com/en-us/azure/communication-services/quickstarts/telephony/get-phone-number in your ACS resource that can make outbound calls.
+- **Azure AI Multi-Service Resource:**  
+  https://learn.microsoft.com/en-us/azure/cognitive-services/cognitive-services-apis-create-account.
+- **Azure Dev Tunnel:**  
+  https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/get-started.
+- **Client Application:**  
+  Navigate to `LobbyCallSupport-Client` folder in https://github.com/Azure-Samples/communication-services-javascript-quickstarts.
 
-1. Open an instance of PowerShell, Windows Terminal, Command Prompt or equivalent and navigate to the directory that you would like to clone the sample to.
-2. git clone `https://github.com/Azure-Samples/communication-services-python-quickstarts.git`.
-3. Navigate to `lobby-call-support-quickstart` folder and open `main.py` file.
+---
 
-### Setup and host your Azure DevTunnel
+## Getting Started
 
-[Azure DevTunnels](https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/overview) is an Azure service that enables you to share local web services hosted on the internet. Use the commands below to connect your local development environment to the public internet. This creates a tunnel with a persistent endpoint URL and which allows anonymous access. We will then use this endpoint to notify your application of calling events from the ACS Call Automation service.
+### Clone the Source Code
+
+1. Open PowerShell, Windows Terminal, Command Prompt, or equivalent.
+2. Navigate to your desired directory.
+3. Clone the repository:
+   ```sh
+   git clone https://github.com/Azure-Samples/communication-services-python-quickstarts.git
+   ```
+
+### Set Up Python Virtual Environment and install Dependencies
+
+```bash
+cd communication-services-python-quickstarts/lobby-call-support-quickstart
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+## Setup and Host Azure Dev Tunnel
 
 ```
-   # Install the dev tunnel CLI tool
-   dotnet tool install -g Microsoft.DevTunnels.Client
-   # Authenticate with Azure
-   devtunnel login
-   # Create and start a new tunnel
-   devtunnel port create -p 8080
-   devtunnel host
+# Install Dev Tunnel CLI
+dotnet tool install -g Microsoft.DevTunnels.Client
+
+# Authenticate with Azure
+devtunnel login
+
+# Create and start a tunnel
+devtunnel port create -p 8080
+devtunnel host start
 ```
 
-### Configuring application
+---
 
-Update your CONSTANTS section in the `main.py` file with the following values
+## Configuration
 
-1. `acsConnectionString`: Azure Communication Service resource's connection string.
-2. `cognitiveServiceEndpoint`: Cognitive Service resource's endpoint.
-   - This is used to play media to the participants in the call.
-   - For more information, see [Create an Azure AI Multi service](https://learn.microsoft.com/en-us/azure/cognitive-services/cognitive-services-apis-create-account).
-3. `callbackUriHost`: Base url of the app. (For local development use dev tunnel url)
-4. `acsLobbyCallReceiver`: ACS Inbound Phone Number
-5. `acsTargetCallReceiver`: ACS Phone Number to make the first call, external user number in real time
-6. `acsTargetCallSender`: ACS identity generated using web client
+Before running the application, initialize the following constants in the `main.py` file.
 
-## Run app locally
+| Setting                       | Description                                                                                                                                          | Example Value                                                            |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `ACS_CONNECTION_STRING`       | The connection string for your Azure Communication Services resource. Find this in the Azure Portal under your resource’s **Keys** section.          | `"endpoint=https://<RESOURCE>.communication.azure.com/;accesskey=<KEY>"` |
+| `COGNITIVE_SERVICES_ENDPOINT` | The endpoint for your Azure Cognitive Services resource. Used to play media to participants in the call.                                             | `"https://<COGNITIVE_SERVICE_ENDPOINT>"`                                 |
+| `CALLBACK_URI_HOST`           | The base URL where your app will listen for incoming events from Azure Communication Services. For local development, use your Azure Dev Tunnel URL. | `"https://<your-dev-tunnel>.devtunnels.ms"`                              |
+| `ACS_LOBBY_CALL_RECEIVER`     | ACS identity for the lobby call receiver. Generated using ACS SDK or Azure Portal.                                                                   | `"8:acs:<GUID>"`                                                         |
+| `ACS_TARGET_CALL_RECEIVER`    | ACS identity for the target call receiver. Generated using ACS SDK or Azure Portal.                                                                  | `"8:acs:<GUID>"`                                                         |
 
-1. Generate an Azure Communication Services identity for the lobby call receiver and target call receiver. You can do this from the `Azure Portal(ACS Resource > Identities > User Access Tokens > Generate Identity and User Access Token)`.
-2.  Setup EventSubscription(Incoming) with filter for `TO.DATA.RAWID = acsLobbyCallReceiver, acsTargetCallReceiver`.
-3. Setup webhook for Incoming calls to point to the dev tunnel end point `https://<your_dev_tunnel_url>/callbacks/incomingcall` in EventSubscription(Incoming).
-4. Setup the following keys in the config/constants
-	 ```"acsConnectionString": ""<ACS_CONNECTION_STRING>"",
-	 "cognitiveServiceEndpoint": "<COGNITIVE_SERVICE_ENDPOINT>",
-	 "callbackUriHost": "<CALLBACK_URI_HOST>",
-	 "acsLobbyCallReceiver": "<ACS_LOBBY_CALL_RECEIVER>",(Generate Voice Calling Identity in Azure Portal)
-	 "acsTargetCallReceiver": "<ACS_TARGET_CALL_RECEIVER>",(Generate Voice Calling Identity in Azure Portal)
-	 "acsTargetCallSender": "<ACS_TARGET_CALL_SENDER>",(Generate Voice Calling Identity in Azure Portal)```
-5. Define a websocket with url as `ws://your-websocket-server-url:port/ws` in your application to send and receive messages from and to client application(JS Hero App in this case).
-6. Define a Client application that receives and responds to server notifications. Client application is available at `http://localhost:<port-number>/`.
-7. Start the target call in Client application, 
-    - Add token of target call sender(token would be generated in Azure user & tokens section).
-	- Add user id of the target call receiver `acsTargetCallReceiver`.
-	- Click on `Start Call` button to initiate the call.
-8. Expect `Call Connected` event in /callbacks as the server app answers incoming call from target call sender to target call receiver.
-9. Start a call from any Client Application (app used to make outbound calls) to `acsLobbyCallReceiver`, call will be answered by the server app and automated voice will be played to lobby user with the text `You are currently in a lobby call, we will notify the admin that you are waiting.`
-10. Once the play is completed, Target call will be notified with `A user is waiting in lobby, do you want to add the lobby user to your call?`.
-11. Once the Target call confirms from client application, Move `ACS_LOBBY_CALL_RECEIVER` in the backend sample.
-12. If Target user says no, then no MOVE will be performed.
-13. Ensure MoveParticipantSucceeded event is received in `/callbacks` endpoint.
-14. Ensure the output in the logs shows the the additional lobby user in the target call. The number of participants in the target call are increased by adding the lobby user, then lobby call gets disconnected after the moving the lobbyy user(as lobby user is already moved into the target call).
+---
+
+### How to Obtain These Values
+
+- **ACS_CONNECTION_STRING:**
+
+  1. Go to the Azure Portal.
+  2. Navigate to your Communication Services resource.
+  3. Select **Keys & Connection String**.
+  4. Copy the **Connection String** value.
+
+- **COGNITIVE_SERVICES_ENDPOINT:**
+
+  1. Create an Azure AI Multi-Service resource.
+  2. Copy the endpoint from the resource overview page.
+
+- **CALLBACK_URI_HOST:**
+
+  1. Set up an Azure Dev Tunnel as described in the prerequisites.
+  2. Use the public URL provided by the Dev Tunnel as your callback URI host.
+
+- **ACS_LOBBY_CALL_RECEIVER / ACS_TARGET_CALL_RECEIVER:**
+  1. Use the ACS web client or SDK to generate user identities.
+  2. Store the generated identity strings here.
+
+#### Example `config variables`
+
+```
+  ACS_CONNECTION_STRING = "endpoint=https://<RESOURCE>.communication.azure.com/;accesskey=<KEY>",
+  "COGNITIVE_SERVICE_ENDPOINT": "https://<COGNITIVE_SERVICE_ENDPOINT>",
+  CALLBACK_URI_HOST = "https://<your-dev-tunnel>.devtunnels.ms",
+  ACS_LOBBY_CALL_RECEIVER = "+1XXXXXXXXXX",
+  ACS_TARGET_CALL_RECEIVER = "+1XXXXXXXXXX"
+
+```
+
+---
+
+## Running the App Locally
+
+1. **Generate ACS identities** for lobby and target participants in **Azure Portal**.
+2. **Setup EventSubscription** for incoming calls:
+   - Set up a Web hook(`https://<your_dev_tunnel_url>/api/LobbyCallSupportEventHandler`) for callback.
+   - Add Filter:
+     - Key: `data.to.rawid`, operator: `string contains`, value: `acsLobbyCallReceiver, acsTargetCallReceiver`
+3. Use the **JS Client App**, Navigate to `LobbyCallSupport-Client` folder in https://github.com/Azure-Samples/communication-services-javascript-quickstarts.
+4. Use the **WebSocket**, `wss://<callbackUriHost-without-https>/ws` in client app for client-server communication.
+
+---
+
+## Workflow
+
+- Start target call in client app `LobbyCallSupport-Client`:
+  - Add token for `Sender Identity`.
+  - Add user ID for `acsTargetCallReceiver`.
+  - Click **Start Call**.
+- Incoming call from `sender` → server answers → expect `Call Connected` event.
+- Lobby user calls `acsLobbyCallReceiver` → automated voice plays: `You are currently in a lobby call, we will notify the admin that you are waiting.`
+- Target call receives notification (a confirm dialog): `A user is waiting in lobby, do you want to add them to your call?`
+- If confirmed → expect **MoveParticipantSucceeded** event → lobby user joins target call.
+- If Target user declined → lobby user will not be moved to target call.
+- Ensure the output in the logs shows the additional lobby user in the target call. The number of participants in the target call are increased by adding the lobby user, then lobby call gets disconnected after the moving the lobby user (as lobby user is already moved into the target call).
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+- **Invalid ACS Connection String:**  
+  Verify `ACS_CONNECTION_STRING` in `config variables`.
+- **Callback URL Not Reachable:**  
+  Ensure Dev Tunnel is running and URL matches `CALLBACK_URI_HOST`.
+- **Identity Errors:**  
+  Regenerate ACS identities if invalid.
+
+**Still having trouble?**
+
+- Review the official https://learn.microsoft.com/azure/communication-services/.
+- Search for similar issues or ask questions on https://learn.microsoft.com/answers/topics/azure-communication-services.html.
+- Contact your Azure administrator or support team if you suspect a permissions or resource issue.
