@@ -269,7 +269,7 @@ async def create_call1():
             "Call 1 (External PSTN to Call Automation):",
             f"From: {app_state.acs_user_phone_number}",
             f"To: {app_state.acs_inbound_phone_number}",
-            f"Connection ID: {app_state.call_connection_id}",
+            f"Target Connection ID: {app_state.call_connection_id}",
             f"Correlation ID: {create_call_result.correlation_id}"
         ]
         
@@ -303,7 +303,7 @@ async def create_call2():
             "Call 2:",
             f"From: {app_state.acs_inbound_phone_number}",
             f"To: {app_state.acs_outbound_phone_number}",
-            f"Connection ID: {app_state.call_connection_id1}",
+            f"Source Connection ID: {app_state.call_connection_id1}",
             f"Correlation ID: {create_call_result.correlation_id}",
             f"Will redirect to: {app_state.acs_test_identity2}"
         ]
@@ -338,7 +338,7 @@ async def create_call3():
             "Call 3:",
             f"From: {app_state.acs_inbound_phone_number}",
             f"To: {app_state.acs_outbound_phone_number}",
-            f"Connection ID: {app_state.call_connection_id2}",
+            f"Source Connection ID: {app_state.call_connection_id2}",
             f"Correlation ID: {create_call_result.correlation_id}",
             f"Will redirect to: {app_state.acs_test_identity3}"
         ]
