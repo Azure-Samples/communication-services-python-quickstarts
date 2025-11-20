@@ -136,30 +136,63 @@ Before running the application, initialize the following constants in the `main.
 ```
 
 ---
-
 ## Running the App Locally
 
 1. **Create an azure event grid subscription for incoming calls:**
-
    - Set up a Web hook(`https://<dev-tunnel-url>/api/MoveParticipantEvent`) for callback.
    - Add Filters:
-     - Key: `data.From.PhoneNumber.Value`, operator: `string contains`, value: `ACS_USER_PHONE_NUMBER, ACS_INBOUND_PHONE_NUMBER `
+     - Key: `data.From.PhoneNumber.Value`, operator: `string contains`, value: `acsUserPhoneNumber, Inbound Number (ACS)`
      - Key: `data.to.rawid`, operator: `string does not begin`, value: `8`
    - Deploy the event subscription.
 
 2. **Run the Application:**
-
    - Navigate to the `MoveParticipantsSample` folder.
    - Run the application in debug mode.
 
-3. **Use the Endpoints in Sequence:**
-   - Create Call 1 - User(`ACS_USER_PHONE_NUMBER`) Call to Call Automation(`ACS_INBOUND_PHONE_NUMBER`).
-   - Create Call 2 -To PSTN(`ACS_INBOUND_PHONE_NUMBER -> ACS_OUTBOUND_PHONE_NUMBER`) user first and redirect to ACS identity(`ACS_TEST_IDENTITY2`).
-   - Move participants between calls, `Source Call Connection ID` and `Target Call Connection ID` from previous calls and Participant as `Participant Identity` from call 2 (`acsOutboundPhoneNumber` in this sample).
-   - Get participants for a specific call connection.
-   - Create Call 3 - To PSTN(`ACS_INBOUND_PHONE_NUMBER -> ACS_OUTBOUND_PHONE_NUMBER`) user first and redirect to ACS identity(`ACS_TEST_IDENTITY3`).
-   - Move participants between calls, `Source Call Connection ID` and `Target Call Connection ID` from previous calls and Participant as `Participant Identity` from call 3 (`acsOutboundPhoneNumber` in this sample).
-   - Get participants for a specific call connection.
+3. **Workflow Execution**
+
+> **Note:**  
+> The phone numbers used here are taken from the Azure Communication Services resource.  
+> The phone numbers are released and become available when the call is answered.
+
+##### Call 1
+
+1. `USER_PHONE_NUMBER` calls `ACS_INBOUND_PHONE_NUMBER`.
+2. When the call is created, note the Call Connection Id as **Target Call Connection Id**.
+3. Call Automation answers the call and assigns a bot as the receiver.
+4. `ACS_INBOUND_PHONE_NUMBER` is released from the call after it is answered and assigned to the bot.
+
+
+##### Call 2
+
+1. `ACS_INBOUND_PHONE_NUMBER` makes a call to `ACS_OUTBOUND_PHONE_NUMBER`.
+2. When the call is created, note the Call Connection Id as **Source Call Connection Id**.
+3. Call Automation answers the call, redirects to `ACS_TEST_IDENTITY_2`, and releases `ACS_OUTBOUND_PHONE_NUMBER` from the call.
+4. The call connection id generated while redirection is an internal connection id; **do not use this connection id for the Move operation**.
+
+##### Move Participant Operation
+
+- **Inputs:**
+  - Source Connection Id (from Call 2): the connection to move the participant from.
+  - Target Connection Id (from Call 1): the connection to move the participant to.
+  - Participant (initial participant before call is redirected) from Source call (Call 2): `ACS_OUTBOUND_PHONE_NUMBER`
+- Participants list after `MoveParticipantSucceeded` event: 3
+
+
+##### Call 3
+
+1. `ACS_INBOUND_PHONE_NUMBER` makes a call to `ACS_OUTBOUND_PHONE_NUMBER`.
+2. When the call is created, note the Call Connection Id as **Source Call Connection Id**.
+3. Call Automation answers the call, redirects to `ACS_TEST_IDENTITY_3`, and releases `ACS_OUTBOUND_PHONE_NUMBER` from the call.
+4. The call connection id generated while redirection is an internal connection id; **do not use this connection id for the Move operation**.
+
+##### Move Participant Operation
+
+- Inputs:
+  - Source Connection Id (from Call 3): the connection to move the participant from.
+  - Target Connection Id (from Call 1): the connection to move the participant to.
+  - Participant (initial participant before call is redirected) from Source call (Call 3): `ACS_OUTBOUND_PHONE_NUMBER`
+- Participants list after `MoveParticipantSucceeded` event: 4
 
 ---
 
