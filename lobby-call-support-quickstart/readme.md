@@ -79,8 +79,8 @@ dotnet tool install -g Microsoft.DevTunnels.Client
 devtunnel login
 
 # Create and start a tunnel
-devtunnel port create -p 8080
-devtunnel host start
+devtunnel host -p 8080
+
 ```
 
 ---
@@ -126,7 +126,7 @@ Before running the application, initialize the following constants in the `main.
 
 ```
   ACS_CONNECTION_STRING = "endpoint=https://<RESOURCE>.communication.azure.com/;accesskey=<KEY>",
-  "COGNITIVE_SERVICE_ENDPOINT": "https://<COGNITIVE_SERVICE_ENDPOINT>",
+  COGNITIVE_SERVICE_ENDPOINT: "https://<COGNITIVE_SERVICE_ENDPOINT>",
   CALLBACK_URI_HOST = "https://<your-dev-tunnel>.devtunnels.ms",
   ACS_LOBBY_CALL_RECEIVER = "+1XXXXXXXXXX",
   ACS_TARGET_CALL_RECEIVER = "+1XXXXXXXXXX"
@@ -156,9 +156,21 @@ Before running the application, initialize the following constants in the `main.
 - Incoming call from `sender` → server answers → expect `Call Connected` event.
 - Lobby user calls `acsLobbyCallReceiver` → automated voice plays: `You are currently in a lobby call, we will notify the admin that you are waiting.`
 - Target call receives notification (a confirm dialog): `A user is waiting in lobby, do you want to add them to your call?`
-- If confirmed → expect **MoveParticipantSucceeded** event → lobby user joins target call.
+- If confirmed, **Lobby user must accept the call when prompted to move in call test app** → expect **MoveParticipantSucceeded** event → lobby user joins target call.
+- **If user does not accept the move call prompt → lobby user remains in lobby call.**
 - If Target user declined → lobby user will not be moved to target call.
 - Ensure the output in the logs shows the additional lobby user in the target call. The number of participants in the target call are increased by adding the lobby user, then lobby call gets disconnected after the moving the lobby user (as lobby user is already moved into the target call).
+
+---
+
+## API Testing with Swagger
+
+You can explore and test the available API endpoints using the built-in Swagger UI:
+
+- **Swagger URL:**  
+  [https://localhost:8080/docs](https://localhost:8080/docs)
+  
+- > If running in a dev tunnel or cloud environment, replace `localhost:8080` with your tunnel's public URL (e.g., `https://<your-dev-tunnel>.devtunnels.ms/docs`).
 
 ---
 

@@ -414,7 +414,7 @@ async def _handle_move_participant():
             from_call=app_state.lobby_connection_id
         )
         
-        logger.info("Move participants operation completed successfully")
+        logger.info("Move Participants operation is initiated.")
         
     except Exception as e:
         logger.error(f"Error in move participants operation: {e}")
