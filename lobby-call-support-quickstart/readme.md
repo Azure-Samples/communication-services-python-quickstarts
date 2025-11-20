@@ -137,7 +137,10 @@ Before running the application, initialize the following constants in the `main.
 
 ## Running the App Locally
 
-1. **Generate ACS identities** for lobby and target participants in **Azure Portal**.
+1.  **Generate ACS identities** for lobby and target participants in **Azure Portal**. 3 users are needed:
+   - `acsLobbyCallReceiver` – Lobby call receiver.
+   - `acsTargetCallReceiver` – Target call receiver.
+   - `Sender` – Target call sender.
 2. **Setup EventSubscription** for incoming calls:
    - Set up a Web hook(`https://<your_dev_tunnel_url>/api/LobbyCallSupportEventHandler`) for callback.
    - Add Filter:
@@ -150,16 +153,15 @@ Before running the application, initialize the following constants in the `main.
 ## Workflow
 
 - Start target call in client app `LobbyCallSupport-Client`:
-  - Add token for `Sender Identity`.
-  - Add user ID for `acsTargetCallReceiver`.
+  - Input token for `Sender` behalf of Target call sender.
+  - Input user ID for `acsTargetCallReceiver` for Target call receiver.
   - Click **Start Call**.
-- Incoming call from `sender` → server answers → expect `Call Connected` event.
-- Lobby user calls `acsLobbyCallReceiver` → automated voice plays: `You are currently in a lobby call, we will notify the admin that you are waiting.`
+- Incoming call from target sender → server answers → expect `Call Connected` event.
+- From a test app or a client app, **Lobby user** calls `acsLobbyCallReceiver` → CA answers call and automated voice plays: `You are currently in a lobby call, we will notify the admin that you are waiting.`
 - Target call receives notification (a confirm dialog): `A user is waiting in lobby, do you want to add them to your call?`
 - If confirmed, **Lobby user must accept the call when prompted to move in call test app** → expect **MoveParticipantSucceeded** event → lobby user joins target call.
 - **If user does not accept the move call prompt → lobby user remains in lobby call.**
 - If Target user declined → lobby user will not be moved to target call.
-- Ensure the output in the logs shows the additional lobby user in the target call. The number of participants in the target call are increased by adding the lobby user, then lobby call gets disconnected after the moving the lobby user (as lobby user is already moved into the target call).
 
 ---
 
