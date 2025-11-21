@@ -72,14 +72,9 @@ pip install -r requirements.txt
 ## Setup and Host Azure Dev Tunnel
 
 ```
-# Install Dev Tunnel CLI
-dotnet tool install -g Microsoft.DevTunnels.Client
-
-# Authenticate with Azure
-devtunnel login
-
-# Create and start a tunnel
-devtunnel host -p 8080
+devtunnel create --allow-anonymous
+devtunnel port create -p 8080
+devtunnel host
 
 ```
 
