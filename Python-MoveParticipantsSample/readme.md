@@ -68,14 +68,9 @@ pip install -r requirements.txt
 ## Setup and Host Azure Dev Tunnel
 
 ```
-# Install Dev Tunnel CLI
-dotnet tool install -g Microsoft.DevTunnels.Client
-
-# Authenticate with Azure
-devtunnel login
-
-# Create and start a tunnel
-devtunnel host -p 8080
+devtunnel create --allow-anonymous
+devtunnel port create -p 8080
+devtunnel host
 ```
 
 ---
@@ -153,6 +148,9 @@ Before running the application, initialize the following constants in the `main.
 > **Note:**  
 > The phone numbers used here are taken from the Azure Communication Services resource.  
 > The phone numbers are released and become available when the call is answered.
+>
+> **Call 2 and Call 3 must be answered after redirecting and before moving participants.**
+
 
 ##### Call 1
 
