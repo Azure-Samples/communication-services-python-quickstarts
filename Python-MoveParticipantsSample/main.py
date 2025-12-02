@@ -33,23 +33,19 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Global state
-class AppState:
-    def __init__(self):
-        self.acs_connection_string = ACS_CONNECTION_STRING
-        self.callback_uri_host = CALLBACK_URI_HOST
-        self.acs_outbound_phone_number = ACS_OUTBOUND_PHONE_NUMBER
-        self.acs_inbound_phone_number = ACS_INBOUND_PHONE_NUMBER
-        self.acs_user_phone_number = ACS_USER_PHONE_NUMBER
-        self.acs_test_identity2 = ACS_TEST_IDENTITY2
-        self.acs_test_identity3 = ACS_TEST_IDENTITY3
-        self.last_workflow_call_type = ""
-        self.call_connection_id = ""
-        self.call_connection_id1 = ""
-        self.call_connection_id2 = ""
-        self.client: Optional[CallAutomationClient] = None
-
-app_state = AppState()
+# Global variables
+acs_connection_string = ACS_CONNECTION_STRING
+callback_uri_host = CALLBACK_URI_HOST
+acs_outbound_phone_number = ACS_OUTBOUND_PHONE_NUMBER
+acs_inbound_phone_number = ACS_INBOUND_PHONE_NUMBER
+acs_user_phone_number = ACS_USER_PHONE_NUMBER
+acs_test_identity2 = ACS_TEST_IDENTITY2
+acs_test_identity3 = ACS_TEST_IDENTITY3
+last_workflow_call_type = ""
+call_connection_id = ""
+call_connection_id1 = ""
+call_connection_id2 = ""
+client: Optional[CallAutomationClient] = None
 
 # Pydantic models
 class ConfigurationRequest(BaseModel):
@@ -69,15 +65,16 @@ class MoveParticipantsRequest(BaseModel):
 # Utility functions
 def initialize_client():
     """Initialize the CallAutomationClient with current configuration"""
-    if app_state.acs_connection_string:
-        app_state.client = CallAutomationClient.from_connection_string(app_state.acs_connection_string)
+    global client
+    if acs_connection_string:
+        client = CallAutomationClient.from_connection_string(acs_connection_string)
         logger.info("Call automation client initialized successfully")
     else:
         logger.warning("Cannot initialize client: ACS connection string not provided")
 
 def get_callback_uri() -> str:
     """Get the callback URI for the application"""
-    return urljoin(app_state.callback_uri_host, "/api/callbacks")
+    return urljoin(callback_uri_host, "/api/callbacks")
 
 def create_participant_identifier(participant_id: str):
     """Create appropriate participant identifier based on input format"""
@@ -100,22 +97,23 @@ def extract_caller_ids(event_data: Dict[str, Any]) -> tuple[str, str]:
 
 async def handle_user_incoming_call(incoming_call_data: Dict[str, Any], from_caller_id: str, to_caller_id: str) -> List[str]:
     """Handle incoming call from user"""
+    global call_connection_id1
     callback_uri = get_callback_uri()
     
-    answer_call_result = await app_state.client.answer_call(
+    answer_call_result = await client.answer_call(
         incoming_call_context=incoming_call_data.get("incomingCallContext"),
         callback_url=callback_uri,
         operation_context="IncomingCallFromUser"
     )
     
-    app_state.call_connection_id1 = answer_call_result.call_connection_id
-    logger.info(f"User call answered - Connection ID: {app_state.call_connection_id1}")
+    call_connection_id1 = answer_call_result.call_connection_id
+    logger.info(f"User call answered - Connection ID: {call_connection_id1}")
     
     return [
         "User call answered by Call Automation",
         f"From: {from_caller_id}",
         f"To: {to_caller_id}",
-        f"Connection ID: {app_state.call_connection_id1}",
+        f"Connection ID: {call_connection_id1}",
         f"Correlation ID: {incoming_call_data.get('correlationId', 'N/A')}"
     ]
 
@@ -123,37 +121,37 @@ async def handle_workflow_call_redirect(incoming_call_data: Dict[str, Any], from
     """Handle workflow call redirection to ACS identities"""
     incoming_call_context = incoming_call_data.get("incomingCallContext")
     
-    if app_state.last_workflow_call_type == "CallTwo":
-        await app_state.client.redirect_call(
+    if last_workflow_call_type == "CallTwo":
+        await client.redirect_call(
             incoming_call_context=incoming_call_context,
-            target_participant=CommunicationUserIdentifier(app_state.acs_test_identity2)
+            target_participant=CommunicationUserIdentifier(acs_test_identity2)
         )
-        logger.info(f"Call2 redirected to ACS User Identity 2: {app_state.acs_test_identity2}")
+        logger.info(f"Call2 redirected to ACS User Identity 2: {acs_test_identity2}")
         return [
-            f"Call2 redirected to ACS User Identity 2: {app_state.acs_test_identity2}",
+            f"Call2 redirected to ACS User Identity 2: {acs_test_identity2}",
             f"From: {from_caller_id}",
             f"To: {to_caller_id}"
         ]
     
-    elif app_state.last_workflow_call_type == "CallThree":
-        await app_state.client.redirect_call(
+    elif last_workflow_call_type == "CallThree":
+        await client.redirect_call(
             incoming_call_context=incoming_call_context,
-            target_participant=CommunicationUserIdentifier(app_state.acs_test_identity3)
+            target_participant=CommunicationUserIdentifier(acs_test_identity3)
         )
-        logger.info(f"Call3 redirected to ACS User Identity 3: {app_state.acs_test_identity3}")
+        logger.info(f"Call3 redirected to ACS User Identity 3: {acs_test_identity3}")
         return [
-            f"Call3 redirected to ACS User Identity 3: {app_state.acs_test_identity3}",
+            f"Call3 redirected to ACS User Identity 3: {acs_test_identity3}",
             f"From: {from_caller_id}",
             f"To: {to_caller_id}"
         ]
     
     else:
-        logger.warning(f"Unknown workflow call type: {app_state.last_workflow_call_type}. Using default behavior.")
-        await app_state.client.redirect_call(
+        logger.warning(f"Unknown workflow call type: {last_workflow_call_type}. Using default behavior.")
+        await client.redirect_call(
             incoming_call_context=incoming_call_context,
-            target_participant=CommunicationUserIdentifier(app_state.acs_test_identity2)
+            target_participant=CommunicationUserIdentifier(acs_test_identity2)
         )
-        return [f"Default: Redirected to ACS User Identity 2: {app_state.acs_test_identity2}"]
+        return [f"Default: Redirected to ACS User Identity 2: {acs_test_identity2}"]
 
 def format_response_message(messages: List[str]) -> str:
     """Format response messages for consistent output"""
@@ -161,7 +159,7 @@ def format_response_message(messages: List[str]) -> str:
 
 def validate_client():
     """Validate that the client is initialized"""
-    if not app_state.client:
+    if not client:
         raise HTTPException(status_code=500, detail="CallAutomationClient not initialized")
 
 # Initialize client on startup
@@ -195,10 +193,10 @@ async def move_participant_event(events: List[Dict[str, Any]] = Body(...)):
                 
                 msg_log = []
                 
-                if app_state.acs_user_phone_number in from_caller_id:
+                if acs_user_phone_number in from_caller_id:
                     msg_log = await handle_user_incoming_call(event.data, from_caller_id, to_caller_id)
                 
-                elif app_state.acs_inbound_phone_number in from_caller_id:
+                elif acs_inbound_phone_number in from_caller_id:
                     msg_log = await handle_workflow_call_redirect(event.data, from_caller_id, to_caller_id)
                 
                 response_content = format_response_message(msg_log) if msg_log else "Event processed"
@@ -250,26 +248,27 @@ async def callbacks(events: List[Dict[str, Any]] = Body(...)):
 @app.post("/CreateCall1(UserCallToCallAutomation)", tags=["Move Participants APIs"])
 async def create_call1():
     """Create Call 1 - User Call to Call Automation"""
+    global call_connection_id
     validate_client()
     
     try:
         callback_uri = get_callback_uri()
-        caller = PhoneNumberIdentifier(app_state.acs_user_phone_number)
+        caller = PhoneNumberIdentifier(acs_user_phone_number)
         
-        create_call_result = await app_state.client.create_call(
-            target_participant=PhoneNumberIdentifier(app_state.acs_inbound_phone_number),
+        create_call_result = await client.create_call(
+            target_participant=PhoneNumberIdentifier(acs_inbound_phone_number),
             callback_url=callback_uri,
             source_caller_id_number=caller
         )
 
-        app_state.call_connection_id = create_call_result.call_connection_id
-        logger.info(f"Call1 created - Connection ID: {app_state.call_connection_id}")
+        call_connection_id = create_call_result.call_connection_id
+        logger.info(f"Call1 created - Connection ID: {call_connection_id}")
 
         messages = [
             "Call 1 (External PSTN to Call Automation):",
-            f"From: {app_state.acs_user_phone_number}",
-            f"To: {app_state.acs_inbound_phone_number}",
-            f"Target Connection ID: {app_state.call_connection_id}",
+            f"From: {acs_user_phone_number}",
+            f"To: {acs_inbound_phone_number}",
+            f"Target Connection ID: {call_connection_id}",
             f"Correlation ID: {create_call_result.correlation_id}"
         ]
         
@@ -282,30 +281,31 @@ async def create_call1():
 @app.post("/CreateCall2(ToPstnUserFirstAndRedirectToAcsIentity)", tags=["Move Participants APIs"])
 async def create_call2():
     """Create Call 2 - To PSTN User First And Redirect To ACS Identity"""
+    global last_workflow_call_type, call_connection_id1
     validate_client()
     
     try:
         callback_uri = get_callback_uri()
-        caller = PhoneNumberIdentifier(app_state.acs_inbound_phone_number)
+        caller = PhoneNumberIdentifier(acs_inbound_phone_number)
         
-        create_call_result = await app_state.client.create_call(
-            target_participant=PhoneNumberIdentifier(app_state.acs_outbound_phone_number),
+        create_call_result = await client.create_call(
+            target_participant=PhoneNumberIdentifier(acs_outbound_phone_number),
             callback_url=callback_uri,
             source_caller_id_number=caller,
             operation_context="CallTwo"
         )
         
-        app_state.last_workflow_call_type = "CallTwo"
-        app_state.call_connection_id1 = create_call_result.call_connection_id
-        logger.info(f"Call2 created - Connection ID: {app_state.call_connection_id1}")
+        last_workflow_call_type = "CallTwo"
+        call_connection_id1 = create_call_result.call_connection_id
+        logger.info(f"Call2 created - Connection ID: {call_connection_id1}")
 
         messages = [
             "Call 2:",
-            f"From: {app_state.acs_inbound_phone_number}",
-            f"To: {app_state.acs_outbound_phone_number}",
-            f"Source Connection ID: {app_state.call_connection_id1}",
+            f"From: {acs_inbound_phone_number}",
+            f"To: {acs_outbound_phone_number}",
+            f"Source Connection ID: {call_connection_id1}",
             f"Correlation ID: {create_call_result.correlation_id}",
-            f"Will redirect to: {app_state.acs_test_identity2}"
+            f"Will redirect to: {acs_test_identity2}"
         ]
         
         return PlainTextResponse(content=format_response_message(messages))
@@ -317,30 +317,31 @@ async def create_call2():
 @app.post("/CreateCall3(ToPstnUserFirstAndRedirectToAcsIentity)", tags=["Move Participants APIs"])
 async def create_call3():
     """Create Call 3 - To PSTN User First And Redirect To ACS Identity"""
+    global last_workflow_call_type, call_connection_id2
     validate_client()
     
     try:
         callback_uri = get_callback_uri()
-        caller = PhoneNumberIdentifier(app_state.acs_inbound_phone_number)
+        caller = PhoneNumberIdentifier(acs_inbound_phone_number)
 
-        create_call_result = await app_state.client.create_call(
-            target_participant=PhoneNumberIdentifier(app_state.acs_outbound_phone_number),
+        create_call_result = await client.create_call(
+            target_participant=PhoneNumberIdentifier(acs_outbound_phone_number),
             callback_url=callback_uri,
             source_caller_id_number=caller,
             operation_context="CallThree"
         )
 
-        app_state.last_workflow_call_type = "CallThree"
-        app_state.call_connection_id2 = create_call_result.call_connection_id
-        logger.info(f"Call3 created - Connection ID: {app_state.call_connection_id2}")
+        last_workflow_call_type = "CallThree"
+        call_connection_id2 = create_call_result.call_connection_id
+        logger.info(f"Call3 created - Connection ID: {call_connection_id2}")
 
         messages = [
             "Call 3:",
-            f"From: {app_state.acs_inbound_phone_number}",
-            f"To: {app_state.acs_outbound_phone_number}",
-            f"Source Connection ID: {app_state.call_connection_id2}",
+            f"From: {acs_inbound_phone_number}",
+            f"To: {acs_outbound_phone_number}",
+            f"Source Connection ID: {call_connection_id2}",
             f"Correlation ID: {create_call_result.correlation_id}",
-            f"Will redirect to: {app_state.acs_test_identity3}"
+            f"Will redirect to: {acs_test_identity3}"
         ]
         
         return PlainTextResponse(content=format_response_message(messages))
@@ -357,7 +358,7 @@ async def move_participant(request: MoveParticipantsRequest):
     try:
         logger.info(f"Moving participant {request.participant_to_move} from {request.source_call_connection_id} to {request.target_call_connection_id}")
         
-        target_connection = app_state.client.get_call_connection(request.target_call_connection_id)
+        target_connection = client.get_call_connection(request.target_call_connection_id)
         participant_to_move = create_participant_identifier(request.participant_to_move)
         
         response = await target_connection.move_participants(
@@ -398,7 +399,7 @@ async def get_participants(call_connection_id: str):
     validate_client()
     
     try:
-        call_connection = app_state.client.get_call_connection(call_connection_id)
+        call_connection = client.get_call_connection(call_connection_id)
         participants_pager = call_connection.list_participants()
         
         participant_info = []
