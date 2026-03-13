@@ -21,7 +21,7 @@ This sample application is also capable of making multiple concurrent inbound ca
 
 1. Open an instance of PowerShell, Windows Terminal, Command Prompt or equivalent and navigate to the directory that you would like to clone the sample to.
 2. git clone `https://github.com/Azure-Samples/communication-services-python-quickstarts.git`.
-3. Navigate to `callautomation-openai-sample` folder and open `main.py` file.
+3. Navigate to `callautomation-live-transcription` folder and open `main.py` file.
 
 ### Setup the Python environment
 
